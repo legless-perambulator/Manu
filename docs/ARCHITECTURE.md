@@ -1,96 +1,163 @@
 # ARCHITECTURE
 
-This document describes the intended system layering, the boundaries between layers, and the direction of dependencies. It is the map that keeps subsystems from leaking into one another.
+How the codebase is organised, where the boundaries are, and which way
+dependencies point. This is the map that keeps subsystems from leaking into one
+another. For the product vision see [`VISION.md`](VISION.md); for the full
+north-star spec see [`../MASTER_BUILD.md`](../MASTER_BUILD.md).
 
 ## Status
 
-Foundational documentation stage. No application code exists yet. This document defines the target structure that implementation must respect from the first vertical slice.
+**Phase 0 — technical foundation.** The monorepo, tooling, domain identity
+foundation, and the persistence / model-provider boundaries exist and are
+tested. Most subsystem packages are typed interfaces marked **PLANNED**; product
+features are built as vertical slices from V1 onward (see [`ROADMAP.md`](ROADMAP.md)).
+
+## Repository layout
+
+A pnpm-workspaces monorepo. Applications live in `apps/`, libraries in
+`packages/`, provider adapters in `packages/providers/`.
+
+```
+/
+├── apps/
+│   └── desktop/                 @jellytind/desktop — Tauri + React shell
+│       ├── src/                 React renderer (UI)
+│       └── src-tauri/           Rust host process (window, commands, FS access)
+├── packages/
+│   ├── shared/                  @jellytind/shared        — Result, errors, branding, logging
+│   ├── domain/                  @jellytind/domain        — branded entity IDs + generation
+│   ├── persistence/             @jellytind/persistence   — storage interfaces + in-memory impls
+│   ├── story-repository/        @jellytind/story-repository — project = source of truth (PLANNED)
+│   ├── model-router/            @jellytind/model-router  — LanguageModel interface + routing
+│   ├── context-compiler/        @jellytind/context-compiler — task context construction (PLANNED)
+│   ├── story-compiler/          @jellytind/story-compiler — deterministic/semantic checks
+│   ├── agent-runtime/           @jellytind/agent-runtime — typed tools, tasks, agents
+│   ├── search/                  @jellytind/search        — lexical/semantic search (PLANNED)
+│   └── providers/
+│       └── anthropic/           @jellytind/provider-anthropic — Anthropic adapter (isolated)
+├── docs/                        living architecture documentation
+├── MASTER_BUILD.md              north-star product specification
+└── AGENTS.md                    implementation rules for coding agents
+```
 
 ## Layered architecture
 
-Maintain strict separation between the following layers. Arrows show the **allowed** direction of dependency (a layer may depend on layers below it, never above).
+Each layer may depend only on layers below it. The package graph enforces this.
 
 ```
-┌─────────────────────────────────────────────┐
-│ UI (React / desktop shell)                    │
-├─────────────────────────────────────────────┤
-│ Application Services                           │
-│  (orchestration, tasks, permissions, workflows)│
-├───────────────┬───────────────┬───────────────┤
-│ Agent Runtime │ Context        │ Story Compiler │
-│               │ Compiler       │                │
-├───────────────┴───────────────┴───────────────┤
-│ Story Domain (entities, IDs, invariants)       │
-├───────────────────────────────────────────────┤
-│ Persistence  │ Model Providers │ Search/Index   │
-│ (files+SQLite)│ (Model Router) │ (FTS+vectors)  │
-├───────────────────────────────────────────────┤
-│ External Integrations (plugins, import/export)  │
-└─────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────┐
+│ apps/desktop (UI)                                               │
+│   renderer imports domain + shared; Rust host owns FS/window    │
+├───────────────────────────────────────────────────────────────┤
+│ Application services  (PLANNED: orchestration, tasks, approvals)│
+├───────────────┬───────────────┬───────────────────────────────┤
+│ agent-runtime │ context-       │ story-compiler                 │
+│               │ compiler       │                                │
+├───────────────┴───────────────┴───────────────────────────────┤
+│ story-repository            model-router (+ providers/*)        │
+├───────────────────────────────────────────────────────────────┤
+│ domain            persistence            search                 │
+├───────────────────────────────────────────────────────────────┤
+│ shared (no dependencies)                                        │
+└───────────────────────────────────────────────────────────────┘
 ```
 
-### Layer responsibilities
+### Dependency edges (current)
 
-1. **UI** — presentation and interaction only. Must not become the authoritative implementation of story logic. Renders domain state; dispatches intent to application services.
-2. **Application services** — orchestrate workflows, own the task system, enforce permissions and approval policies, coordinate agents, and commit mutations transactionally.
-3. **Agent runtime** — hosts the Author Agent and specialists, runs the agent/tool loop, decomposes tasks, coordinates multi-agent work. See [AGENT_RUNTIME.md](AGENT_RUNTIME.md).
-4. **Context Compiler** — constructs task-specific working context. See [CONTEXT_COMPILER.md](CONTEXT_COMPILER.md).
-5. **Story Compiler** — runs deterministic and semantic checks (the "build"). See [STORY_COMPILER.md](STORY_COMPILER.md).
-6. **Story domain** — the real fiction model: entities, stable IDs, invariants, state transitions. The authoritative representation of story data. See [DOMAIN_MODEL.md](DOMAIN_MODEL.md).
-7. **Persistence** — reads/writes the portable Story Repository (Markdown/YAML/JSON) plus a local SQLite index/derived store. See [STORY_REPOSITORY.md](STORY_REPOSITORY.md).
-8. **Model providers** — provider-independent model access behind the Model Router. See [MODEL_ROUTER.md](MODEL_ROUTER.md).
-9. **Search/indexing** — full-text and optional vector search over project content.
-10. **External integrations** — plugins, research tools, import/export, publishing formatters.
+| Package              | Depends on                         |
+| -------------------- | ---------------------------------- |
+| `shared`             | —                                  |
+| `domain`             | `shared`                           |
+| `persistence`        | `shared`, `domain`                 |
+| `story-repository`   | `shared`, `domain`, `persistence`  |
+| `model-router`       | `shared`                           |
+| `provider-anthropic` | `shared`, `model-router`           |
+| `search`             | `shared`, `domain`                 |
+| `story-compiler`     | `shared`, `domain`                 |
+| `context-compiler`   | `shared`, `domain`                 |
+| `agent-runtime`      | `shared`, `domain`, `model-router` |
+| `apps/desktop`       | `shared`, `domain` (renderer)      |
 
-## Boundary rules
+There are no cycles. `shared` is a sink; the UI is a source.
 
-- **UI must not implement story logic.** It renders and dispatches; it never becomes the source of truth.
-- **Model-provider code must not leak throughout the application.** All model calls go through the Model Router interface. No layer imports a vendor SDK directly except the router's adapters.
-- **Agent prompts must not become substitutes for domain modelling.** If a rule can be encoded in the domain or checked deterministically, it belongs in code, not a prompt.
-- **The domain layer is authoritative.** UI components and model responses must never be the authoritative representation of domain state.
-- **Mutations flow through the application's mutation layer.** No LLM response directly overwrites substantial project content; every mutation is attributable, inspectable, reversible, validated where applicable, and recorded in revision history.
+## Boundary rules (enforced by structure)
+
+- **UI must not implement story logic.** The renderer imports domain types and
+  renders them; it never becomes the source of truth. Filesystem access is
+  mediated by the Rust host, not done ad hoc in React.
+- **Provider code must not leak.** All model access goes through the
+  `LanguageModel` interface in `@jellytind/model-router`. Anthropic-specific wire
+  shapes live only inside `@jellytind/provider-anthropic` (`wire.ts`, `mapping.ts`)
+  and are never re-exported. See [`MODEL_ROUTER.md`](MODEL_ROUTER.md).
+- **Agent prompts are not domain modelling.** Rules that can be encoded in the
+  domain or checked deterministically live in code (e.g. `@jellytind/domain`
+  ID invariants, `@jellytind/story-compiler` checks), not in a prompt.
+- **The domain layer is authoritative.** UI components and model responses never
+  own domain state.
 
 ## The determinism boundary
 
-The single most important architectural line in this product separates **process** from **intelligence**:
+The most important line in the product separates **process** from **intelligence**:
 
-- **Software controls**: loops, state transitions, permissions, branching, validation, file operations, versioning, dependency resolution, retries, approvals, workflow progression.
-- **LLMs perform**: bounded creativity, interpretation, semantic reasoning, and natural-language understanding steps *inside* deterministic workflows.
+- **Software controls**: loops, state transitions, permissions, branching,
+  validation, file I/O, versioning, dependency resolution, retries, approvals.
+  Examples already in code: `SequentialIdGenerator`, `runChecks`, `ModelRouter`,
+  `parseModelJson`.
+- **LLMs perform**: bounded creativity, interpretation, semantic reasoning, and
+  language understanding _inside_ deterministic workflows, via `LanguageModel`.
 
-Do not use an LLM where reliable deterministic software can perform the task. Do not implement a major operation as a single prompt (e.g. "write this entire chapter"); orchestrate it. See [STORY_COMPILER.md](STORY_COMPILER.md) and the long-form pipeline in [AGENT_RUNTIME.md](AGENT_RUNTIME.md).
+Never use an LLM where deterministic software suffices; never let a raw model
+response mutate the project (structured output is schema-validated by
+`parseModelJson` before use).
 
 ## Source-of-truth hierarchy
 
-Authoritative → derived:
+Authoritative → derived: (1) Story Repository files + confirmed structured state,
+(2) deterministic derived data (indexes, computed state), (3) model
+inference/suggestions (proposed until confirmed), (4) cached summaries, (5) chat
+history / model memory (never authoritative). See
+[`STORY_REPOSITORY.md`](STORY_REPOSITORY.md).
 
-1. Story Repository files + explicitly confirmed structured story state (**authoritative**)
-2. Deterministic derived information (indexes, computed state) — regeneratable, not authoritative
-3. Model inference / suggestions — proposed until confirmed
-4. Cached summaries — never override source canon
-5. Chat history / model memory — never authoritative
+## Module resolution & build model
 
-## Structured model output
+- Workspace packages export their **TypeScript source** (`"main": "./src/index.ts"`)
+  and are wired both by pnpm symlinks and by `paths` in `tsconfig.base.json`.
+  Vite and Vitest consume source directly; there is no separate library build
+  step in Phase 0.
+- **Typecheck** is a single root pass over `packages/**` plus a DOM/JSX pass over
+  the desktop app.
+- The desktop app is bundled by **Vite**; the Rust host embeds the built
+  frontend via `tauri::generate_context!` and is compiled by **Cargo**.
 
-Every structured model result passes through: define schema → request structured output → validate → repair/retry if appropriate → reject invalid mutations → log failure. No model response can corrupt the project merely because it returned malformed JSON. See [MODEL_ROUTER.md](MODEL_ROUTER.md).
+## Tooling
 
-## Transactional edits
+| Concern                | Tool                                                                       |
+| ---------------------- | -------------------------------------------------------------------------- |
+| Language               | TypeScript (strict; `noUncheckedIndexedAccess`, `verbatimModuleSyntax`, …) |
+| UI                     | React 18 + Vite 6                                                          |
+| Desktop shell          | Tauri 2 (Rust host)                                                        |
+| Unit tests             | Vitest 2 (+ `expectTypeOf` for type-level tests)                           |
+| Lint                   | ESLint 9 (flat config) + typescript-eslint                                 |
+| Format                 | Prettier 3                                                                 |
+| Package manager        | pnpm 10 workspaces                                                         |
+| Structured local state | SQLite (PLANNED adapter behind `StateStore`)                               |
 
-Large AI operations behave transactionally: manuscript edits, state changes, thread/knowledge changes, summaries and index updates are **staged**, then validated, and only committed on success. On validation failure the previous safe state is preserved. See [VERSIONING.md](VERSIONING.md).
+## Root commands
 
-## Initial technology direction
-
-Preferred (subject to change; do not over-engineer before behaviour is proven):
-
-- TypeScript
-- React
-- Tauri or equivalent desktop shell
-- SQLite for structured local state and indexing
-- Markdown/YAML/JSON for portable story files
-- Strongly typed domain models
-- Provider-independent model abstraction
-- Background job system
-- Local full-text search; optional vector index
+| Command                        | Action                                                    |
+| ------------------------------ | --------------------------------------------------------- |
+| `pnpm dev`                     | Vite dev server for the desktop frontend (browser-run UI) |
+| `pnpm dev:desktop`             | `tauri dev` — full desktop app (requires a display)       |
+| `pnpm build`                   | Typecheck, then Vite-build the frontend                   |
+| `pnpm build:desktop`           | `tauri build` — bundle the native app                     |
+| `pnpm typecheck`               | `tsc --noEmit` over all packages + the app                |
+| `pnpm test`                    | Run the Vitest suite                                      |
+| `pnpm lint`                    | ESLint over the repo                                      |
+| `pnpm format` / `format:check` | Prettier write / verify                                   |
+| `pnpm check`                   | typecheck + lint + format:check + test                    |
 
 ## Scale assumption
 
-Every core subsystem must assume the whole project does **not** fit in model context — short stories through 200,000-word novels, trilogies, and long-running series with large worldbuilding repositories.
+Every core subsystem assumes the whole project does **not** fit in model context
+— short stories through 200,000-word novels, trilogies, and large worldbuilding
+repositories. Retrieval, state, and checks are designed around that.

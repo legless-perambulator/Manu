@@ -2,9 +2,46 @@
 
 The Story Repository is the authoritative project source. Chat history, model memory, cached summaries and derived indexes are **not** authoritative. Every canonical fact must ultimately resolve back to the repository or to explicitly confirmed structured story state.
 
-## Status
+- **Packages:** `@jellytind/persistence` (storage interfaces), `@jellytind/story-repository` (typed project view)
+- **Depends on:** `@jellytind/domain`, `@jellytind/shared`
+- **Status:** Storage **interfaces + in-memory implementations** exist and are tested; the native filesystem + SQLite adapters and the typed repository are **PLANNED** (V1).
 
-Documentation stage. The layout below is the target contract; exact filenames may evolve, but the principle is fixed: **story information exists as structured project data, not trapped inside prompts or chat history.**
+The layout below is the target contract; exact filenames may evolve, but the principle is fixed: **story information exists as structured project data, not trapped inside prompts or chat history.**
+
+## Implemented: the storage boundary
+
+`@jellytind/persistence` defines the narrow interfaces every higher layer uses,
+so the backend can vary (native FS via Tauri, in-memory for tests, future sync)
+without touching domain or application code.
+
+```ts
+interface ProjectStore {
+  // the portable file store (source of truth)
+  readFile(path): Promise<string | null>;
+  writeFile(path, content): Promise<void>;
+  exists(path): Promise<boolean>;
+  list(prefix?): Promise<string[]>;
+  delete(path): Promise<void>;
+}
+interface StateStore {
+  // derived, SQLite-backed later; reconstructable
+  get<T>(key): Promise<T | null>;
+  set<T>(key, value): Promise<void>;
+  delete(key): Promise<void>;
+  keys(prefix?): Promise<string[]>;
+}
+interface RevisionStore {
+  // append-only history (see VERSIONING.md)
+  append(entry): Promise<void>;
+  get(id): Promise<RevisionEntry | null>;
+  list(options?): Promise<RevisionEntry[]>;
+}
+```
+
+`InMemoryProjectStore` and `InMemoryStateStore` ship now as the reference
+implementations and test doubles; native adapters implement the same contracts.
+`@jellytind/story-repository` will sit above `ProjectStore`, parsing files into
+typed domain entities and mediating mutations through the versioning layer.
 
 ## Principles
 
@@ -70,16 +107,16 @@ MY_NOVEL/
 
 ## Division of responsibility
 
-| Data | Home | Authoritative? |
-| --- | --- | --- |
-| Prose | `manuscript/**.md` | Yes |
-| Scene structure | `scenes/*.yaml` | Yes |
-| Canon story facts, world rules | `story/`, `world/`, `plot/` | Yes |
-| Confirmed story state | `.writer/state/` | Yes |
-| Revisions, branches, checkpoints | `.writer/revisions/`, `.writer/branches/` | Yes (history) |
-| Full-text / vector index | `.writer/index/` + SQLite | No (derived) |
-| Summaries | derived store | No (derived) |
-| Agents, skills, commands | `.writer/` | Config |
+| Data                             | Home                                      | Authoritative? |
+| -------------------------------- | ----------------------------------------- | -------------- |
+| Prose                            | `manuscript/**.md`                        | Yes            |
+| Scene structure                  | `scenes/*.yaml`                           | Yes            |
+| Canon story facts, world rules   | `story/`, `world/`, `plot/`               | Yes            |
+| Confirmed story state            | `.writer/state/`                          | Yes            |
+| Revisions, branches, checkpoints | `.writer/revisions/`, `.writer/branches/` | Yes (history)  |
+| Full-text / vector index         | `.writer/index/` + SQLite                 | No (derived)   |
+| Summaries                        | derived store                             | No (derived)   |
+| Agents, skills, commands         | `.writer/`                                | Config         |
 
 ## Manuscript vs metadata
 

@@ -2,9 +2,12 @@
 
 Every AI mutation must be reversible, attributable and auditable. This document covers revisions, diffs, checkpoints, branches, transactional edits and the audit trail.
 
-## Status
+- **Package:** `@jellytind/persistence` (`RevisionStore`, `RevisionEntry`, `RevisionAuthor`)
+- **Status:** The append-only `RevisionStore` **interface** exists. The mutation layer, diffs, checkpoints, undo/revert and branching are **PLANNED (V1)**; richer history follows.
 
-Documentation stage. Diffs, checkpoints and undo/revert are part of V1; branching and richer history follow.
+Every revision entry already carries provenance — `author` (human or agent+model),
+`summary`, and `affectedEntities` (by ID) — so the audit trail is attributable by
+construction.
 
 ## Mutation layer
 
@@ -64,13 +67,13 @@ main
 └── darker-act-three
 ```
 
-Affected content can be rewritten on a branch without destroying the main manuscript. Support branch creation, comparison, deletion, merging where practical, branch-level simulations and branch-level Story Builds. Provide **semantic** comparison, e.g. *how does the darker ending affect Elias's arc, theme, pacing and unresolved threads compared with main?*
+Affected content can be rewritten on a branch without destroying the main manuscript. Support branch creation, comparison, deletion, merging where practical, branch-level simulations and branch-level Story Builds. Provide **semantic** comparison, e.g. _how does the darker ending affect Elias's arc, theme, pacing and unresolved threads compared with main?_
 
-If a refactor is applied, prefer *Create Branch + Apply* so the analysis and change are isolated (see [STORY_REFACTOR.md](STORY_REFACTOR.md)).
+If a refactor is applied, prefer _Create Branch + Apply_ so the analysis and change are isolated (see [STORY_REFACTOR.md](STORY_REFACTOR.md)).
 
 ## Transactional AI edits
 
-Large operations behave transactionally. For *"rewrite Chapter 12 and update affected state"*, the system **stages** manuscript edits, state changes, thread changes, knowledge changes, summaries and index updates; **validates**; and only **commits** on success. If validation fails, the previous safe state is preserved.
+Large operations behave transactionally. For _"rewrite Chapter 12 and update affected state"_, the system **stages** manuscript edits, state changes, thread changes, knowledge changes, summaries and index updates; **validates**; and only **commits** on success. If validation fails, the previous safe state is preserved.
 
 ## Invariants
 

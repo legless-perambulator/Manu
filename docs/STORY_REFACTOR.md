@@ -2,13 +2,11 @@
 
 The fiction equivalent of refactoring software: change a structural element and understand the blast radius **before** touching the manuscript.
 
-## Status
-
-Documentation stage (Story Refactor V1 targeted for V2). Depends on the [Domain Model](DOMAIN_MODEL.md), [Story State](STORY_STATE.md), the causality graph, and [Versioning](VERSIONING.md) branches.
+- **Status:** **PLANNED (V2).** No code yet. Depends on the [Domain Model](DOMAIN_MODEL.md) (stable IDs — already implemented — are what make blast-radius analysis tractable), [Story State](STORY_STATE.md), the causality graph, and [Versioning](VERSIONING.md) branches.
 
 ## Principle
 
-For a request like *"Make Mara the detective instead of Elias,"* the system analyses dependencies **first**, reports the affected elements, and only then applies changes — ideally on a branch.
+For a request like _"Make Mara the detective instead of Elias,"_ the system analyses dependencies **first**, reports the affected elements, and only then applies changes — ideally on a branch.
 
 ```
 PROPOSED STORY REFACTOR
@@ -34,7 +32,7 @@ Elias discovers letter → Confronts father → Father lies → Elias contacts M
 → Mara investigates vault → Marcus learns investigation continues → Marcus destroys evidence
 ```
 
-Deleting or significantly changing a scene surfaces its dependents and explains *why*:
+Deleting or significantly changing a scene surfaces its dependents and explains _why_:
 
 ```
 Removing SCENE_0042 may break causal dependencies for: SCENE_0051, SCENE_0053, SCENE_0061

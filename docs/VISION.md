@@ -32,7 +32,7 @@ We are building the fiction-writing equivalent of an AI coding IDE / agentic dev
 
 > **The LLM provides intelligence and creativity. The harness provides memory, structure, process, reliability, tools, state, verification and control.**
 
-Equivalently: *the model is not the product; the harness around the model is the product.*
+Equivalently: _the model is not the product; the harness around the model is the product._
 
 ## What success looks like
 
@@ -45,7 +45,7 @@ The application succeeds when AI can reliably operate on fiction projects too la
 - "Make Mara the detective instead of Elias. Analyse the blast radius before touching the manuscript."
 - "Build Chapter 17 from the approved scene plan. Stop for approval after the chapter."
 
-`/write-book` should not mean *ask a model to generate a novel*. It should mean *launch a sophisticated, persistent, stateful, validated, multi-stage fiction production pipeline*.
+`/write-book` should not mean _ask a model to generate a novel_. It should mean _launch a sophisticated, persistent, stateful, validated, multi-stage fiction production pipeline_.
 
 ## Milestone ladder
 

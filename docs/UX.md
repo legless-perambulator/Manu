@@ -2,9 +2,8 @@
 
 The interface should feel more like an IDE than a chat application. Chat is a tool inside the environment, not the dominant metaphor.
 
-## Status
-
-Documentation stage. The V1 writing IDE (editor, project tree, AI panel, activity panel) proves the core paradigm (see [ROADMAP.md](ROADMAP.md)).
+- **App:** `apps/desktop` (Tauri 2 + React 18 + Vite)
+- **Status:** A **Phase-0 shell exists** — the app compiles, renders the four-panel frame, runs a domain package in the renderer, and invokes a Rust command over the Tauri bridge. The panels are a **NON-FUNCTIONAL scaffold**, deliberately labelled as such (AGENTS.md — "No Fake Features"). The functional V1 writing IDE (editor, project tree, AI panel, activity panel) is **PLANNED**.
 
 ## Primary layout
 
@@ -77,7 +76,7 @@ Non-technical users must be able to perform the same actions through graphical c
 ## Honesty of the interface
 
 - **No fake features.** Do not build controls implying capabilities that do not exist; clearly label anything unavailable during development. Avoid mockups masquerading as functioning architecture.
-- **Explain the system's understanding.** Wherever possible let the user inspect *why* the system believes something, with evidence and a way to correct it (see [STORY_STATE.md](STORY_STATE.md)).
+- **Explain the system's understanding.** Wherever possible let the user inspect _why_ the system believes something, with evidence and a way to correct it (see [STORY_STATE.md](STORY_STATE.md)).
 - **Approval visibility.** The user always understands what an agent is permitted to do and what approval mode is active (see [AGENT_RUNTIME.md](AGENT_RUNTIME.md)).
 
 ## Story Health Dashboard (later)

@@ -2,22 +2,45 @@
 
 The product must never be permanently bound to one model provider. All model operations go through a provider-independent abstraction.
 
-## Status
+- **Packages:** `@jellytind/model-router` (interface + routing), `@jellytind/provider-anthropic` (adapter)
+- **Depends on:** `@jellytind/shared`
+- **Status:** Interface, `ModelRouter`, structured-output validation and an EchoModel test double **implemented and tested**. The Anthropic adapter's `generate`/`generateStructured` are implemented; `stream` and tool calling are **PLANNED**. Additional providers are **PLANNED**.
 
-Documentation stage. A model abstraction is part of V1; task-specific routing and richer provider support arrive later.
-
-## Provider abstraction
+## Provider abstraction (implemented)
 
 ```typescript
 interface LanguageModel {
-  generate(...): ...
-  stream(...): ...
-  toolCall(...): ...
-  structuredOutput(...): ...
+  readonly id: string;
+  generate(request: GenerateRequest): Promise<GenerateResult>;
+  stream(request: GenerateRequest): AsyncIterable<StreamEvent>;
+  generateStructured<T>(request: StructuredRequest<T>): Promise<T>;
+  generateWithTools(request: ToolCallRequest): Promise<ToolCallResult>; // PLANNED impls
 }
 ```
 
-No layer imports a vendor SDK directly except that provider's adapter behind this interface. Model-provider code must not leak throughout the application (see [ARCHITECTURE.md](ARCHITECTURE.md)). Claude may be used first and heavily during development, but the architecture stays provider-independent.
+All request/response types are provider-independent (`ModelMessage`,
+`GenerateResult`, `TokenUsage`, `StopReason`, …). No layer imports a vendor SDK
+directly. The Anthropic adapter keeps its wire shapes private (`wire.ts`) and
+maps to/from them in pure, tested functions (`mapping.ts`); it exports only
+`AnthropicLanguageModel`, so no Anthropic-specific object crosses the boundary
+(see [ARCHITECTURE.md](ARCHITECTURE.md) — "Provider code must not leak"). Claude
+may be used first and heavily, but the architecture stays provider-independent.
+
+### Structured-output guard
+
+`parseModelJson(schema, rawText)` is the reusable primitive that stands between a
+model and the project: malformed JSON or schema violations become a
+`ValidationError` rather than corrupt data (AGENTS.md — "Structured LLM
+Output"). `OutputSchema<T>` is provider- and library-independent; a Zod adapter
+implements it later.
+
+### Task routing (implemented)
+
+`ModelRouter` maps a `ModelTask` (`planning`, `drafting`, `continuity`,
+`copy_edit`, `metadata`, `reader_sim`, `research`, `embedding`) to a concrete
+`LanguageModel`, with a fallback default. It is deterministic and side-effect
+free; cost/privacy/per-agent policy layers on later without changing the
+contract.
 
 ## Provider adapters (over time)
 
@@ -61,7 +84,7 @@ When structured output is required, the router enforces the pipeline (also see [
 
 ## Cost and token intelligence
 
-Because novel-scale agentic work can be expensive, track tokens, estimated cost, model, operation, agent, project and workflow. Support policies such as: *use a local model for metadata extraction*; *use a premium model only for final prose*; *maximum £2 per chapter build*; *ask before operations estimated above £X*. Cache reusable context and derived data where appropriate.
+Because novel-scale agentic work can be expensive, track tokens, estimated cost, model, operation, agent, project and workflow. Support policies such as: _use a local model for metadata extraction_; _use a premium model only for final prose_; _maximum £2 per chapter build_; _ask before operations estimated above £X_. Cache reusable context and derived data where appropriate.
 
 ## Privacy routing
 

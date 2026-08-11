@@ -8,25 +8,25 @@ These documents are **living**: update the relevant document whenever an archite
 
 ## Index
 
-| Document | Purpose |
-| --- | --- |
-| [VISION.md](VISION.md) | Why this product exists and what "done" means. |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | System layers, boundaries and dependency direction. |
-| [DOMAIN_MODEL.md](DOMAIN_MODEL.md) | Core fiction domain entities and their relationships. |
-| [STORY_REPOSITORY.md](STORY_REPOSITORY.md) | On-disk project structure and persistence contract. |
-| [STORY_STATE.md](STORY_STATE.md) | Machine-readable story state, truth/belief/knowledge. |
-| [CONTEXT_COMPILER.md](CONTEXT_COMPILER.md) | How working context is constructed for each operation. |
-| [STORY_COMPILER.md](STORY_COMPILER.md) | Deterministic + semantic story checks and the build. |
-| [AGENT_RUNTIME.md](AGENT_RUNTIME.md) | Agent orchestration, tasks and multi-agent coordination. |
-| [AGENT_TOOLS.md](AGENT_TOOLS.md) | The typed tool surface agents operate through. |
-| [MODEL_ROUTER.md](MODEL_ROUTER.md) | Provider-independent model abstraction and routing. |
-| [VERSIONING.md](VERSIONING.md) | Revisions, diffs, checkpoints, branches, audit trail. |
-| [STORY_REFACTOR.md](STORY_REFACTOR.md) | Blast-radius analysis and structural story change. |
-| [STORY_DEBUGGER.md](STORY_DEBUGGER.md) | Diagnostic mode that investigates before editing. |
-| [SIMULATIONS.md](SIMULATIONS.md) | Reader and character simulation systems. |
-| [SECURITY_PRIVACY.md](SECURITY_PRIVACY.md) | Local-first ownership, data handling, privacy posture. |
-| [UX.md](UX.md) | Interface principles and the IDE layout. |
-| [ROADMAP.md](ROADMAP.md) | Versioned delivery plan (V1–V6). |
+| Document                                   | Purpose                                                  |
+| ------------------------------------------ | -------------------------------------------------------- |
+| [VISION.md](VISION.md)                     | Why this product exists and what "done" means.           |
+| [ARCHITECTURE.md](ARCHITECTURE.md)         | System layers, boundaries and dependency direction.      |
+| [DOMAIN_MODEL.md](DOMAIN_MODEL.md)         | Core fiction domain entities and their relationships.    |
+| [STORY_REPOSITORY.md](STORY_REPOSITORY.md) | On-disk project structure and persistence contract.      |
+| [STORY_STATE.md](STORY_STATE.md)           | Machine-readable story state, truth/belief/knowledge.    |
+| [CONTEXT_COMPILER.md](CONTEXT_COMPILER.md) | How working context is constructed for each operation.   |
+| [STORY_COMPILER.md](STORY_COMPILER.md)     | Deterministic + semantic story checks and the build.     |
+| [AGENT_RUNTIME.md](AGENT_RUNTIME.md)       | Agent orchestration, tasks and multi-agent coordination. |
+| [AGENT_TOOLS.md](AGENT_TOOLS.md)           | The typed tool surface agents operate through.           |
+| [MODEL_ROUTER.md](MODEL_ROUTER.md)         | Provider-independent model abstraction and routing.      |
+| [VERSIONING.md](VERSIONING.md)             | Revisions, diffs, checkpoints, branches, audit trail.    |
+| [STORY_REFACTOR.md](STORY_REFACTOR.md)     | Blast-radius analysis and structural story change.       |
+| [STORY_DEBUGGER.md](STORY_DEBUGGER.md)     | Diagnostic mode that investigates before editing.        |
+| [SIMULATIONS.md](SIMULATIONS.md)           | Reader and character simulation systems.                 |
+| [SECURITY_PRIVACY.md](SECURITY_PRIVACY.md) | Local-first ownership, data handling, privacy posture.   |
+| [UX.md](UX.md)                             | Interface principles and the IDE layout.                 |
+| [ROADMAP.md](ROADMAP.md)                   | Versioned delivery plan (V1–V6).                         |
 
 ## How to use these documents
 

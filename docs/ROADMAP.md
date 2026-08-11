@@ -4,7 +4,7 @@ Versioned delivery plan. Implementation proceeds **vertically**: finish a cohere
 
 ## Status
 
-Pre-V1. The repository currently contains the vision (`MASTER_BUILD.md`), agent rules (`AGENTS.md`) and this living architecture documentation. No application code exists yet.
+**Phase 0 (technical foundation) complete.** V1 not yet started.
 
 ## Vertical-slice method
 
@@ -22,6 +22,24 @@ For every major capability:
 10. document
 
 Do not build disconnected mock features. Every feature should progressively strengthen the same underlying fiction operating environment.
+
+## Phase 0 — Technical foundation ✅
+
+Establish the architecture and toolchain without building product features.
+
+- pnpm monorepo; TypeScript strict; ESLint + Prettier; Vitest; root scripts
+  (`dev`, `build`, `test`, `lint`, `typecheck`).
+- Clean package boundaries: `shared`, `domain`, `persistence`, `story-repository`,
+  `model-router`, `context-compiler`, `story-compiler`, `agent-runtime`, `search`,
+  `providers/anthropic`.
+- Domain identity foundation: branded entity IDs + generation, fully tested.
+- Persistence interfaces (`ProjectStore`, `StateStore`, `RevisionStore`) with
+  in-memory implementations.
+- Provider-independent `LanguageModel` interface, `ModelRouter`, structured-output
+  validation, and an isolated Anthropic adapter.
+- Tauri + React desktop shell that compiles, launches, and bridges to Rust.
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the resulting structure.
 
 ## V1 — Writing IDE
 
@@ -67,7 +85,7 @@ The application begins understanding the structure of the story.
 - resumable long-running tasks · automatic validation
 - state extraction · checkpointing · `/write-book`
 
-`/write-book` means *launch a persistent, stateful, validated, multi-stage production pipeline* — not "ask a model for a novel."
+`/write-book` means _launch a persistent, stateful, validated, multi-stage production pipeline_ — not "ask a model for a novel."
 
 ## V6 — Ecosystem
 
@@ -77,12 +95,12 @@ The application begins understanding the structure of the story.
 
 ## Milestone ladder (cross-cutting)
 
-1. AI can safely and intelligently operate on a structured fiction project. *(V1)*
-2. The system understands enough story structure to reason about consequences across the project. *(V2)*
-3. Specialised agents can collaboratively perform professional-scale workflows. *(V3)*
-4. The system can simulate readers and characters to test narrative behaviour. *(V4)*
-5. The harness can reliably execute novel-scale production/revision over long periods with consistency, state, recoverability and human control. *(V5+)*
+1. AI can safely and intelligently operate on a structured fiction project. _(V1)_
+2. The system understands enough story structure to reason about consequences across the project. _(V2)_
+3. Specialised agents can collaboratively perform professional-scale workflows. _(V3)_
+4. The system can simulate readers and characters to test narrative behaviour. _(V4)_
+5. The harness can reliably execute novel-scale production/revision over long periods with consistency, state, recoverability and human control. _(V5+)_
 
 ## First demonstration target
 
-An early demo that shows why this product is different (`MASTER_BUILD.md` §66): create a mystery project, five characters, a premise, a 12-chapter outline, draft Chapter 1, establish structured state — then *"Change Marcus from Elias's brother to his childhood friend,"* run the refactor blast-radius analysis, apply on a branch, show diffs, run a Story Build. This is a far stronger demonstration than generating prose.
+An early demo that shows why this product is different (`MASTER_BUILD.md` §66): create a mystery project, five characters, a premise, a 12-chapter outline, draft Chapter 1, establish structured state — then _"Change Marcus from Elias's brother to his childhood friend,"_ run the refactor blast-radius analysis, apply on a branch, show diffs, run a Story Build. This is a far stronger demonstration than generating prose.

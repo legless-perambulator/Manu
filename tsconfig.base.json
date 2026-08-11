@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022"],
+    "types": [],
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
+    "useUnknownInCatchVariables": true,
+
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "noEmit": true,
+
+    "baseUrl": ".",
+    "paths": {
+      "@jellytind/shared": ["packages/shared/src/index.ts"],
+      "@jellytind/domain": ["packages/domain/src/index.ts"],
+      "@jellytind/persistence": ["packages/persistence/src/index.ts"],
+      "@jellytind/story-repository": ["packages/story-repository/src/index.ts"],
+      "@jellytind/model-router": ["packages/model-router/src/index.ts"],
+      "@jellytind/context-compiler": ["packages/context-compiler/src/index.ts"],
+      "@jellytind/story-compiler": ["packages/story-compiler/src/index.ts"],
+      "@jellytind/agent-runtime": ["packages/agent-runtime/src/index.ts"],
+      "@jellytind/search": ["packages/search/src/index.ts"],
+      "@jellytind/provider-anthropic": ["packages/providers/anthropic/src/index.ts"]
+    }
+  }
+}

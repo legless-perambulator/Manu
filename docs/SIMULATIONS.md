@@ -2,15 +2,13 @@
 
 Reader and character simulation systems used to test narrative behaviour. Both produce **model judgement**, presented with evidence — never objective science.
 
-## Status
-
-Documentation stage (targeted for V4 — Simulation and Advanced Intelligence).
+- **Status:** **PLANNED (V4 — Simulation and Advanced Intelligence).** No code yet. Will consume [Story State](STORY_STATE.md) at a bounded story time and run through the [Model Router](MODEL_ROUTER.md) (often as inexpensive parallel calls).
 
 ## Character Simulator
 
 Not "chat with your character." A character simulator receives memories, personality, goals, fears, knowledge, beliefs, relationships, current emotional state, physical state and current circumstances, then challenges proposed story behaviour.
 
-Example — *Given everything Mara knows at this point, would she realistically enter the house alone?*
+Example — _Given everything Mara knows at this point, would she realistically enter the house alone?_
 
 ```
 CHARACTER SIMULATION
@@ -31,7 +29,7 @@ Possible fixes:
 
 Purpose: identify **plot-forced behaviour**. Probabilities are model judgement, not objective measurement.
 
-The simulator draws its inputs from [Story State](STORY_STATE.md) at the relevant story time (what the character knows/feels *then*, not "latest").
+The simulator draws its inputs from [Story State](STORY_STATE.md) at the relevant story time (what the character knows/feels _then_, not "latest").
 
 ## Reader Simulator
 

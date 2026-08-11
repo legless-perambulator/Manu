@@ -2,9 +2,20 @@
 
 The fiction equivalent of compiling and testing software. The writer runs `/build` (or presses **Build Story**) and the compiler runs deterministic and semantic checks over the project.
 
-## Status
+- **Package:** `@jellytind/story-compiler`
+- **Depends on:** `@jellytind/domain`, `@jellytind/shared`
+- **Status:** The check-aggregation core (`runChecks`) and the `Severity` / `Finding` / `StoryCheck` / `BuildReport` types are **implemented and tested**. Concrete checks (timeline, knowledge, continuity, …) are **PLANNED** (V2).
 
-Documentation stage (targeted for V2). Deterministic checks come first; semantic checks layer on afterwards.
+## Implemented: the build core
+
+`runChecks(checks, context)` is the deterministic orchestration core: individual
+checks are pluggable, but running them (concurrently), tallying severities, and
+deciding pass/fail (`ok = no error-severity findings`) is plain software. A check
+that throws is captured as an `error` finding instead of aborting the build.
+Every `Finding` carries a `source: "deterministic" | "semantic"` so the UI can
+label model judgement honestly and never present it as fact.
+
+Deterministic checks come first; semantic checks layer on afterwards.
 
 ## Example build output
 
@@ -47,11 +58,11 @@ BUILD COMPLETED WITH 6 WARNINGS
 
 The compiler must **never pretend subjective literary judgement is deterministic fact.** Every result is classified:
 
-| Severity | Meaning |
-| --- | --- |
-| **Error** | A hard, deterministic violation (e.g. a dead character speaks; an object teleports with no transfer). |
-| **Warning** | A likely problem, deterministic or semantic (e.g. long-dormant thread; possible voice convergence). |
-| **Suggestion** | A subjective, model-informed recommendation. |
+| Severity       | Meaning                                                                                               |
+| -------------- | ----------------------------------------------------------------------------------------------------- |
+| **Error**      | A hard, deterministic violation (e.g. a dead character speaks; an object teleports with no transfer). |
+| **Warning**    | A likely problem, deterministic or semantic (e.g. long-dormant thread; possible voice convergence).   |
+| **Suggestion** | A subjective, model-informed recommendation.                                                          |
 
 Deterministic checks run over structured domain state and are reproducible. Semantic checks use model judgement and are always presented as such — with evidence, never as objective fact. See the semantic-analysis principles below.
 
@@ -59,7 +70,7 @@ Deterministic checks run over structured domain state and are reproducible. Sema
 
 Always distinguish `FACT` / `DETERMINISTIC RESULT` / `MODEL JUDGEMENT` / `INFERENCE` / `SUGGESTION`.
 
-Never present *"This scene is boring."* as objective. Prefer:
+Never present _"This scene is boring."_ as objective. Prefer:
 
 > "Three reader simulations reported reduced engagement here, and the scene contains lower conflict than the preceding five scenes."
 

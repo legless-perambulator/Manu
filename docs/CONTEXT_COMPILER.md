@@ -2,9 +2,12 @@
 
 The Context Compiler constructs the best possible working context for every AI operation. It is one of the core pieces of intellectual infrastructure in the product.
 
-## Status
+- **Package:** `@jellytind/context-compiler`
+- **Depends on:** `@jellytind/domain`, `@jellytind/shared`
+- **Status:** **PLANNED (V1).** The package defines the shapes — `ContextRecipe`, `ContextFragment`, `CompiledContext`, and the `ContextCompiler` interface. The compiler implementation (selection, budgeting, summarisation) is not yet built.
 
-Documentation stage. A V1 Context Compiler is required for the first usable product (see [ROADMAP.md](ROADMAP.md)).
+Every included `ContextFragment` names its `source`, keeping compiled context
+attributable and inspectable by construction.
 
 ## Principle
 
@@ -45,7 +48,7 @@ CHARACTER KNOWLEDGE / READER KNOWLEDGE / RELEVANT FORESHADOWING
 AUTHOR STYLE PROFILE / CHARACTER VOICE EXAMPLES / RECENT PACING / SCENE OBJECTIVES
 ```
 
-A recipe is a declarative description of *which sources, in what priority, under what token budget* — resolved deterministically before any model call.
+A recipe is a declarative description of _which sources, in what priority, under what token budget_ — resolved deterministically before any model call.
 
 ## Design requirements
 

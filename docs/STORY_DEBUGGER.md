@@ -2,9 +2,7 @@
 
 A dedicated diagnostic mode that investigates **why** something is not working instead of immediately rewriting it.
 
-## Status
-
-Documentation stage (Story Debugger V1 targeted for V2).
+- **Status:** **PLANNED (V2).** No code yet. Reads the same structured data the [Story Compiler](STORY_COMPILER.md) checks, but investigative and narrative rather than pass/fail.
 
 ## Principle
 
@@ -16,7 +14,7 @@ inspect → diagnose → plan → (only then) modify → validate
 
 ## Example
 
-Request: *"Marcus's betrayal isn't landing."*
+Request: _"Marcus's betrayal isn't landing."_
 
 ```
 Tracing Marcus betrayal...

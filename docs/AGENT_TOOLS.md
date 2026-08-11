@@ -2,9 +2,24 @@
 
 Agents operate through a **typed tool system**, not as unrestricted text generators. Tools use typed schemas; AI operations produce auditable actions.
 
-## Status
+- **Package:** `@jellytind/agent-runtime` (the `Tool` contract and `ToolRegistry`)
+- **Depends on:** `@jellytind/domain`, `@jellytind/model-router`, `@jellytind/shared`
+- **Status:** The `Tool<Input, Output>` interface and `ToolRegistry` are **implemented and tested**. The concrete tools listed below are **PLANNED** and land with their subsystems (V1+).
 
-Documentation stage. A foundational typed file/story tool set is part of V1 (see [ROADMAP.md](ROADMAP.md)).
+## Implemented: the tool contract
+
+```ts
+interface Tool<Input = unknown, Output = unknown> {
+  readonly name: string;
+  readonly description: string;
+  readonly readOnly: boolean; // side-effect-free reads vs. mutations
+  execute(input: Input): Promise<Output>;
+}
+```
+
+`ToolRegistry` registers tools by unique name and rejects duplicates/unknowns
+with a typed `ToolError`. `readOnly` lets the runtime separate safe reads from
+mutations that must route through the versioning/approval layer.
 
 ## Why typed tools
 

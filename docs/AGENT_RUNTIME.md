@@ -2,9 +2,9 @@
 
 How agents are orchestrated. Do not build one monolithic "Writer AI"; build a primary orchestrating agent that coordinates specialists through controlled orchestration and a persistent task system.
 
-## Status
-
-Documentation stage (agent system targeted for V3; a basic agent runtime and typed tools are part of V1).
+- **Package:** `@jellytind/agent-runtime`
+- **Depends on:** `@jellytind/domain`, `@jellytind/model-router`, `@jellytind/shared`
+- **Status:** Foundational contracts **implemented** — `Tool`/`ToolRegistry` (tested), and the `AgentTask`, `TaskStatus`, `ApprovalPolicy`, `AgentDescriptor`, `AgentPermission` types. The orchestrator, specialist agents and multi-agent workflows are **PLANNED** (V3). See [AGENT_TOOLS.md](AGENT_TOOLS.md).
 
 ## Agents
 
@@ -26,7 +26,7 @@ All agents use **shared project state** rather than maintaining incompatible pri
 
 ## Custom agents
 
-Users can create specialist agents (e.g. *Grimdark Editor*, *Golden Age Mystery Auditor*, *Romance Chemistry Editor*). A custom agent supports: instructions, permitted tools, preferred models, context recipes, triggers, output schemas, and genre/project-specific knowledge.
+Users can create specialist agents (e.g. _Grimdark Editor_, _Golden Age Mystery Auditor_, _Romance Chemistry Editor_). A custom agent supports: instructions, permitted tools, preferred models, context recipes, triggers, output schemas, and genre/project-specific knowledge.
 
 ## Skills
 
@@ -84,7 +84,7 @@ See deterministic orchestration in [ARCHITECTURE.md](ARCHITECTURE.md) and autono
 
 ## Permissions
 
-Agents have configurable autonomy. Permissions include: read manuscript, read canon, edit manuscript, edit story state, create/delete entities, run research, create branches, apply refactors, run simulations, use external services. Approval policies (e.g. *always ask before editing manuscript*, *allow metadata updates automatically*, *edits only inside current chapter*) are enforced by application services, not by the model. The user must always understand what an agent is permitted to do.
+Agents have configurable autonomy. Permissions include: read manuscript, read canon, edit manuscript, edit story state, create/delete entities, run research, create branches, apply refactors, run simulations, use external services. Approval policies (e.g. _always ask before editing manuscript_, _allow metadata updates automatically_, _edits only inside current chapter_) are enforced by application services, not by the model. The user must always understand what an agent is permitted to do.
 
 ## Failure recovery
 

@@ -2,9 +2,8 @@
 
 Explicit, machine-readable story state so the LLM does not have to reconstruct every fact from prose on every task.
 
-## Status
-
-Documentation stage (targeted for V2 — Story Intelligence).
+- **Packages (planned):** a `story-state` engine over `@jellytind/persistence` (`StateStore`) and `@jellytind/domain`.
+- **Status:** **PLANNED (V2 — Story Intelligence).** No code yet; the `StateStore` interface it will build on exists today (see [STORY_REPOSITORY.md](STORY_REPOSITORY.md)).
 
 ## What state captures
 
@@ -18,8 +17,8 @@ characters:
     physical_state: { injured_left_hand: true }
     inventory: [OBJECT_BRASS_KEY, OBJECT_PHONE]
     knowledge:
-      FACT_VAULT_EXISTS:    { certainty: 1.0 }
-      FACT_MARA_IS_SPYING:  { certainty: 0.0 }
+      FACT_VAULT_EXISTS: { certainty: 1.0 }
+      FACT_MARA_IS_SPYING: { certainty: 0.0 }
     emotional_state: { trust_mara: 0.32, fear: 0.71 }
   CHAR_MARA:
     location: LOC_LONDON
@@ -29,7 +28,7 @@ characters:
 
 ## Time-indexed reconstruction
 
-State must be reconstructable **across story time**, not merely "latest". The system answers *what was true immediately before Scene 42?*, not only *what is true now*. State is anchored to scene boundaries (`entry_state` / `exit_state`) and derived by replaying transitions in story-chronological order.
+State must be reconstructable **across story time**, not merely "latest". The system answers _what was true immediately before Scene 42?_, not only _what is true now_. State is anchored to scene boundaries (`entry_state` / `exit_state`) and derived by replaying transitions in story-chronological order.
 
 Distinguish **story-world chronology** from **reader presentation order** (flashbacks, nonlinear structure). See [SIMULATIONS.md](SIMULATIONS.md) and the timeline model.
 
@@ -38,18 +37,18 @@ Distinguish **story-world chronology** from **reader presentation order** (flash
 Never conflate these:
 
 1. **Objective story truth** — what is actually true in the fictional world.
-2. **Character knowledge / belief** — what each character believes, with: source, time learned, certainty, whether the belief is false, whether inferred vs directly witnessed, and who they believe *also* knows it.
+2. **Character knowledge / belief** — what each character believes, with: source, time learned, certainty, whether the belief is false, whether inferred vs directly witnessed, and who they believe _also_ knows it.
 3. **Reader knowledge** — what the manuscript has actually exposed to the reader at a given point.
 
 ```
 TRUTH → Who knows it? → How did they learn it? → When? → How certain? → Who do they believe also knows it?
 ```
 
-This drives mysteries, thrillers, espionage, political fiction, fantasy intrigue, unreliable narrators and dramatic irony. It lets the Story Compiler detect e.g. *Mara references the vault in Chapter 16 but does not learn of it until Chapter 18.*
+This drives mysteries, thrillers, espionage, political fiction, fantasy intrigue, unreliable narrators and dramatic irony. It lets the Story Compiler detect e.g. _Mara references the vault in Chapter 16 but does not learn of it until Chapter 18._
 
 ## Relationship state
 
-Relationships evolve and are tied to story events, so the system can inspect whether progression is *earned*:
+Relationships evolve and are tied to story events, so the system can inspect whether progression is _earned_:
 
 ```
 ELIAS → MARA TRUST
