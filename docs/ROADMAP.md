@@ -4,9 +4,9 @@ Versioned delivery plan. Implementation proceeds **vertically**: finish a cohere
 
 ## Status
 
-**Phase 0 (foundation), Phase 1 (Story Repository) and Phase 3 (fiction-domain
-entities) complete.** AI-facing work (Context Compiler, AI edits, checkpoints)
-is not yet started.
+**Phases 0 (foundation), 1 (Story Repository), 3 (fiction-domain entities) and
+4 (search & retrieval) complete.** AI-facing work (Context Compiler, AI edits,
+checkpoints) is not yet started.
 
 ## Vertical-slice method
 
@@ -76,6 +76,22 @@ A real story-world graph beneath the manuscript (no AI).
   warnings.
 
 See [DOMAIN_MODEL.md](DOMAIN_MODEL.md) and [STORY_REPOSITORY.md](STORY_REPOSITORY.md).
+
+## Phase 4 — Search & retrieval ✅
+
+Deterministic retrieval before AI context selection.
+
+- `@jellytind/search`: pure-TS lexical inverted index (Unicode tokeniser, AND
+  terms + quoted phrases, ranking, excerpts, kind filters, incremental
+  upsert/remove) and a `SemanticSearchProvider` abstraction for later embeddings.
+- Repository: `ProjectSearch` indexes prose, entity files and collections (lazy
+  build + incremental updates); `searchText`; and structured graph queries
+  (`getScenesByCharacter/POV/Location/PlotThread`, `getScenesBetweenChapters`,
+  `getCharacter/Object/PlotThread Appearances`).
+- UI: a global Search tab (query, result-type filters, located excerpts) that
+  opens files or selects entities.
+
+See [SEARCH.md](SEARCH.md).
 
 ## V1 (remaining) — Writing IDE
 

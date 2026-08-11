@@ -170,6 +170,9 @@ importers:
       '@jellytind/persistence':
         specifier: workspace:*
         version: link:../persistence
+      '@jellytind/search':
+        specifier: workspace:*
+        version: link:../search
       '@jellytind/shared':
         specifier: workspace:*
         version: link:../shared

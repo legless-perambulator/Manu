@@ -2,10 +2,11 @@ import { useState } from "react";
 import type { StoryRepository } from "@jellytind/story-repository";
 import { ProjectExplorer } from "./ProjectExplorer";
 import { EntitiesPanel } from "./EntitiesPanel";
+import { SearchPanel } from "./SearchPanel";
 import { Editor } from "./Editor";
 import { Inspector } from "./Inspector";
 
-type LeftTab = "files" | "entities";
+type LeftTab = "files" | "entities" | "search";
 
 export function Workspace({ repo, onClose }: { repo: StoryRepository; onClose: () => void }) {
   const [tab, setTab] = useState<LeftTab>("files");
@@ -40,21 +41,40 @@ export function Workspace({ repo, onClose }: { repo: StoryRepository; onClose: (
             >
               Entities
             </button>
+            <button
+              className={`tab${tab === "search" ? " tab--active" : ""}`}
+              onClick={() => setTab("search")}
+            >
+              Search
+            </button>
           </div>
-          {tab === "files" ? (
+          {tab === "files" && (
             <ProjectExplorer
               repo={repo}
               activePath={openPath}
               onOpenFile={setOpenPath}
               refreshToken={refreshToken}
             />
-          ) : (
+          )}
+          {tab === "entities" && (
             <EntitiesPanel
               repo={repo}
               selectedId={selectedEntityId}
               onSelect={setSelectedEntityId}
               refreshToken={refreshToken}
               onChanged={refresh}
+            />
+          )}
+          {tab === "search" && (
+            <SearchPanel
+              repo={repo}
+              onOpenFile={(p) => {
+                setOpenPath(p);
+              }}
+              onSelectEntity={(id) => {
+                setSelectedEntityId(id);
+              }}
+              refreshToken={refreshToken}
             />
           )}
         </aside>

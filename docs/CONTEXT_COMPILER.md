@@ -6,6 +6,12 @@ The Context Compiler constructs the best possible working context for every AI o
 - **Depends on:** `@jellytind/domain`, `@jellytind/shared`
 - **Status:** **PLANNED (V1).** The package defines the shapes — `ContextRecipe`, `ContextFragment`, `CompiledContext`, and the `ContextCompiler` interface. The compiler implementation (selection, budgeting, summarisation) is not yet built.
 
+Its **retrieval foundation is now in place** (Phase 4): deterministic full-text
+and structured search (`@jellytind/search` + the repository's `searchText` and
+structured queries), plus a `SemanticSearchProvider` abstraction to add embeddings
+later. The compiler will assemble context from these deterministic sources rather
+than dumping the manuscript into a model. See [SEARCH.md](SEARCH.md).
+
 Every included `ContextFragment` names its `source`, keeping compiled context
 attributable and inspectable by construction.
 

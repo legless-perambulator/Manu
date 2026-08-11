@@ -29,6 +29,15 @@ export type { TreeNode } from "./tree";
 export { EntityGraph } from "./graph";
 export type { GraphKind, ReferenceEdge, IntegrityReport } from "./graph";
 
+export { ProjectSearch } from "./project-search";
+export type {
+  SearchHit,
+  SearchQuery,
+  SearchFilters,
+  SearchMeta,
+  ResultKind,
+} from "@jellytind/search";
+
 export { parseFrontmatter, serializeFrontmatter } from "./frontmatter";
 
 export type { CatalogEntity } from "./catalog";

@@ -33,7 +33,18 @@ import {
   type PlotThreadId,
 } from "@jellytind/domain";
 import { normalizeProjectPath, type ProjectStore, type ProjectIndex } from "@jellytind/persistence";
+import type { SearchHit, SearchQuery } from "@jellytind/search";
 import { RepositoryError } from "./errors";
+import { ProjectSearch } from "./project-search";
+import {
+  scenesByCharacter,
+  scenesByPov,
+  scenesByLocation,
+  scenesByObject,
+  scenesByPlotThread,
+  scenesBetweenChapters,
+  characterAppearances,
+} from "./queries";
 import {
   PATHS,
   EXPLORER_ROOTS,
@@ -96,6 +107,7 @@ const nowIso = (): string => new Date().toISOString();
  */
 export class StoryRepository {
   private readonly graph: EntityGraph;
+  private readonly search: ProjectSearch;
 
   private constructor(
     private readonly store: ProjectStore,
@@ -106,6 +118,7 @@ export class StoryRepository {
     private readonly clock: () => string,
   ) {
     this.graph = new EntityGraph(store);
+    this.search = new ProjectSearch(store, this.graph);
   }
 
   // ── Lifecycle ────────────────────────────────────────────────────────────
@@ -242,7 +255,9 @@ export class StoryRepository {
   }
 
   async writeProjectFile(path: string, content: string): Promise<void> {
-    await this.store.writeFile(normalizeProjectPath(path), content);
+    const safePath = normalizeProjectPath(path);
+    await this.store.writeFile(safePath, content);
+    await this.search.onFileWritten(safePath);
     await this.touch();
   }
 
@@ -499,6 +514,58 @@ export class StoryRepository {
     }));
   }
 
+  // ── Search & retrieval ──────────────────────────────────────────────────────
+
+  /** Project-wide lexical full-text search. Deterministic; no LLM. */
+  searchText(query: SearchQuery): Promise<SearchHit[]> {
+    return this.search.search(query);
+  }
+
+  /** Force a full rebuild of the search index (e.g. after bulk external edits). */
+  rebuildSearchIndex(): Promise<void> {
+    return this.search.rebuild();
+  }
+
+  // Structured graph queries — exact, deterministic answers with no LLM.
+
+  async getScenesByCharacter(id: CharacterId): Promise<Scene[]> {
+    return scenesByCharacter(await this.listScenes(), id);
+  }
+  async getScenesByPOV(id: CharacterId): Promise<Scene[]> {
+    return scenesByPov(await this.listScenes(), id);
+  }
+  async getScenesByLocation(id: LocationId): Promise<Scene[]> {
+    return scenesByLocation(await this.listScenes(), id);
+  }
+  async getScenesByPlotThread(id: PlotThreadId): Promise<Scene[]> {
+    const [scenes, threads] = await Promise.all([this.listScenes(), this.listPlotThreads()]);
+    const thread = threads.find((t) => t.id === id);
+    const linked = thread
+      ? [
+          ...(thread.introducedSceneId ? [thread.introducedSceneId] : []),
+          ...(thread.resolvedSceneId ? [thread.resolvedSceneId] : []),
+          ...thread.relatedSceneIds,
+        ]
+      : [];
+    return scenesByPlotThread(scenes, id, linked);
+  }
+  async getScenesBetweenChapters(start: ChapterId, end: ChapterId): Promise<Scene[]> {
+    const [scenes, chapters] = await Promise.all([this.listScenes(), this.listChapters()]);
+    return scenesBetweenChapters(scenes, chapters, start, end);
+  }
+  async getCharacterAppearances(
+    id: CharacterId,
+  ): Promise<{ scenes: Scene[]; events: StoryEvent[] }> {
+    const [scenes, events] = await Promise.all([this.listScenes(), this.listEvents()]);
+    return characterAppearances(scenes, events, id);
+  }
+  async getObjectAppearances(id: ObjectId): Promise<Scene[]> {
+    return scenesByObject(await this.listScenes(), id);
+  }
+  async getPlotThreadAppearances(id: PlotThreadId): Promise<Scene[]> {
+    return this.getScenesByPlotThread(id);
+  }
+
   // ── Entity update / delete / integrity ──────────────────────────────────────
 
   /**
@@ -565,6 +632,7 @@ export class StoryRepository {
 
     await store.remove(id);
     await this.deindexEntity(id);
+    this.search.onEntityRemoved(kind, id);
     await this.touch();
     return { deletedId: id, unlinked };
   }
@@ -585,6 +653,7 @@ export class StoryRepository {
       name,
       ...(filePath !== undefined ? { filePath } : {}),
     });
+    await this.search.onEntityChanged(kind, entity.id);
     await this.persistIdState();
     await this.touch();
   }
@@ -640,6 +709,7 @@ export class StoryRepository {
     const entity = await this.graph.store(kind).get(id);
     if (entity === null) {
       await this.deindexEntity(id);
+      this.search.onEntityRemoved(kind, id);
       return;
     }
     await this.recordEntity({
@@ -647,6 +717,7 @@ export class StoryRepository {
       kind,
       name: displayName(kind, entity as unknown as Record<string, unknown>),
     });
+    await this.search.onEntityChanged(kind, id);
   }
 
   private async deindexEntity(id: string): Promise<void> {

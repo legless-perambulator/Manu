@@ -7,13 +7,14 @@ north-star spec see [`../MASTER_BUILD.md`](../MASTER_BUILD.md).
 
 ## Status
 
-**Phase 1 — the Story Repository.** On top of the Phase-0 foundation, the
-persistent project format is implemented: `@jellytind/domain` (entities +
-manifest), `@jellytind/persistence` (path safety, `NodeProjectStore`, SQLite
-migrations) and `@jellytind/story-repository` (the create/open/validate/save
-service) are built and tested, and the desktop app can create, open and edit real
-projects. The remaining subsystem packages are typed interfaces marked
-**PLANNED**; features continue as vertical slices (see [`ROADMAP.md`](ROADMAP.md)).
+**Phases 1, 3 & 4 implemented.** On the Phase-0 foundation: the persistent Story
+Repository (`@jellytind/domain`, `@jellytind/persistence`,
+`@jellytind/story-repository`), the fiction-domain **entity graph** with
+referential integrity, and deterministic **search & retrieval**
+(`@jellytind/search` — lexical index + structured graph queries) are built and
+tested, with a functional desktop workbench (files, entities, inspector, search).
+The remaining subsystem packages are typed interfaces marked **PLANNED**; features
+continue as vertical slices (see [`ROADMAP.md`](ROADMAP.md)).
 
 ## Repository layout
 
@@ -35,7 +36,7 @@ A pnpm-workspaces monorepo. Applications live in `apps/`, libraries in
 │   ├── context-compiler/        @jellytind/context-compiler — task context construction (PLANNED)
 │   ├── story-compiler/          @jellytind/story-compiler — deterministic/semantic checks
 │   ├── agent-runtime/           @jellytind/agent-runtime — typed tools, tasks, agents
-│   ├── search/                  @jellytind/search        — lexical/semantic search (PLANNED)
+│   ├── search/                  @jellytind/search        — lexical search (semantic PLANNED)
 │   └── providers/
 │       └── anthropic/           @jellytind/provider-anthropic — Anthropic adapter (isolated)
 ├── docs/                        living architecture documentation
@@ -72,7 +73,7 @@ Each layer may depend only on layers below it. The package graph enforces this.
 | `shared`             | —                                                                |
 | `domain`             | `shared`                                                         |
 | `persistence`        | `shared`, `domain`                                               |
-| `story-repository`   | `shared`, `domain`, `persistence`                                |
+| `story-repository`   | `shared`, `domain`, `persistence`, `search`                      |
 | `model-router`       | `shared`                                                         |
 | `provider-anthropic` | `shared`, `model-router`                                         |
 | `search`             | `shared`, `domain`                                               |
