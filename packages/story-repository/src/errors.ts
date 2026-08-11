@@ -5,7 +5,9 @@ export type RepositoryErrorCode =
   | "invalid_manifest"
   | "unsupported_schema"
   | "already_exists"
-  | "entity_not_found";
+  | "entity_not_found"
+  | "invalid_reference"
+  | "has_references";
 
 /** A Story Repository operation failure with a stable, machine-readable code. */
 export class RepositoryError extends AppError {

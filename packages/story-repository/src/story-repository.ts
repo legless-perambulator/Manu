@@ -1,18 +1,36 @@
 import {
   SequentialIdGenerator,
   createStoryProjectId,
+  entityKindOf,
+  normalizeSequenceSnapshot,
   SCHEMA_VERSION,
   APP_FORMAT_VERSION,
-  normalizeSequenceSnapshot,
   type ProjectManifest,
   type Project,
   type Chapter,
+  type Scene,
   type Character,
   type Location,
+  type StoryObject,
   type PlotThread,
+  type Fact,
+  type WorldRule,
+  type StoryEvent,
+  type Relationship,
   type ChapterStatus,
+  type SceneStatus,
+  type CharacterStatus,
+  type ObjectStatus,
   type PlotThreadStatus,
+  type FactStatus,
+  type WorldRuleSeverity,
   type StoryProjectId,
+  type ChapterId,
+  type SceneId,
+  type CharacterId,
+  type LocationId,
+  type ObjectId,
+  type PlotThreadId,
 } from "@jellytind/domain";
 import { normalizeProjectPath, type ProjectStore, type ProjectIndex } from "@jellytind/persistence";
 import { RepositoryError } from "./errors";
@@ -22,21 +40,26 @@ import {
   chapterFilePath,
   characterFilePath,
   locationFilePath,
+  objectFilePath,
 } from "./paths";
 import { scaffoldProject } from "./scaffold";
 import { buildManifest, validateManifest } from "./manifest";
 import { readCatalog, writeCatalog, type CatalogEntity } from "./catalog";
+import {
+  EntityGraph,
+  outgoingEdges,
+  type GraphKind,
+  type ReferenceEdge,
+  type IntegrityReport,
+} from "./graph";
+import type { HasId } from "./stores";
 
 export interface CreateProjectOptions {
   readonly store: ProjectStore;
   readonly title: string;
-  /** Absolute path of the project root (informational; used to build `Project`). */
   readonly rootPath?: string;
-  /** Optional SQLite-backed derived index to keep in sync. */
   readonly index?: ProjectIndex;
-  /** Injectable clock for deterministic tests. */
   readonly now?: () => string;
-  /** Injectable project id (tests). */
   readonly projectId?: StoryProjectId;
 }
 
@@ -54,15 +77,26 @@ export interface ProjectValidation {
   readonly code?: string;
 }
 
+/** How to handle a delete when other entities reference the target. */
+export type DeleteMode = "prevent" | "unlink";
+
+export interface DeleteResult {
+  readonly deletedId: string;
+  /** Entities that were modified/removed to remove references (unlink mode). */
+  readonly unlinked: readonly string[];
+}
+
 const nowIso = (): string => new Date().toISOString();
 
 /**
- * The Story Repository service: the authoritative gateway to a fiction project
- * on disk. All file access is project-relative and confined to the project root
- * (path traversal is rejected). Writes go through the store's atomic write. See
- * docs/STORY_REPOSITORY.md.
+ * The Story Repository service: the authoritative gateway to a fiction project.
+ * Beyond files and the manifest it owns the fiction-domain graph — structured,
+ * first-class story entities linked by stable ID, with referential integrity.
+ * See docs/STORY_REPOSITORY.md and docs/DOMAIN_MODEL.md.
  */
 export class StoryRepository {
+  private readonly graph: EntityGraph;
+
   private constructor(
     private readonly store: ProjectStore,
     private manifest: ProjectManifest,
@@ -70,7 +104,9 @@ export class StoryRepository {
     private readonly rootPath: string,
     private readonly index: ProjectIndex | undefined,
     private readonly clock: () => string,
-  ) {}
+  ) {
+    this.graph = new EntityGraph(store);
+  }
 
   // ── Lifecycle ────────────────────────────────────────────────────────────
 
@@ -197,9 +233,6 @@ export class StoryRepository {
 
   // ── Safe file operations ─────────────────────────────────────────────────
 
-  // These are `async` so an unsafe-path rejection surfaces as a rejected promise
-  // (path validation throws synchronously) rather than a thrown call.
-
   async listProjectFiles(prefix?: string): Promise<string[]> {
     return this.store.list(prefix === undefined ? undefined : normalizeProjectPath(prefix));
   }
@@ -221,7 +254,7 @@ export class StoryRepository {
     return this.store.exists(normalizeProjectPath(path));
   }
 
-  // ── Entities ─────────────────────────────────────────────────────────────
+  // ── Entity creation ────────────────────────────────────────────────────────
 
   async addChapter(input: {
     title: string;
@@ -229,8 +262,7 @@ export class StoryRepository {
     status?: ChapterStatus;
   }): Promise<Chapter> {
     const id = this.ids.next("chapter");
-    const existing = await this.listChapters();
-    const order = input.order ?? existing.length;
+    const order = input.order ?? (await this.listChapters()).length;
     const chapter: Chapter = {
       id,
       title: input.title,
@@ -238,123 +270,355 @@ export class StoryRepository {
       filePath: chapterFilePath(id),
       status: input.status ?? "outline",
     };
-    await this.store.writeFile(chapter.filePath, `# ${input.title}\n\n`);
-    await this.recordEntity({
-      id,
-      kind: "chapter",
-      name: input.title,
-      filePath: chapter.filePath,
-      order,
-      status: chapter.status,
-    });
+    await this.persistEntity("chapter", chapter, chapter.title, chapter.filePath);
     return chapter;
   }
 
-  async addCharacter(input: { name: string; aliases?: readonly string[] }): Promise<Character> {
+  async addScene(input: {
+    title: string;
+    chapterId?: ChapterId;
+    pov?: CharacterId;
+    locationId?: LocationId;
+    characterIds?: readonly CharacterId[];
+    plotThreadIds?: readonly PlotThreadId[];
+    objectIds?: readonly ObjectId[];
+    purpose?: readonly string[];
+    status?: SceneStatus;
+  }): Promise<Scene> {
+    const id = this.ids.next("scene");
+    const scene: Scene = {
+      id,
+      title: input.title,
+      ...(input.chapterId !== undefined ? { chapterId: input.chapterId } : {}),
+      ...(input.pov !== undefined ? { pov: input.pov } : {}),
+      ...(input.locationId !== undefined ? { locationId: input.locationId } : {}),
+      characterIds: input.characterIds ?? [],
+      plotThreadIds: input.plotThreadIds ?? [],
+      objectIds: input.objectIds ?? [],
+      purpose: input.purpose ?? [],
+      status: input.status ?? "planned",
+    };
+    await this.persistEntity("scene", scene, scene.title);
+    return scene;
+  }
+
+  async addCharacter(input: {
+    name: string;
+    aliases?: readonly string[];
+    description?: string;
+    role?: string;
+    notes?: string;
+    status?: CharacterStatus;
+  }): Promise<Character> {
     const id = this.ids.next("character");
     const character: Character = {
       id,
       name: input.name,
       aliases: input.aliases ?? [],
+      description: input.description ?? "",
+      role: input.role ?? "",
+      notes: input.notes ?? "",
+      status: input.status ?? "active",
       filePath: characterFilePath(id),
     };
-    await this.store.writeFile(character.filePath, `# ${input.name}\n\n`);
-    await this.recordEntity({
-      id,
-      kind: "character",
-      name: input.name,
-      filePath: character.filePath,
-      aliases: character.aliases,
-    });
+    await this.persistEntity("character", character, character.name, character.filePath);
     return character;
   }
 
-  async addLocation(input: { name: string; aliases?: readonly string[] }): Promise<Location> {
+  async addLocation(input: {
+    name: string;
+    aliases?: readonly string[];
+    description?: string;
+    parentLocationId?: LocationId;
+    notes?: string;
+  }): Promise<Location> {
     const id = this.ids.next("location");
     const location: Location = {
       id,
       name: input.name,
       aliases: input.aliases ?? [],
+      description: input.description ?? "",
+      ...(input.parentLocationId !== undefined ? { parentLocationId: input.parentLocationId } : {}),
+      notes: input.notes ?? "",
       filePath: locationFilePath(id),
     };
-    await this.store.writeFile(location.filePath, `# ${input.name}\n\n`);
-    await this.recordEntity({
-      id,
-      kind: "location",
-      name: input.name,
-      filePath: location.filePath,
-      aliases: location.aliases,
-    });
+    await this.persistEntity("location", location, location.name, location.filePath);
     return location;
   }
 
-  async addPlotThread(input: { name: string; status?: PlotThreadStatus }): Promise<PlotThread> {
+  async addObject(input: {
+    name: string;
+    aliases?: readonly string[];
+    description?: string;
+    status?: ObjectStatus;
+  }): Promise<StoryObject> {
+    const id = this.ids.next("object");
+    const object: StoryObject = {
+      id,
+      name: input.name,
+      aliases: input.aliases ?? [],
+      description: input.description ?? "",
+      status: input.status ?? "intact",
+      filePath: objectFilePath(id),
+    };
+    await this.persistEntity("object", object, object.name, object.filePath);
+    return object;
+  }
+
+  async addPlotThread(input: {
+    name: string;
+    description?: string;
+    status?: PlotThreadStatus;
+    introducedSceneId?: SceneId;
+    resolvedSceneId?: SceneId;
+    relatedSceneIds?: readonly SceneId[];
+  }): Promise<PlotThread> {
     const id = this.ids.next("plot_thread");
-    const thread: PlotThread = { id, name: input.name, status: input.status ?? "planned" };
-    // Plot threads are canonical in plot/plot_threads.json (human-readable).
-    const threads = await this.listPlotThreads();
-    await this.store.writeFile(
-      PATHS.plotThreads,
-      `${JSON.stringify({ threads: [...threads, thread] }, null, 2)}\n`,
-    );
-    await this.recordEntity({ id, kind: "plot_thread", name: input.name, status: thread.status });
+    const thread: PlotThread = {
+      id,
+      name: input.name,
+      description: input.description ?? "",
+      status: input.status ?? "planned",
+      ...(input.introducedSceneId !== undefined
+        ? { introducedSceneId: input.introducedSceneId }
+        : {}),
+      ...(input.resolvedSceneId !== undefined ? { resolvedSceneId: input.resolvedSceneId } : {}),
+      relatedSceneIds: input.relatedSceneIds ?? [],
+    };
+    await this.persistEntity("plot_thread", thread, thread.name);
     return thread;
   }
 
-  async listChapters(): Promise<Chapter[]> {
-    const rows = (await readCatalog(this.store)).filter((e) => e.kind === "chapter");
-    return rows
-      .map((e) => ({
-        id: e.id as Chapter["id"],
-        title: e.name,
-        order: e.order ?? 0,
-        filePath: e.filePath ?? chapterFilePath(e.id as Chapter["id"]),
-        status: (e.status ?? "outline") as ChapterStatus,
-      }))
-      .sort((a, b) => a.order - b.order);
+  async addFact(input: {
+    statement: string;
+    status?: FactStatus;
+    source?: string;
+    notes?: string;
+  }): Promise<Fact> {
+    const id = this.ids.next("fact");
+    const fact: Fact = {
+      id,
+      statement: input.statement,
+      status: input.status ?? "canonical",
+      ...(input.source !== undefined ? { source: input.source } : {}),
+      ...(input.notes !== undefined ? { notes: input.notes } : {}),
+    };
+    await this.persistEntity("fact", fact, fact.statement);
+    return fact;
   }
 
-  async listCharacters(): Promise<Character[]> {
-    return (await readCatalog(this.store))
-      .filter((e) => e.kind === "character")
-      .map((e) => ({
-        id: e.id as Character["id"],
-        name: e.name,
-        aliases: e.aliases ?? [],
-        filePath: e.filePath ?? characterFilePath(e.id as Character["id"]),
-      }));
+  async addWorldRule(input: {
+    name: string;
+    description?: string;
+    severity?: WorldRuleSeverity;
+    scope?: string;
+  }): Promise<WorldRule> {
+    const id = this.ids.next("world_rule");
+    const rule: WorldRule = {
+      id,
+      name: input.name,
+      description: input.description ?? "",
+      severity: input.severity ?? "soft",
+      scope: input.scope ?? "global",
+    };
+    await this.persistEntity("world_rule", rule, rule.name);
+    return rule;
   }
 
-  async listLocations(): Promise<Location[]> {
-    return (await readCatalog(this.store))
-      .filter((e) => e.kind === "location")
-      .map((e) => ({
-        id: e.id as Location["id"],
-        name: e.name,
-        aliases: e.aliases ?? [],
-        filePath: e.filePath ?? locationFilePath(e.id as Location["id"]),
-      }));
+  async addEvent(input: {
+    name: string;
+    description?: string;
+    storyTime?: string;
+    sceneId?: SceneId;
+    locationId?: LocationId;
+    characterIds?: readonly CharacterId[];
+  }): Promise<StoryEvent> {
+    const id = this.ids.next("event");
+    const event: StoryEvent = {
+      id,
+      name: input.name,
+      description: input.description ?? "",
+      ...(input.storyTime !== undefined ? { storyTime: input.storyTime } : {}),
+      ...(input.sceneId !== undefined ? { sceneId: input.sceneId } : {}),
+      ...(input.locationId !== undefined ? { locationId: input.locationId } : {}),
+      characterIds: input.characterIds ?? [],
+    };
+    await this.persistEntity("event", event, event.name);
+    return event;
   }
 
-  async listPlotThreads(): Promise<PlotThread[]> {
-    const raw = await this.store.readFile(PATHS.plotThreads);
-    if (raw === null) return [];
-    try {
-      const parsed = JSON.parse(raw) as { threads?: PlotThread[] };
-      return Array.isArray(parsed.threads) ? parsed.threads : [];
-    } catch {
-      return [];
+  async addRelationship(input: {
+    characterAId: CharacterId;
+    characterBId: CharacterId;
+    type: string;
+    description?: string;
+  }): Promise<Relationship> {
+    const id = this.ids.next("relationship");
+    const rel: Relationship = {
+      id,
+      characterAId: input.characterAId,
+      characterBId: input.characterBId,
+      type: input.type,
+      description: input.description ?? "",
+    };
+    await this.persistEntity("relationship", rel, rel.type);
+    return rel;
+  }
+
+  // ── Entity reads ───────────────────────────────────────────────────────────
+
+  listChapters = (): Promise<Chapter[]> => this.listOf<Chapter>("chapter");
+  listScenes = (): Promise<Scene[]> => this.listOf<Scene>("scene");
+  listCharacters = (): Promise<Character[]> => this.listOf<Character>("character");
+  listLocations = (): Promise<Location[]> => this.listOf<Location>("location");
+  listObjects = (): Promise<StoryObject[]> => this.listOf<StoryObject>("object");
+  listPlotThreads = (): Promise<PlotThread[]> => this.listOf<PlotThread>("plot_thread");
+  listFacts = (): Promise<Fact[]> => this.listOf<Fact>("fact");
+  listWorldRules = (): Promise<WorldRule[]> => this.listOf<WorldRule>("world_rule");
+  listEvents = (): Promise<StoryEvent[]> => this.listOf<StoryEvent>("event");
+  listRelationships = (): Promise<Relationship[]> => this.listOf<Relationship>("relationship");
+
+  private async listOf<T>(kind: GraphKind): Promise<T[]> {
+    return (await this.graph.store(kind).list()) as unknown as T[];
+  }
+
+  /** Fetch any entity by id, inferring its kind from the id prefix. */
+  async getEntity<T = Record<string, unknown>>(id: string): Promise<T | null> {
+    const kind = kindOf(id);
+    if (kind === null) return null;
+    return (await this.graph.store(kind).get(id)) as unknown as T | null;
+  }
+
+  /** A flat listing of all entities (id, kind, display name) for browsing. */
+  async listEntitySummaries(): Promise<Array<{ id: string; kind: GraphKind; name: string }>> {
+    const rows = await this.graph.listAll();
+    return rows.map(({ kind, entity }) => ({
+      id: entity.id as string,
+      kind,
+      name: displayName(kind, entity),
+    }));
+  }
+
+  // ── Entity update / delete / integrity ──────────────────────────────────────
+
+  /**
+   * Merge `patch` into an existing entity (id and kind are immutable — renaming
+   * never changes the ID). References in the patch are validated.
+   */
+  async updateEntity<T extends HasId>(id: string, patch: Partial<T>): Promise<T> {
+    const kind = kindOf(id);
+    if (kind === null) throw new RepositoryError("entity_not_found", `Unknown entity id: ${id}`);
+    const store = this.graph.store(kind);
+    const existing = await store.get(id);
+    if (existing === null) {
+      throw new RepositoryError("entity_not_found", `No ${kind} with id ${id}.`);
     }
+    const next = { ...(existing as object), ...patch, id } as unknown as HasId;
+    await this.persistEntity(
+      kind,
+      next,
+      displayName(kind, next as unknown as Record<string, unknown>),
+    );
+    return next as unknown as T;
+  }
+
+  /** Every reference in the project that points at `id`. */
+  findReferences(id: string): Promise<ReferenceEdge[]> {
+    return this.graph.findReferrers(id);
+  }
+
+  /** Report references that point at non-existent entities. */
+  checkIntegrity(): Promise<IntegrityReport> {
+    return this.graph.checkIntegrity();
+  }
+
+  /**
+   * Delete an entity safely. In `prevent` mode (default) a delete that would
+   * orphan references throws with the dependency list; in `unlink` mode the
+   * references are removed first. Never leaves dangling references.
+   */
+  async deleteEntity(id: string, options: { mode?: DeleteMode } = {}): Promise<DeleteResult> {
+    const kind = kindOf(id);
+    if (kind === null) throw new RepositoryError("entity_not_found", `Unknown entity id: ${id}`);
+    const store = this.graph.store(kind);
+    if ((await store.get(id)) === null) {
+      throw new RepositoryError("entity_not_found", `No ${kind} with id ${id}.`);
+    }
+
+    const mode = options.mode ?? "prevent";
+    const referrers = await this.graph.findReferrers(id);
+    let unlinked: string[] = [];
+
+    if (referrers.length > 0) {
+      if (mode === "prevent") {
+        throw new RepositoryError(
+          "has_references",
+          `${id} is referenced by ${referrers.length} entit${referrers.length === 1 ? "y" : "ies"} (${referrers
+            .map((r) => r.fromId)
+            .join(", ")}). Unlink them first or delete with mode "unlink".`,
+          { details: { referrers } },
+        );
+      }
+      unlinked = await this.graph.unlinkReferences(id);
+      for (const otherId of unlinked) await this.reindexAfterUnlink(otherId);
+    }
+
+    await store.remove(id);
+    await this.deindexEntity(id);
+    await this.touch();
+    return { deletedId: id, unlinked };
   }
 
   // ── Internals ────────────────────────────────────────────────────────────
 
+  private async persistEntity(
+    kind: GraphKind,
+    entity: HasId,
+    name: string,
+    filePath?: string,
+  ): Promise<void> {
+    await this.validateReferences(kind, entity);
+    await this.graph.store(kind).put(entity);
+    await this.recordEntity({
+      id: entity.id,
+      kind,
+      name,
+      ...(filePath !== undefined ? { filePath } : {}),
+    });
+    await this.persistIdState();
+    await this.touch();
+  }
+
+  /** Ensure every outgoing reference targets an existing entity (no dangling refs). */
+  private async validateReferences(kind: GraphKind, entity: HasId): Promise<void> {
+    const edges = outgoingEdges(kind, entity as unknown as Record<string, unknown>);
+    if (edges.length === 0) return;
+    const existing = await this.graph.existingIds();
+    for (const edge of edges) {
+      if (edge.toId === entity.id) {
+        throw new RepositoryError("invalid_reference", `${entity.id} cannot reference itself.`);
+      }
+      if (!existing.has(edge.toId)) {
+        throw new RepositoryError(
+          "invalid_reference",
+          `${entity.id}.${edge.field} references ${edge.toId}, which does not exist.`,
+          { details: { edge } },
+        );
+      }
+    }
+  }
+
   private async recordEntity(
-    entity: Omit<CatalogEntity, "createdAt" | "updatedAt">,
+    entity: Omit<CatalogEntity, "createdAt" | "updatedAt"> & { createdAt?: string },
   ): Promise<void> {
     const now = this.clock();
     const catalog = await readCatalog(this.store);
-    const record: CatalogEntity = { ...entity, createdAt: now, updatedAt: now };
+    const prior = catalog.find((e) => e.id === entity.id);
+    const record: CatalogEntity = {
+      ...entity,
+      createdAt: prior?.createdAt ?? now,
+      updatedAt: now,
+    };
     const next = [...catalog.filter((e) => e.id !== entity.id), record].sort((a, b) =>
       a.id.localeCompare(b.id),
     );
@@ -365,17 +629,33 @@ export class StoryRepository {
       kind: record.kind,
       name: record.name,
       ...(record.filePath !== undefined ? { filePath: record.filePath } : {}),
-      data: {
-        ...(record.order !== undefined ? { order: record.order } : {}),
-        ...(record.status !== undefined ? { status: record.status } : {}),
-        ...(record.aliases !== undefined ? { aliases: record.aliases } : {}),
-      },
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
     });
+  }
 
-    await this.persistIdState();
-    await this.touch();
+  private async reindexAfterUnlink(id: string): Promise<void> {
+    const kind = kindOf(id);
+    if (kind === null) return;
+    const entity = await this.graph.store(kind).get(id);
+    if (entity === null) {
+      await this.deindexEntity(id);
+      return;
+    }
+    await this.recordEntity({
+      id,
+      kind,
+      name: displayName(kind, entity as unknown as Record<string, unknown>),
+    });
+  }
+
+  private async deindexEntity(id: string): Promise<void> {
+    const catalog = await readCatalog(this.store);
+    await writeCatalog(
+      this.store,
+      catalog.filter((e) => e.id !== id),
+    );
+    this.index?.removeEntity(id);
   }
 
   private async persistIdState(): Promise<void> {
@@ -395,6 +675,27 @@ function serialize(manifest: ProjectManifest): string {
   return `${JSON.stringify(manifest, null, 2)}\n`;
 }
 
+function kindOf(id: string): GraphKind | null {
+  const kind = entityKindOf(id);
+  if (kind === null || kind === "project") return null;
+  return kind as GraphKind;
+}
+
+/** A human-friendly label for any entity record, per kind. */
+function displayName(kind: GraphKind, entity: Record<string, unknown>): string {
+  switch (kind) {
+    case "chapter":
+    case "scene":
+      return String(entity.title ?? entity.id);
+    case "fact":
+      return String(entity.statement ?? entity.id);
+    case "relationship":
+      return String(entity.type ?? entity.id);
+    default:
+      return String(entity.name ?? entity.id);
+  }
+}
+
 async function loadIdGenerator(store: ProjectStore): Promise<SequentialIdGenerator> {
   const raw = await store.readFile(PATHS.idSequences);
   if (raw !== null) {
@@ -405,10 +706,9 @@ async function loadIdGenerator(store: ProjectStore): Promise<SequentialIdGenerat
       // fall through to reconstruction
     }
   }
-  // Reconstruct from any existing catalog IDs so new IDs never collide.
-  const ids = (await readCatalog(store)).map((e) => e.id);
+  // Reconstruct from every existing entity id so new IDs never collide.
+  const ids = [...(await new EntityGraph(store).existingIds())];
   return SequentialIdGenerator.fromExistingIds(ids);
 }
 
-// Re-export so the constant set is discoverable from the service module.
 export { SCHEMA_VERSION, APP_FORMAT_VERSION };

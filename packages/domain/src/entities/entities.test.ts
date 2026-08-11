@@ -1,7 +1,8 @@
 import { describe, expect, it, expectTypeOf } from "vitest";
 import { SequentialIdGenerator, createStoryProjectId } from "../ids";
+import { isWorldRuleId, isRelationshipId } from "../ids";
 import type { ChapterId } from "../ids";
-import type { Chapter, Character, Location, PlotThread } from "./entities";
+import type { Character, Chapter, Location, PlotThread, WorldRule, Relationship } from "./entities";
 import { SCHEMA_VERSION, APP_FORMAT_VERSION, MANIFEST_PATH } from "./manifest";
 
 describe("entity ID generation per prefix", () => {
@@ -16,6 +17,14 @@ describe("entity ID generation per prefix", () => {
     expect(ids.next("fact")).toBe("FACT_0001");
     expect(ids.next("object")).toBe("OBJECT_0001");
     expect(ids.next("event")).toBe("EVENT_0001");
+    expect(ids.next("world_rule")).toBe("RULE_0001");
+    expect(ids.next("relationship")).toBe("REL_0001");
+  });
+
+  it("guards the new ID kinds", () => {
+    expect(isWorldRuleId("RULE_0001")).toBe(true);
+    expect(isWorldRuleId("CHAR_0001")).toBe(false);
+    expect(isRelationshipId("REL_0009")).toBe(true);
   });
 
   it("keeps IDs stable and independent of any display name", () => {
@@ -24,16 +33,19 @@ describe("entity ID generation per prefix", () => {
       id: ids.next("character"),
       name: "Marcus Vale",
       aliases: [],
+      description: "",
+      role: "antagonist",
+      notes: "",
+      status: "active",
       filePath: "characters/CHAR_0001.md",
     };
-    // Renaming does not change identity.
     const renamed: Character = { ...character, name: "Marcus Kane" };
     expect(renamed.id).toBe(character.id);
   });
 });
 
 describe("entity shapes", () => {
-  it("types Chapter/Location/PlotThread with branded IDs", () => {
+  it("types entities with branded IDs and links", () => {
     const ids = new SequentialIdGenerator();
     const chapter: Chapter = {
       id: ids.next("chapter"),
@@ -46,17 +58,36 @@ describe("entity shapes", () => {
       id: ids.next("location"),
       name: "Blackthorn Manor",
       aliases: ["the manor"],
+      description: "",
+      notes: "",
       filePath: "world/locations/LOC_0001.md",
     };
     const thread: PlotThread = {
       id: ids.next("plot_thread"),
       name: "The missing photograph",
+      description: "",
       status: "introduced",
-      introducedAt: chapter.id,
+      relatedSceneIds: [],
+    };
+    const rule: WorldRule = {
+      id: ids.next("world_rule"),
+      name: "No resurrection",
+      description: "Magic cannot resurrect the dead.",
+      severity: "hard",
+      scope: "magic",
+    };
+    const rel: Relationship = {
+      id: ids.next("relationship"),
+      characterAId: ids.next("character"),
+      characterBId: ids.next("character"),
+      type: "sibling",
+      description: "",
     };
     expectTypeOf(chapter.id).toEqualTypeOf<ChapterId>();
     expect(location.aliases).toContain("the manor");
     expect(thread.status).toBe("introduced");
+    expect(rule.severity).toBe("hard");
+    expect(rel.type).toBe("sibling");
   });
 });
 

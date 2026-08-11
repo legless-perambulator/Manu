@@ -23,6 +23,8 @@ export {
   isFactId,
   isObjectId,
   isEventId,
+  isWorldRuleId,
+  isRelationshipId,
   createStoryProjectId,
   assertIdOfKind,
 } from "./ids";
@@ -36,6 +38,8 @@ export type {
   FactId,
   ObjectId,
   EventId,
+  WorldRuleId,
+  RelationshipId,
   EntityId,
   AnyId,
   IdTypeByKind,

@@ -4,7 +4,7 @@ The Story Repository is the authoritative project source. Chat history, model me
 
 - **Packages:** `@jellytind/persistence` (storage boundary), `@jellytind/story-repository` (the service)
 - **Depends on:** `@jellytind/domain`, `@jellytind/shared`
-- **Status (Phase 1):** **Implemented and tested.** Create / open / validate / save projects on real disk; atomic writes; path-traversal prevention; stable entity IDs; a SQLite derived index with migrations; and a desktop create/open/edit flow with a project explorer.
+- **Status (Phases 1 & 3):** **Implemented and tested.** Create / open / validate / save projects on real disk; atomic writes; path-traversal prevention; stable entity IDs; a SQLite derived index with migrations; a full fiction-domain **entity graph** with referential integrity; and a desktop create/open/edit flow with a project explorer, entities browser and context-sensitive inspector.
 
 The principle is fixed: **story information exists as structured project data, not trapped inside prompts or chat history.**
 
@@ -79,6 +79,71 @@ exclusive home of manuscript content. Schema is applied by a versioned migration
 runner (`schema_migrations`, `project_metadata`, `entities`). The Node binding
 uses the built-in `node:sqlite` (zero native deps); the browser/host binding is a
 Tauri/rusqlite adapter (attached host-side).
+
+## The fiction-domain graph (Phase 3)
+
+Beyond files and the manifest, the repository owns a graph of structured,
+first-class story entities linked by stable ID (see
+[DOMAIN_MODEL.md](DOMAIN_MODEL.md) for the entity shapes).
+
+### Where entities live
+
+Each entity kind has an **authoritative** store; the SQLite/catalog index is
+derived from these.
+
+| Kind         | Storage                     | Format                          |
+| ------------ | --------------------------- | ------------------------------- |
+| Character    | `characters/CHAR_*.md`      | Markdown + YAML front-matter    |
+| Location     | `world/locations/LOC_*.md`  | Markdown + YAML front-matter    |
+| Object       | `world/objects/OBJECT_*.md` | Markdown + YAML front-matter    |
+| Chapter      | `manuscript/CHAPTER_*.md`   | Markdown + YAML front-matter    |
+| Scene        | `scenes/scenes.json`        | JSON collection `{ items: [] }` |
+| Plot Thread  | `plot/plot_threads.json`    | JSON collection                 |
+| Fact         | `story/facts.json`          | JSON collection                 |
+| World Rule   | `story/world_rules.json`    | JSON collection                 |
+| Event        | `plot/events.json`          | JSON collection                 |
+| Relationship | `story/relationships.json`  | JSON collection                 |
+
+Prose entities are stored as **human-readable Markdown with YAML front-matter**:
+the front-matter block holds the structured fields (authoritative) and the body
+is a generated `# Name` heading for readability. The structured editor is the
+inspector; editing the raw body does not change structured fields.
+
+### Service API (Phase 3)
+
+```ts
+// Creation (each allocates a stable ID and validates references):
+repo.addCharacter / addLocation / addObject / addScene / addPlotThread
+repo.addFact / addWorldRule / addEvent / addRelationship / addChapter
+// Reads:
+repo.listCharacters() / listScenes() / … / listRelationships()
+repo.getEntity(id)                 // kind inferred from the ID prefix
+repo.listEntitySummaries()         // flat cross-kind list for browsing
+// Mutation & integrity:
+repo.updateEntity(id, patch)       // merge; ID and kind immutable (rename-safe)
+repo.findReferences(id)            // every edge pointing at id
+repo.checkIntegrity()              // report references to missing entities
+repo.deleteEntity(id, { mode })    // "prevent" (default) | "unlink"
+```
+
+### Referential integrity
+
+References are always stable IDs, and the graph keeps them honest:
+
+- **No dangling references on write.** Creating or updating an entity validates
+  every outgoing reference against existing entities (and rejects self-reference);
+  an unknown target fails with `invalid_reference`.
+- **Safe deletion.** `deleteEntity` in the default `prevent` mode refuses to
+  delete an entity that others reference and returns the dependency list
+  (`has_references`); `unlink` mode first removes those references — clearing
+  optional links, filtering array links, and deleting a referrer that loses a
+  _required_ link (e.g. a relationship losing one of its two characters).
+- **Auditable.** `checkIntegrity()` scans the whole graph for edges whose target
+  no longer exists.
+
+The reference topology (which field on which kind points at which kind) is
+declared in one place (`REFERENCE_FIELDS`), so integrity, validation and
+unlinking all agree.
 
 ## Project manifest (`.writer/project.json`)
 

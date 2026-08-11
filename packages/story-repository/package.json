@@ -13,6 +13,10 @@
   "dependencies": {
     "@jellytind/domain": "workspace:*",
     "@jellytind/persistence": "workspace:*",
-    "@jellytind/shared": "workspace:*"
+    "@jellytind/shared": "workspace:*",
+    "js-yaml": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9"
   }
 }

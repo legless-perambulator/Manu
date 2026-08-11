@@ -24,6 +24,8 @@ export type PlotThreadId = Brand<string, "PlotThreadId">;
 export type FactId = Brand<string, "FactId">;
 export type ObjectId = Brand<string, "ObjectId">;
 export type EventId = Brand<string, "EventId">;
+export type WorldRuleId = Brand<string, "WorldRuleId">;
+export type RelationshipId = Brand<string, "RelationshipId">;
 
 /**
  * Any identifier for an entity *within* a project. A project's own ID
@@ -31,7 +33,16 @@ export type EventId = Brand<string, "EventId">;
  * container, not a member.
  */
 export type EntityId =
-  ChapterId | SceneId | CharacterId | LocationId | PlotThreadId | FactId | ObjectId | EventId;
+  | ChapterId
+  | SceneId
+  | CharacterId
+  | LocationId
+  | PlotThreadId
+  | FactId
+  | ObjectId
+  | EventId
+  | WorldRuleId
+  | RelationshipId;
 
 /** Any identifier this system mints, including the project container. */
 export type AnyId = StoryProjectId | EntityId;
@@ -47,6 +58,8 @@ export interface IdTypeByKind {
   fact: FactId;
   object: ObjectId;
   event: EventId;
+  world_rule: WorldRuleId;
+  relationship: RelationshipId;
 }
 
 export type IdFor<K extends EntityKind> = IdTypeByKind[K];
@@ -134,6 +147,8 @@ export const isPlotThreadId = makeKindGuard("plot_thread");
 export const isFactId = makeKindGuard("fact");
 export const isObjectId = makeKindGuard("object");
 export const isEventId = makeKindGuard("event");
+export const isWorldRuleId = makeKindGuard("world_rule");
+export const isRelationshipId = makeKindGuard("relationship");
 
 /**
  * Mint a project ID. The suffix is opaque and does not derive from the project

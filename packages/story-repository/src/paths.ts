@@ -1,5 +1,5 @@
 import { WRITER_DIR, MANIFEST_PATH } from "@jellytind/domain";
-import type { ChapterId, CharacterId, LocationId } from "@jellytind/domain";
+import type { ChapterId, CharacterId, LocationId, ObjectId } from "@jellytind/domain";
 
 /**
  * Canonical project layout. All paths are project-relative, POSIX-style.
@@ -45,20 +45,36 @@ export const EXPLORER_ROOTS: readonly string[] = [
   "notes",
 ];
 
+/** Directories holding per-entity Markdown files (one file per entity). */
+export const ENTITY_DIRS = {
+  chapter: "manuscript",
+  character: "characters",
+  location: "world/locations",
+  object: "world/objects",
+} as const;
+
 export const PATHS = {
   manifest: MANIFEST_PATH,
   idSequences: `${WRITER_DIR}/state/id-sequences.json`,
   entitiesCatalog: `${WRITER_DIR}/index/entities.json`,
   derivedDb: `${WRITER_DIR}/index/derived.sqlite`,
+  scenes: "scenes/scenes.json",
   plotThreads: "plot/plot_threads.json",
+  facts: "story/facts.json",
+  worldRules: "story/world_rules.json",
+  events: "plot/events.json",
+  relationships: "story/relationships.json",
 } as const;
 
 export function chapterFilePath(id: ChapterId): string {
-  return `manuscript/${id}.md`;
+  return `${ENTITY_DIRS.chapter}/${id}.md`;
 }
 export function characterFilePath(id: CharacterId): string {
-  return `characters/${id}.md`;
+  return `${ENTITY_DIRS.character}/${id}.md`;
 }
 export function locationFilePath(id: LocationId): string {
-  return `world/locations/${id}.md`;
+  return `${ENTITY_DIRS.location}/${id}.md`;
+}
+export function objectFilePath(id: ObjectId): string {
+  return `${ENTITY_DIRS.object}/${id}.md`;
 }

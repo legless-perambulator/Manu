@@ -17,9 +17,6 @@ function starterFiles(title: string): Record<string, string> {
       "_Hard and soft rules the story must respect (e.g. POV, world constraints)._",
     ),
     "plot/master_outline.md": heading("Master Outline", "_The high-level plan, act by act._"),
-    "plot/plot_threads.json": `${JSON.stringify({ threads: [] }, null, 2)}\n`,
-    "plot/timeline.json": `${JSON.stringify({ events: [] }, null, 2)}\n`,
-    "plot/foreshadowing.json": `${JSON.stringify({ setups: [] }, null, 2)}\n`,
     "style/prose.md": heading("Prose Style", "_Notes on sentence rhythm, description, voice._"),
     "style/dialogue.md": heading("Dialogue Style", "_How characters speak; subtext preferences._"),
     "style/banned_tendencies.md": heading("Banned Tendencies", "_Phrasings and habits to avoid._"),
@@ -40,6 +37,20 @@ export async function scaffoldProject(store: ProjectStore, title: string): Promi
   for (const [path, content] of Object.entries(files)) {
     await store.writeFile(path, content);
   }
+
+  // Initialise empty entity collection files ({ items: [] }).
+  const emptyCollection = `${JSON.stringify({ items: [] }, null, 2)}\n`;
+  for (const path of [
+    PATHS.scenes,
+    PATHS.plotThreads,
+    PATHS.facts,
+    PATHS.worldRules,
+    PATHS.events,
+    PATHS.relationships,
+  ]) {
+    await store.writeFile(path, emptyCollection);
+  }
+
   // Initialise empty derived index + id-sequence state.
   await store.writeFile(PATHS.entitiesCatalog, `${JSON.stringify({ entities: [] }, null, 2)}\n`);
   await store.writeFile(PATHS.idSequences, `${JSON.stringify({}, null, 2)}\n`);

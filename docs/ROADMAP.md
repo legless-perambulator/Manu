@@ -4,8 +4,9 @@ Versioned delivery plan. Implementation proceeds **vertically**: finish a cohere
 
 ## Status
 
-**Phase 0 (technical foundation) and Phase 1 (Story Repository) complete.** The
-rest of V1 (Context Compiler, AI edits, checkpoints) is not yet started.
+**Phase 0 (foundation), Phase 1 (Story Repository) and Phase 3 (fiction-domain
+entities) complete.** AI-facing work (Context Compiler, AI edits, checkpoints)
+is not yet started.
 
 ## Vertical-slice method
 
@@ -57,6 +58,24 @@ The persistent, authoritative project format.
   access is mediated by root-confined Rust commands.
 
 See [STORY_REPOSITORY.md](STORY_REPOSITORY.md).
+
+## Phase 3 — Foundational fiction-domain entities ✅
+
+A real story-world graph beneath the manuscript (no AI).
+
+- Domain: `Character`, `Location`, `StoryObject`, `PlotThread`, `Fact`,
+  `WorldRule`, `StoryEvent`, `Relationship`, `Scene` — with stable IDs (`RULE_`,
+  `REL_` added) and status vocabularies.
+- Repository: authoritative per-kind stores (Markdown+front-matter for prose
+  entities, JSON collections for data entities), full CRUD, ID-stable renames,
+  entity linking, and **referential integrity** (reference validation on write,
+  dependency lookup, and safe delete with prevent/unlink).
+- UI: context-sensitive inspector (structured character profile; scene POV /
+  location / participants / threads / purpose; metadata for every kind), an
+  entities browser with creation, entity linking, and delete-with-dependency
+  warnings.
+
+See [DOMAIN_MODEL.md](DOMAIN_MODEL.md) and [STORY_REPOSITORY.md](STORY_REPOSITORY.md).
 
 ## V1 (remaining) — Writing IDE
 

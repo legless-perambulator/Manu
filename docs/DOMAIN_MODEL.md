@@ -4,7 +4,7 @@ The fiction domain model is the authoritative representation of story data. UI c
 
 - **Package:** `@jellytind/domain`
 - **Depends on:** `@jellytind/shared`
-- **Status:** Identity foundation (IDs) **implemented and tested**. Phase-1 entity types (`Project`, `Chapter`, `Character`, `Location`, `PlotThread`) and the `ProjectManifest` are **implemented**; richer entities (Scene, Fact, Relationship, WorldRule, …) remain **PLANNED**.
+- **Status:** Identity foundation (IDs) **implemented and tested**. The foundational fiction-domain entities are **implemented** (Phase 3): `Project`, `Chapter`, `Scene`, `Character`, `Location`, `StoryObject`, `PlotThread`, `Fact`, `WorldRule`, `StoryEvent`, `Relationship`, plus the `ProjectManifest`. Belief/knowledge semantics and numeric relationship state remain **PLANNED**.
 
 ## Implemented: stable entity IDs
 
@@ -46,17 +46,37 @@ Key guarantees (covered by tests in `packages/domain`):
   never change IDs or break references.
 - Generators can be seeded from a snapshot or reconstructed from existing IDs so
   allocation is stable across sessions and branches.
-- Prefixes (`CHAR`, `SCENE`, `LOC`, `THREAD`, `FACT`, `OBJECT`, `EVENT`,
-  `CHAPTER`, `PROJ`) are part of the on-disk contract.
+- Prefixes (`CHAR`, `SCENE`, `LOC`, `THREAD`, `FACT`, `OBJECT`, `EVENT`, `RULE`,
+  `REL`, `CHAPTER`, `PROJ`) are part of the on-disk contract.
 
-## Implemented: Phase-1 entity types
+## Implemented: the fiction-domain graph (Phase 3)
 
-`Project`, `Chapter`, `Character`, `Location`, `PlotThread` are defined in
-`@jellytind/domain` with branded IDs and minimal metadata (title/name, order,
-status, `filePath`, aliases). `PlotThread` uses the lifecycle statuses below;
-`Chapter` uses `outline | drafting | drafted | revised | final`. The
-`ProjectManifest` (schema version, id, title, timestamps, app format version) is
-the `.writer/project.json` record (see [STORY_REPOSITORY.md](STORY_REPOSITORY.md)).
+`@jellytind/domain` defines the structured, first-class story entities; the
+graph that links, persists and integrity-checks them lives in
+`@jellytind/story-repository` (see [STORY_REPOSITORY.md](STORY_REPOSITORY.md)).
+All cross-entity references are by **stable ID**.
+
+| Entity         | Key fields                                                 | References (by ID)                                                                      |
+| -------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `Character`    | name, aliases, description, role, notes, status            | —                                                                                       |
+| `Location`     | name, aliases, description, notes                          | `parentLocationId?` → location                                                          |
+| `StoryObject`  | name, aliases, description, status                         | —                                                                                       |
+| `PlotThread`   | name, description, status                                  | `introducedSceneId?`, `resolvedSceneId?`, `relatedSceneIds[]` → scene                   |
+| `Fact`         | statement, status, source?, notes?                         | —                                                                                       |
+| `WorldRule`    | name, description, severity (`hard`/`soft`/`style`), scope | —                                                                                       |
+| `StoryEvent`   | name, description, storyTime?                              | `sceneId?`, `locationId?`, `characterIds[]`                                             |
+| `Relationship` | type, description                                          | `characterAId`, `characterBId` (required)                                               |
+| `Scene`        | title, purpose[], status                                   | `chapterId?`, `pov?`, `locationId?`, `characterIds[]`, `plotThreadIds[]`, `objectIds[]` |
+| `Chapter`      | title, order, status                                       | —                                                                                       |
+
+Status vocabularies are exported as constant arrays (`CHARACTER_STATUSES`,
+`PLOT_THREAD_STATUSES`, `WORLD_RULE_SEVERITIES`, …) so the UI and validation stay
+in sync. Fact/knowledge here is a plain canonical statement — **belief and
+per-character knowledge semantics are deliberately deferred** (a later phase).
+
+**Renaming never changes identity:** display names live in the record; the ID is
+fixed at creation and derives file paths, so a rename leaves every reference
+intact.
 
 ## Planned: further entity types
 

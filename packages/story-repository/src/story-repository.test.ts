@@ -22,7 +22,7 @@ describe("createProject", () => {
     }
     // Sensible starter files exist...
     expect(await store.readFile("story/premise.md")).toContain("# Premise");
-    expect(await store.readFile("plot/plot_threads.json")).toContain("threads");
+    expect(await store.readFile("plot/plot_threads.json")).toContain("items");
     // ...but folders are not littered with placeholders.
     expect(await store.exists("manuscript/.gitkeep")).toBe(false);
 

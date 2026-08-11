@@ -3,7 +3,7 @@
 The interface should feel more like an IDE than a chat application. Chat is a tool inside the environment, not the dominant metaphor.
 
 - **App:** `apps/desktop` (Tauri 2 + React 18 + Vite)
-- **Status:** A **Phase-0 shell exists** — the app compiles, renders the four-panel frame, runs a domain package in the renderer, and invokes a Rust command over the Tauri bridge. The panels are a **NON-FUNCTIONAL scaffold**, deliberately labelled as such (AGENTS.md — "No Fake Features"). The functional V1 writing IDE (editor, project tree, AI panel, activity panel) is **PLANNED**.
+- **Status:** A **functional three-column workbench** exists. Left: a tabbed panel — a **Files** explorer over the real repository and an **Entities** browser (create/select story entities). Centre: a Markdown editor that saves through the repository. Right: a **context-sensitive inspector** that shows and edits the selected entity's structured profile (character fields; scene POV/location/participants/threads/purpose; metadata for every kind), links scenes to other entities by ID, and deletes with a dependency warning + unlink option. The AI panel and activity/task panel remain **PLANNED**.
 
 ## Primary layout
 
