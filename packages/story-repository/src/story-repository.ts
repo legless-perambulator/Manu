@@ -64,6 +64,14 @@ import {
   type IntegrityReport,
 } from "./graph";
 import type { HasId } from "./stores";
+import { JournaledProjectStore } from "./journaled-store";
+import { HistoryStore, type SnapshotFile } from "./history-store";
+import type { Actor, ChangeSet, ChangeSetSummary, Checkpoint, EntityChange } from "./history";
+import { StagedTransaction, type StagedFileOp } from "./transaction";
+
+const HISTORY_PREFIX = ".writer/revisions/";
+const inverseChange = (c: EntityChange["change"]): EntityChange["change"] =>
+  c === "created" ? "deleted" : c === "deleted" ? "created" : "updated";
 
 export interface CreateProjectOptions {
   readonly store: ProjectStore;
@@ -106,19 +114,27 @@ const nowIso = (): string => new Date().toISOString();
  * See docs/STORY_REPOSITORY.md and docs/DOMAIN_MODEL.md.
  */
 export class StoryRepository {
+  private readonly store: JournaledProjectStore;
+  private readonly history: HistoryStore;
   private readonly graph: EntityGraph;
   private readonly search: ProjectSearch;
+  private manifest: ProjectManifest;
+  private ids: SequentialIdGenerator;
 
   private constructor(
-    private readonly store: ProjectStore,
-    private manifest: ProjectManifest,
-    private readonly ids: SequentialIdGenerator,
+    rawStore: ProjectStore,
+    manifest: ProjectManifest,
+    ids: SequentialIdGenerator,
     private readonly rootPath: string,
     private readonly index: ProjectIndex | undefined,
     private readonly clock: () => string,
   ) {
-    this.graph = new EntityGraph(store);
-    this.search = new ProjectSearch(store, this.graph);
+    this.store = new JournaledProjectStore(rawStore);
+    this.history = new HistoryStore(rawStore);
+    this.manifest = manifest;
+    this.ids = ids;
+    this.graph = new EntityGraph(this.store);
+    this.search = new ProjectSearch(this.store, this.graph);
   }
 
   // ── Lifecycle ────────────────────────────────────────────────────────────
@@ -155,7 +171,7 @@ export class StoryRepository {
       options.index.setMetadata("schemaVersion", String(manifest.schemaVersion));
     }
 
-    return new StoryRepository(
+    const repo = new StoryRepository(
       store,
       manifest,
       new SequentialIdGenerator(),
@@ -163,6 +179,9 @@ export class StoryRepository {
       options.index,
       clock,
     );
+    // Every project starts with a "Draft 0" checkpoint to revert back to.
+    await repo.createCheckpoint("Draft 0");
+    return repo;
   }
 
   static async openProject(options: OpenProjectOptions): Promise<StoryRepository> {
@@ -234,13 +253,18 @@ export class StoryRepository {
     if (title !== undefined && title.length === 0) {
       throw new RepositoryError("invalid_manifest", "Project title must not be empty.");
     }
-    this.manifest = {
-      ...this.manifest,
-      ...(title !== undefined ? { title } : {}),
-      updatedAt: this.clock(),
-    };
-    await this.store.writeFile(PATHS.manifest, serialize(this.manifest));
-    this.index?.setMetadata("title", this.manifest.title);
+    await this.recordChange(
+      { actor: "human", operation: "update_metadata", summary: "Update project metadata" },
+      async () => {
+        this.manifest = {
+          ...this.manifest,
+          ...(title !== undefined ? { title } : {}),
+          updatedAt: this.clock(),
+        };
+        await this.store.writeFile(PATHS.manifest, serialize(this.manifest));
+        this.index?.setMetadata("title", this.manifest.title);
+      },
+    );
     return this.manifest;
   }
 
@@ -256,9 +280,14 @@ export class StoryRepository {
 
   async writeProjectFile(path: string, content: string): Promise<void> {
     const safePath = normalizeProjectPath(path);
-    await this.store.writeFile(safePath, content);
-    await this.search.onFileWritten(safePath);
-    await this.touch();
+    await this.recordChange(
+      { actor: "human", operation: "edit_file", summary: `Edit ${safePath}` },
+      async () => {
+        await this.store.writeFile(safePath, content);
+        await this.search.onFileWritten(safePath);
+        await this.touch();
+      },
+    );
   }
 
   async createDirectory(path: string): Promise<void> {
@@ -285,7 +314,10 @@ export class StoryRepository {
       filePath: chapterFilePath(id),
       status: input.status ?? "outline",
     };
-    await this.persistEntity("chapter", chapter, chapter.title, chapter.filePath);
+    await this.persistEntity("chapter", chapter, chapter.title, chapter.filePath, {
+      operation: "add_chapter",
+      change: "created",
+    });
     return chapter;
   }
 
@@ -313,7 +345,10 @@ export class StoryRepository {
       purpose: input.purpose ?? [],
       status: input.status ?? "planned",
     };
-    await this.persistEntity("scene", scene, scene.title);
+    await this.persistEntity("scene", scene, scene.title, undefined, {
+      operation: "add_scene",
+      change: "created",
+    });
     return scene;
   }
 
@@ -336,7 +371,10 @@ export class StoryRepository {
       status: input.status ?? "active",
       filePath: characterFilePath(id),
     };
-    await this.persistEntity("character", character, character.name, character.filePath);
+    await this.persistEntity("character", character, character.name, character.filePath, {
+      operation: "add_character",
+      change: "created",
+    });
     return character;
   }
 
@@ -357,7 +395,10 @@ export class StoryRepository {
       notes: input.notes ?? "",
       filePath: locationFilePath(id),
     };
-    await this.persistEntity("location", location, location.name, location.filePath);
+    await this.persistEntity("location", location, location.name, location.filePath, {
+      operation: "add_location",
+      change: "created",
+    });
     return location;
   }
 
@@ -376,7 +417,10 @@ export class StoryRepository {
       status: input.status ?? "intact",
       filePath: objectFilePath(id),
     };
-    await this.persistEntity("object", object, object.name, object.filePath);
+    await this.persistEntity("object", object, object.name, object.filePath, {
+      operation: "add_object",
+      change: "created",
+    });
     return object;
   }
 
@@ -400,7 +444,10 @@ export class StoryRepository {
       ...(input.resolvedSceneId !== undefined ? { resolvedSceneId: input.resolvedSceneId } : {}),
       relatedSceneIds: input.relatedSceneIds ?? [],
     };
-    await this.persistEntity("plot_thread", thread, thread.name);
+    await this.persistEntity("plot_thread", thread, thread.name, undefined, {
+      operation: "add_plot_thread",
+      change: "created",
+    });
     return thread;
   }
 
@@ -418,7 +465,10 @@ export class StoryRepository {
       ...(input.source !== undefined ? { source: input.source } : {}),
       ...(input.notes !== undefined ? { notes: input.notes } : {}),
     };
-    await this.persistEntity("fact", fact, fact.statement);
+    await this.persistEntity("fact", fact, fact.statement, undefined, {
+      operation: "add_fact",
+      change: "created",
+    });
     return fact;
   }
 
@@ -436,7 +486,10 @@ export class StoryRepository {
       severity: input.severity ?? "soft",
       scope: input.scope ?? "global",
     };
-    await this.persistEntity("world_rule", rule, rule.name);
+    await this.persistEntity("world_rule", rule, rule.name, undefined, {
+      operation: "add_world_rule",
+      change: "created",
+    });
     return rule;
   }
 
@@ -458,7 +511,10 @@ export class StoryRepository {
       ...(input.locationId !== undefined ? { locationId: input.locationId } : {}),
       characterIds: input.characterIds ?? [],
     };
-    await this.persistEntity("event", event, event.name);
+    await this.persistEntity("event", event, event.name, undefined, {
+      operation: "add_event",
+      change: "created",
+    });
     return event;
   }
 
@@ -476,7 +532,10 @@ export class StoryRepository {
       type: input.type,
       description: input.description ?? "",
     };
-    await this.persistEntity("relationship", rel, rel.type);
+    await this.persistEntity("relationship", rel, rel.type, undefined, {
+      operation: "add_relationship",
+      change: "created",
+    });
     return rel;
   }
 
@@ -585,6 +644,8 @@ export class StoryRepository {
       kind,
       next,
       displayName(kind, next as unknown as Record<string, unknown>),
+      undefined,
+      { operation: "update_entity", change: "updated" },
     );
     return next as unknown as T;
   }
@@ -616,46 +677,252 @@ export class StoryRepository {
     const referrers = await this.graph.findReferrers(id);
     let unlinked: string[] = [];
 
-    if (referrers.length > 0) {
-      if (mode === "prevent") {
-        throw new RepositoryError(
-          "has_references",
-          `${id} is referenced by ${referrers.length} entit${referrers.length === 1 ? "y" : "ies"} (${referrers
-            .map((r) => r.fromId)
-            .join(", ")}). Unlink them first or delete with mode "unlink".`,
-          { details: { referrers } },
-        );
-      }
-      unlinked = await this.graph.unlinkReferences(id);
-      for (const otherId of unlinked) await this.reindexAfterUnlink(otherId);
+    if (referrers.length > 0 && mode === "prevent") {
+      throw new RepositoryError(
+        "has_references",
+        `${id} is referenced by ${referrers.length} entit${referrers.length === 1 ? "y" : "ies"} (${referrers
+          .map((r) => r.fromId)
+          .join(", ")}). Unlink them first or delete with mode "unlink".`,
+        { details: { referrers } },
+      );
     }
 
-    await store.remove(id);
-    await this.deindexEntity(id);
-    this.search.onEntityRemoved(kind, id);
-    await this.touch();
+    const name = displayName(kind, (await store.get(id)) as unknown as Record<string, unknown>);
+    const entitiesChanged: EntityChange[] = [{ id, kind, change: "deleted" }];
+
+    await this.recordChange(
+      {
+        actor: "human",
+        operation: "delete_entity",
+        summary: `Delete ${kind.replace(/_/g, " ")} “${name}”`,
+        entitiesChanged,
+      },
+      async () => {
+        if (referrers.length > 0) {
+          unlinked = await this.graph.unlinkReferences(id);
+          for (const otherId of unlinked) {
+            await this.reindexAfterUnlink(otherId);
+            const otherKind = kindOf(otherId);
+            if (otherKind !== null) {
+              const stillExists = (await this.graph.store(otherKind).get(otherId)) !== null;
+              entitiesChanged.push({
+                id: otherId,
+                kind: otherKind,
+                change: stillExists ? "updated" : "deleted",
+              });
+            }
+          }
+        }
+        await store.remove(id);
+        await this.deindexEntity(id);
+        this.search.onEntityRemoved(kind, id);
+        await this.touch();
+      },
+    );
     return { deletedId: id, unlinked };
   }
 
+  // ── History, checkpoints & transactions ─────────────────────────────────────
+
+  /** Revision history, newest first. */
+  listChangeSets(): Promise<ChangeSetSummary[]> {
+    return this.history.listChangeSets();
+  }
+
+  /** A full change set including per-file before/after content. */
+  getChangeSet(id: string): Promise<ChangeSet | null> {
+    return this.history.getChangeSet(id);
+  }
+
+  listCheckpoints(): Promise<Checkpoint[]> {
+    return this.history.listCheckpoints();
+  }
+
+  /** Snapshot the whole project (excluding history) as a named, revertible point. */
+  async createCheckpoint(label: string): Promise<Checkpoint> {
+    const files: SnapshotFile[] = [];
+    for (const path of await this.store.list()) {
+      if (path.startsWith(HISTORY_PREFIX)) continue;
+      const content = await this.store.readFile(path);
+      if (content !== null) files.push({ path, content });
+    }
+    const changes = await this.history.listChangeSets();
+    const atChangeSetId = changes[0]?.id;
+    return this.history.saveCheckpoint(
+      label.trim() || "Checkpoint",
+      this.clock(),
+      files,
+      atChangeSetId,
+    );
+  }
+
+  /**
+   * Revert a single change set by re-applying its inverse (restore each file's
+   * `before`). History is preserved: the original is marked `reverted` and the
+   * revert is itself recorded as a new change set.
+   */
+  async revertChangeSet(id: string): Promise<ChangeSet> {
+    const target = await this.history.getChangeSet(id);
+    if (target === null) {
+      throw new RepositoryError("entity_not_found", `No change set ${id}.`);
+    }
+    const change = await this.recordChange(
+      {
+        actor: "human",
+        operation: "revert",
+        summary: `Revert ${id}: ${target.summary}`,
+        revertsChangeSetId: id,
+        entitiesChanged: target.entitiesChanged.map((e) => ({
+          ...e,
+          change: inverseChange(e.change),
+        })),
+      },
+      async () => {
+        for (const fileChange of target.filesChanged) {
+          if (fileChange.before === null) await this.store.delete(fileChange.path);
+          else await this.store.writeFile(fileChange.path, fileChange.before);
+        }
+      },
+    );
+    await this.history.setStatus(id, "reverted");
+    await this.reloadState();
+    return change;
+  }
+
+  /** Revert the whole project to a checkpoint. Recorded as a new change set. */
+  async revertToCheckpoint(id: string): Promise<ChangeSet> {
+    const snapshot = await this.history.getCheckpointFiles(id);
+    if (snapshot === null) {
+      throw new RepositoryError("entity_not_found", `No checkpoint ${id}.`);
+    }
+    const snapshotMap = new Map(snapshot.map((f) => [f.path, f.content]));
+    const checkpoint = (await this.history.listCheckpoints()).find((c) => c.id === id);
+    const current = (await this.store.list()).filter((p) => !p.startsWith(HISTORY_PREFIX));
+
+    const change = await this.recordChange(
+      {
+        actor: "human",
+        operation: "revert_to_checkpoint",
+        summary: `Revert to checkpoint “${checkpoint?.label ?? id}”`,
+      },
+      async () => {
+        for (const path of current) {
+          if (!snapshotMap.has(path)) await this.store.delete(path);
+        }
+        for (const [path, content] of snapshotMap) {
+          if ((await this.store.readFile(path)) !== content) {
+            await this.store.writeFile(path, content);
+          }
+        }
+      },
+    );
+    await this.reloadState();
+    return change;
+  }
+
+  /**
+   * Begin a file-level staging transaction for a multi-step operation: stage
+   * writes, `preview()` them, then `commit()` (records one change set) or
+   * `discard()`. The primitive future AI workflows use to stay reversible.
+   */
+  beginTransaction(summary = "Staged changes"): StagedTransaction {
+    return new StagedTransaction(
+      (path) => this.store.readFile(path),
+      async (ops: StagedFileOp[], entities: EntityChange[], sum: string) => {
+        const change = await this.recordChange(
+          { actor: "agent", operation: "transaction", summary: sum, entitiesChanged: entities },
+          async () => {
+            for (const op of ops) {
+              if (op.content === null) await this.store.delete(op.path);
+              else await this.store.writeFile(op.path, op.content);
+            }
+          },
+        );
+        await this.reloadState();
+        return change;
+      },
+      summary,
+    );
+  }
+
+  /** Re-read in-memory state (manifest, id counters, search) after a revert. */
+  private async reloadState(): Promise<void> {
+    const raw = await this.store.readFile(PATHS.manifest);
+    if (raw !== null) {
+      const parsed = validateManifest(raw);
+      if (parsed.ok) this.manifest = parsed.value;
+    }
+    this.ids = await loadIdGenerator(this.store);
+    await this.search.rebuild();
+  }
+
   // ── Internals ────────────────────────────────────────────────────────────
+
+  /** Run `body` as one recorded change set; roll back file writes on failure. */
+  private async recordChange(
+    meta: {
+      actor: Actor;
+      operation: string;
+      summary: string;
+      entitiesChanged?: readonly EntityChange[];
+      revertsChangeSetId?: string;
+      taskId?: string;
+      modelId?: string;
+    },
+    body: () => Promise<void>,
+  ): Promise<ChangeSet> {
+    this.store.beginRecording();
+    try {
+      await body();
+    } catch (error) {
+      await this.store.rollbackRecording();
+      throw error;
+    }
+    const filesChanged = this.store.endRecording();
+    return this.history.append({
+      timestamp: this.clock(),
+      actor: meta.actor,
+      operation: meta.operation,
+      filesChanged,
+      entitiesChanged: meta.entitiesChanged ?? [],
+      summary: meta.summary,
+      status: "committed",
+      ...(meta.revertsChangeSetId !== undefined
+        ? { revertsChangeSetId: meta.revertsChangeSetId }
+        : {}),
+      ...(meta.taskId !== undefined ? { taskId: meta.taskId } : {}),
+      ...(meta.modelId !== undefined ? { modelId: meta.modelId } : {}),
+    });
+  }
 
   private async persistEntity(
     kind: GraphKind,
     entity: HasId,
     name: string,
-    filePath?: string,
+    filePath: string | undefined,
+    op: { operation: string; change: "created" | "updated"; actor?: Actor },
   ): Promise<void> {
-    await this.validateReferences(kind, entity);
-    await this.graph.store(kind).put(entity);
-    await this.recordEntity({
-      id: entity.id,
-      kind,
-      name,
-      ...(filePath !== undefined ? { filePath } : {}),
-    });
-    await this.search.onEntityChanged(kind, entity.id);
-    await this.persistIdState();
-    await this.touch();
+    await this.validateReferences(kind, entity); // read-only; outside the change set
+    await this.recordChange(
+      {
+        actor: op.actor ?? "human",
+        operation: op.operation,
+        summary: `${op.change === "created" ? "Create" : "Update"} ${kind.replace(/_/g, " ")} “${name}”`,
+        entitiesChanged: [{ id: entity.id, kind, change: op.change }],
+      },
+      async () => {
+        await this.graph.store(kind).put(entity);
+        await this.recordEntity({
+          id: entity.id,
+          kind,
+          name,
+          ...(filePath !== undefined ? { filePath } : {}),
+        });
+        await this.search.onEntityChanged(kind, entity.id);
+        await this.persistIdState();
+        await this.touch();
+      },
+    );
   }
 
   /** Ensure every outgoing reference targets an existing entity (no dangling refs). */

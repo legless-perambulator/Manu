@@ -38,6 +38,20 @@ export type {
   ResultKind,
 } from "@jellytind/search";
 
+export type {
+  Actor,
+  ChangeStatus,
+  FileChange,
+  EntityChange,
+  ChangeSet,
+  ChangeSetSummary,
+  Checkpoint,
+} from "./history";
+export { StagedTransaction } from "./transaction";
+export type { StagedFileOp } from "./transaction";
+export { computeLineDiff, diffStat } from "./diff";
+export type { DiffLine, DiffOp, DiffStat } from "./diff";
+
 export { parseFrontmatter, serializeFrontmatter } from "./frontmatter";
 
 export type { CatalogEntity } from "./catalog";

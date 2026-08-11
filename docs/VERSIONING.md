@@ -2,31 +2,91 @@
 
 Every AI mutation must be reversible, attributable and auditable. This document covers revisions, diffs, checkpoints, branches, transactional edits and the audit trail.
 
-- **Package:** `@jellytind/persistence` (`RevisionStore`, `RevisionEntry`, `RevisionAuthor`)
-- **Status:** The append-only `RevisionStore` **interface** exists. The mutation layer, diffs, checkpoints, undo/revert and branching are **PLANNED (V1)**; richer history follows.
+- **Package:** `@jellytind/story-repository` (change sets, history, checkpoints, diffs, revert, staging)
+- **Status (Phase 5):** **Implemented and tested.** Every significant mutation is captured as a reviewable, reversible **change set**; checkpoints snapshot the whole project; a line diff drives a diff viewer; single change sets and whole-checkpoint reverts work; and a staging transaction is ready for future AI operations. Branching remains **PLANNED**.
 
-Every revision entry already carries provenance — `author` (human or agent+model),
-`summary`, and `affectedEntities` (by ID) — so the audit trail is attributable by
-construction.
+This is the safety layer that must exist **before** unrestricted AI editing: it is
+difficult for any operation — human or agent — to irreversibly damage a project.
 
-## Mutation layer
+## The mutation layer
 
-All meaningful mutations pass through the application's mutation layer. No LLM response directly overwrites substantial project content. Each mutation is attributable, inspectable, reversible, validated where applicable, and recorded in revision history.
+Every mutation flows through one chokepoint. `StoryRepository` wraps its file
+store in a **`JournaledProjectStore`**: while a recording session is open it
+captures the before/after content of every file write and delete. Each public
+mutation (`writeProjectFile`, `saveProjectMetadata`, entity add/update/delete)
+runs inside `recordChange(...)`, which opens a session, runs the operation, and
+emits exactly one {@link ChangeSet}. History files (`.writer/revisions/`) are
+never captured, so history never diffs itself.
+
+If the operation throws mid-way, the session is **rolled back** (before-images
+restored) and no change set is committed — an interrupted or failed write cannot
+leave a partially-applied, unrecorded mess.
+
+## Change sets
+
+A `ChangeSet` records:
+
+```
+id · timestamp · actor (human | agent | system | import) · operation
+taskId? · modelId? · summary · status (committed | reverted | failed)
+filesChanged[]     — path + before/after content (before=null → created, after=null → deleted)
+entitiesChanged[]  — { id, kind, change: created | updated | deleted }
+revertsChangeSetId? — set when this change reverts another
+```
+
+`filesChanged` captures **everything** — manuscript prose, entity files, and the
+structured state files (manifest, catalog, id-sequences, collection JSON) — so
+changes to entities, links, metadata and project state are all covered. A
+compact `ChangeSetSummary` (no content) drives fast history listing;
+`getChangeSet(id)` loads the full before/after. Stored under
+`.writer/revisions/changes/` with an index at `.writer/revisions/log.json`.
 
 ## Diffs
 
-Provide visual diffs for every change:
-
-```diff
-- He walked slowly toward the door.
-+ Elias crossed the room but stopped short of the door.
-```
-
-Support: accept change · reject change · accept selected · reject selected · accept all · restore previous version.
+`computeLineDiff(before, after)` is a dependency-free LCS line diff classifying
+each line as **context / add / remove** (a modification is a remove + add); the
+diff viewer renders additions, deletions and modifications per file with
+`+`/`−` counts. Any change set — including a revert — is fully inspectable.
 
 ## Checkpoints
 
-Create checkpoints automatically before large operations, so any substantial AI operation has a safe state to return to. Checkpoints are the backbone of failure recovery (see [AGENT_RUNTIME.md](AGENT_RUNTIME.md)).
+`createCheckpoint(label)` snapshots every project file (excluding history) as a
+named, revertible point, e.g. _Draft 0_, _Before Act II Rewrite_, _Before Story
+Refactor_, _Dialogue Pass_. A **Draft 0** checkpoint is created automatically at
+project creation. Large AI operations will create them automatically in a later
+phase. `revertToCheckpoint(id)` restores the project to that snapshot (delta —
+only differing files change) and records the revert as a new change set.
+
+## Revert
+
+Two granularities, both **non-destructive** — history is append-only, so a revert
+never deletes later change sets:
+
+- **`revertChangeSet(id)`** re-applies the inverse of a single change (restore
+  each file's `before`). The original is marked `reverted`; the revert is itself
+  recorded as a new change set (`operation: "revert"`, `revertsChangeSetId`).
+  Successive reverts are supported.
+- **`revertToCheckpoint(id)`** returns the whole project to a snapshot.
+
+After any revert the repository **reloads in-memory state** (manifest, the
+ID-allocation counters, and the search index) so, for example, reverting an
+entity's creation frees its ID for reuse and no dangling in-memory state remains.
+
+## Staging transactions (for future AI operations)
+
+`beginTransaction()` returns a `StagedTransaction` — the boundary future AI
+workflows use to stay reversible:
+
+1. **stage** writes/deletes (`tx.writeFile` / `tx.deleteFile`); staged reads are
+   overlaid so the operation can build on its own pending changes,
+2. **validate** (the caller runs whatever checks it needs),
+3. **present** — `tx.preview()` returns the before/after of every staged file for
+   a diff,
+4. **commit** (applies everything as one recorded change set) **or `discard`**
+   (touches nothing).
+
+Nothing reaches disk until commit, so a rejected AI proposal leaves the project
+untouched.
 
 ## Revision record
 

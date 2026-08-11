@@ -7,14 +7,14 @@ north-star spec see [`../MASTER_BUILD.md`](../MASTER_BUILD.md).
 
 ## Status
 
-**Phases 1, 3 & 4 implemented.** On the Phase-0 foundation: the persistent Story
-Repository (`@jellytind/domain`, `@jellytind/persistence`,
-`@jellytind/story-repository`), the fiction-domain **entity graph** with
-referential integrity, and deterministic **search & retrieval**
-(`@jellytind/search` — lexical index + structured graph queries) are built and
-tested, with a functional desktop workbench (files, entities, inspector, search).
-The remaining subsystem packages are typed interfaces marked **PLANNED**; features
-continue as vertical slices (see [`ROADMAP.md`](ROADMAP.md)).
+**Phases 1, 3, 4 & 5 implemented.** On the Phase-0 foundation: the persistent
+Story Repository, the fiction-domain **entity graph** with referential integrity,
+deterministic **search & retrieval** (`@jellytind/search`), and **revision
+history** — journaled change sets, checkpoints, diffs, revert, and a staging
+transaction — are built and tested, with a functional desktop workbench (files,
+entities, inspector, search, history/diff). The remaining subsystem packages are
+typed interfaces marked **PLANNED**; features continue as vertical slices (see
+[`ROADMAP.md`](ROADMAP.md)).
 
 ## Repository layout
 

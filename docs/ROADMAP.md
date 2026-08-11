@@ -4,9 +4,10 @@ Versioned delivery plan. Implementation proceeds **vertically**: finish a cohere
 
 ## Status
 
-**Phases 0 (foundation), 1 (Story Repository), 3 (fiction-domain entities) and
-4 (search & retrieval) complete.** AI-facing work (Context Compiler, AI edits,
-checkpoints) is not yet started.
+**Phases 0 (foundation), 1 (Story Repository), 3 (fiction-domain entities), 4
+(search & retrieval) and 5 (revision history, checkpoints & diffs) complete.**
+AI-facing work (Context Compiler, agent-driven edits) is not yet started — the
+safety layer it depends on now exists.
 
 ## Vertical-slice method
 
@@ -92,6 +93,24 @@ Deterministic retrieval before AI context selection.
   opens files or selects entities.
 
 See [SEARCH.md](SEARCH.md).
+
+## Phase 5 — Revision history, checkpoints & diffs ✅
+
+The safety layer required before unrestricted AI editing.
+
+- Every mutation is captured as a reviewable, reversible **change set**
+  (actor, operation, file before/after, entity changes, status) via a journaling
+  store; failed operations roll back and record nothing.
+- **Checkpoints** snapshot the whole project (auto "Draft 0" at creation).
+- Line **diff** engine + a diff viewer (additions/deletions/modifications).
+- **Revert** a single change set or to a checkpoint — non-destructive
+  (history is append-only; the revert is itself recorded), with in-memory state
+  reloaded afterwards.
+- A **staging transaction** (stage → validate → present → commit/discard) ready
+  for future AI operations.
+- UI: a History tab (change sets + checkpoints) and a diff viewer with revert.
+
+See [VERSIONING.md](VERSIONING.md).
 
 ## V1 (remaining) — Writing IDE
 

@@ -3,15 +3,18 @@ import type { StoryRepository } from "@jellytind/story-repository";
 import { ProjectExplorer } from "./ProjectExplorer";
 import { EntitiesPanel } from "./EntitiesPanel";
 import { SearchPanel } from "./SearchPanel";
+import { HistoryPanel } from "./HistoryPanel";
 import { Editor } from "./Editor";
 import { Inspector } from "./Inspector";
+import { DiffViewer } from "./DiffViewer";
 
-type LeftTab = "files" | "entities" | "search";
+type LeftTab = "files" | "entities" | "search" | "history";
 
 export function Workspace({ repo, onClose }: { repo: StoryRepository; onClose: () => void }) {
   const [tab, setTab] = useState<LeftTab>("files");
   const [openPath, setOpenPath] = useState<string | null>(null);
   const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
+  const [selectedChangeId, setSelectedChangeId] = useState<string | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
 
   const refresh = () => setRefreshToken((n) => n + 1);
@@ -47,6 +50,12 @@ export function Workspace({ repo, onClose }: { repo: StoryRepository; onClose: (
             >
               Search
             </button>
+            <button
+              className={`tab${tab === "history" ? " tab--active" : ""}`}
+              onClick={() => setTab("history")}
+            >
+              History
+            </button>
           </div>
           {tab === "files" && (
             <ProjectExplorer
@@ -77,10 +86,31 @@ export function Workspace({ repo, onClose }: { repo: StoryRepository; onClose: (
               refreshToken={refreshToken}
             />
           )}
+          {tab === "history" && (
+            <HistoryPanel
+              repo={repo}
+              selectedChangeId={selectedChangeId}
+              onSelectChange={setSelectedChangeId}
+              refreshToken={refreshToken}
+              onChanged={refresh}
+            />
+          )}
         </aside>
 
         <main className="panel panel--editor">
-          <Editor repo={repo} path={openPath} onSaved={refresh} />
+          {selectedChangeId !== null ? (
+            <DiffViewer
+              repo={repo}
+              changeId={selectedChangeId}
+              onReverted={() => {
+                setSelectedChangeId(null);
+                refresh();
+              }}
+              onClose={() => setSelectedChangeId(null)}
+            />
+          ) : (
+            <Editor repo={repo} path={openPath} onSaved={refresh} />
+          )}
         </main>
 
         <aside className="panel panel--inspector">
