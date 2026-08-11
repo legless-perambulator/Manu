@@ -71,6 +71,9 @@ importers:
       '@jellytind/story-repository':
         specifier: workspace:*
         version: link:../../packages/story-repository
+      '@jellytind/story-state':
+        specifier: workspace:*
+        version: link:../../packages/story-state
       '@tauri-apps/api':
         specifier: ^2.1.1
         version: 2.11.1
@@ -138,6 +141,9 @@ importers:
       '@jellytind/shared':
         specifier: workspace:*
         version: link:../shared
+      '@jellytind/story-state':
+        specifier: workspace:*
+        version: link:../story-state
 
   packages/domain:
     dependencies:
@@ -165,6 +171,9 @@ importers:
       '@jellytind/story-repository':
         specifier: workspace:*
         version: link:../story-repository
+      '@jellytind/story-state':
+        specifier: workspace:*
+        version: link:../story-state
 
   packages/model-router:
     dependencies:
@@ -227,6 +236,9 @@ importers:
       '@jellytind/shared':
         specifier: workspace:*
         version: link:../shared
+      '@jellytind/story-state':
+        specifier: workspace:*
+        version: link:../story-state
       js-yaml:
         specifier: ^4.1.0
         version: 4.3.1
@@ -234,6 +246,15 @@ importers:
       '@types/js-yaml':
         specifier: ^4.0.9
         version: 4.0.9
+
+  packages/story-state:
+    dependencies:
+      '@jellytind/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@jellytind/shared':
+        specifier: workspace:*
+        version: link:../shared
 
 packages:
 

@@ -37,6 +37,8 @@ export const PRIORITY = {
   involved: 30,
   /** Threads the target carries. */
   threads: 40,
+  /** Who is where, who knows what, at this point in the story. */
+  state: 45,
   /** Rules that constrain the work. */
   rules: 50,
   /** Style and voice material. */

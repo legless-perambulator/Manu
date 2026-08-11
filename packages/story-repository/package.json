@@ -16,6 +16,7 @@
     "@jellytind/persistence": "workspace:*",
     "@jellytind/search": "workspace:*",
     "@jellytind/shared": "workspace:*",
+    "@jellytind/story-state": "workspace:*",
     "js-yaml": "^4.1.0"
   },
   "devDependencies": {

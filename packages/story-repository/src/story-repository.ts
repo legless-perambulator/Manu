@@ -31,12 +31,20 @@ import {
   type LocationId,
   type ObjectId,
   type PlotThreadId,
+  orderScenes,
 } from "@jellytind/domain";
 import { normalizeProjectPath, type ProjectStore, type ProjectIndex } from "@jellytind/persistence";
 import type { SearchHit, SearchQuery } from "@jellytind/search";
 import type { AgentStore } from "@jellytind/agent-runtime";
+import {
+  StoryTimeline,
+  validateTransition,
+  type StateTransition,
+  type TransitionDraft,
+} from "@jellytind/story-state";
 import { RepositoryError } from "./errors";
 import { RepositoryAgentStore } from "./agent-store";
+import { TransitionStore } from "./state-store";
 import { ProjectSearch } from "./project-search";
 import {
   scenesByCharacter,
@@ -137,6 +145,7 @@ export class StoryRepository {
   private readonly graph: EntityGraph;
   private readonly search: ProjectSearch;
   private readonly agentStore: RepositoryAgentStore;
+  private readonly transitions: TransitionStore;
   private manifest: ProjectManifest;
   private ids: SequentialIdGenerator;
 
@@ -155,6 +164,8 @@ export class StoryRepository {
     this.graph = new EntityGraph(this.store);
     this.search = new ProjectSearch(this.store, this.graph);
     this.agentStore = new RepositoryAgentStore(rawStore);
+    // Journaled: a state transition is canon, so changing it is a change set.
+    this.transitions = new TransitionStore(this.store);
   }
 
   // ── Lifecycle ────────────────────────────────────────────────────────────
@@ -602,6 +613,182 @@ export class StoryRepository {
    */
   get agents(): AgentStore {
     return this.agentStore;
+  }
+
+  // ── Story state ─────────────────────────────────────────────────────────────
+
+  /** Every recorded transition, confirmed or otherwise. */
+  listStateTransitions(): Promise<StateTransition[]> {
+    return this.transitions.list();
+  }
+
+  /**
+   * The story-state timeline for this project: scene order plus every
+   * transition, ready to answer state questions at any scene boundary
+   * (docs/STORY_STATE.md).
+   */
+  async getStoryTimeline(): Promise<StoryTimeline> {
+    const [scenes, chapters, transitions] = await Promise.all([
+      this.listScenes(),
+      this.listChapters(),
+      this.transitions.list(),
+    ]);
+    return new StoryTimeline(
+      orderScenes(scenes, chapters).map((scene) => scene.id as string),
+      transitions,
+    );
+  }
+
+  /**
+   * Record state transitions. Every draft is shape-validated and its references
+   * checked against the project, so neither an author nor a model can record a
+   * transition about an entity that does not exist.
+   */
+  async addStateTransitions(
+    drafts: readonly TransitionDraft[],
+    options: {
+      source?: StateTransition["source"];
+      confirmationStatus?: StateTransition["confirmationStatus"];
+      modelId?: string;
+      taskId?: string;
+      summary?: string;
+    } = {},
+  ): Promise<StateTransition[]> {
+    const now = this.clock();
+    const status = options.confirmationStatus ?? "confirmed";
+    const prepared: Array<Omit<StateTransition, "id">> = [];
+
+    for (const draft of drafts) {
+      validateTransition(draft);
+      await this.requireEntities(draft);
+      prepared.push({
+        sceneId: draft.sceneId,
+        kind: draft.kind,
+        subjectId: draft.subjectId,
+        value: draft.value,
+        ...(draft.certainty !== undefined ? { certainty: draft.certainty } : {}),
+        ...(draft.howLearned !== undefined ? { howLearned: draft.howLearned } : {}),
+        ...(draft.note !== undefined ? { note: draft.note } : {}),
+        source: options.source ?? "author",
+        confirmationStatus: status,
+        ...(options.modelId !== undefined ? { modelId: options.modelId } : {}),
+        createdAt: now,
+        ...(status === "confirmed" ? { confirmedAt: now } : {}),
+      });
+    }
+
+    let stored: StateTransition[] = [];
+    await this.recordChange(
+      {
+        actor: options.source === "agent" ? "agent" : "human",
+        operation: status === "proposed" ? "propose_state" : "record_state",
+        summary:
+          options.summary ??
+          `${status === "proposed" ? "Propose" : "Record"} ${String(prepared.length)} state transition(s)`,
+        ...(options.taskId !== undefined ? { taskId: options.taskId } : {}),
+        ...(options.modelId !== undefined ? { modelId: options.modelId } : {}),
+      },
+      async () => {
+        stored = await this.transitions.append(prepared);
+        await this.touch();
+      },
+    );
+    return stored;
+  }
+
+  /** Correct a transition. Re-validated, so a correction cannot break the rules. */
+  async updateStateTransition(
+    id: string,
+    patch: Partial<TransitionDraft>,
+  ): Promise<StateTransition> {
+    const existing = await this.transitions.get(id);
+    if (existing === null) {
+      throw new RepositoryError("entity_not_found", `No state transition with id ${id}.`);
+    }
+    const merged: TransitionDraft = {
+      sceneId: patch.sceneId ?? existing.sceneId,
+      kind: patch.kind ?? existing.kind,
+      subjectId: patch.subjectId ?? existing.subjectId,
+      value: patch.value ?? existing.value,
+      ...((patch.certainty ?? existing.certainty) !== undefined
+        ? { certainty: patch.certainty ?? existing.certainty }
+        : {}),
+      ...((patch.howLearned ?? existing.howLearned) !== undefined
+        ? { howLearned: patch.howLearned ?? existing.howLearned }
+        : {}),
+    };
+    validateTransition(merged);
+    await this.requireEntities(merged);
+
+    let updated: StateTransition | null = null;
+    await this.recordChange(
+      { actor: "human", operation: "update_state", summary: `Correct state transition ${id}` },
+      async () => {
+        updated = await this.transitions.update(id, {
+          ...merged,
+          ...(patch.note !== undefined ? { note: patch.note } : {}),
+        });
+        await this.touch();
+      },
+    );
+    if (updated === null) {
+      throw new RepositoryError("entity_not_found", `No state transition with id ${id}.`);
+    }
+    return updated;
+  }
+
+  /** Confirm or reject a proposed transition. Only confirmation makes it canon. */
+  async setTransitionStatus(
+    id: string,
+    status: StateTransition["confirmationStatus"],
+  ): Promise<StateTransition> {
+    const now = this.clock();
+    let updated: StateTransition | null = null;
+    await this.recordChange(
+      {
+        actor: "human",
+        operation: `${status}_state`,
+        summary: `Mark state transition ${id} ${status}`,
+      },
+      async () => {
+        updated = await this.transitions.update(id, {
+          confirmationStatus: status,
+          ...(status === "confirmed" ? { confirmedAt: now } : {}),
+        });
+        await this.touch();
+      },
+    );
+    if (updated === null) {
+      throw new RepositoryError("entity_not_found", `No state transition with id ${id}.`);
+    }
+    return updated;
+  }
+
+  async deleteStateTransition(id: string): Promise<void> {
+    await this.recordChange(
+      { actor: "human", operation: "delete_state", summary: `Delete state transition ${id}` },
+      async () => {
+        if (!(await this.transitions.remove(id))) {
+          throw new RepositoryError("entity_not_found", `No state transition with id ${id}.`);
+        }
+        await this.touch();
+      },
+    );
+  }
+
+  /** Every ID a transition names must exist in the project. */
+  private async requireEntities(draft: TransitionDraft): Promise<void> {
+    const ids = [draft.sceneId, draft.subjectId, draft.value].filter(
+      (id) => id !== "" && entityKindOf(id) !== null,
+    );
+    for (const id of ids) {
+      if ((await this.getEntity(id)) === null) {
+        throw new RepositoryError(
+          "entity_not_found",
+          `State transition references "${id}", which does not exist in this project.`,
+        );
+      }
+    }
   }
 
   // ── Search & retrieval ──────────────────────────────────────────────────────

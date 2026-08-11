@@ -235,6 +235,41 @@ proposed change is reviewable and reversible before it exists.
 
 See [AI_EDITING.md](AI_EDITING.md).
 
+## Phase 10 — Story State V1 ✅
+
+Deterministic, time-aware story state, so the model never has to re-read the
+manuscript to work out who is where and who knows what.
+
+- **State is transitions, not a snapshot.** Each change is anchored to the scene
+  where it happens; the state at any point is derived by replaying them.
+- **Five dimensions**, chosen for being objective enough to record without
+  interpretation: character location, alive/dead status, object ownership,
+  object location, canonical facts and simple character knowledge (with
+  certainty and how it was learned).
+- **Boundary queries**: `characterStateBeforeScene`, `objectStateAfterScene`,
+  `characterKnowledgeBeforeScene`, `knows`, `establishedFactsBeforeScene`,
+  `worldStateAt` — each answering at a named boundary, never "latest".
+- **Provenance and confirmation** on every transition: source scene, source
+  (author/agent/import), model, certainty, evidence, and a confirmation status.
+  Only confirmed transitions are canon; proposals are stored and visible but
+  excluded from state.
+- **Validation**: a transition's subject and value must be entity kinds its kind
+  allows, and every ID it names must exist — so a model cannot invent state.
+- **Manual editing**: a State tab that reconstructs the world before or after any
+  scene and lets the author record, correct, confirm, reject or delete
+  transitions, each as a reversible change set.
+- **AI extraction**: "Analyse state changes" proposes structured transitions from
+  a scene with confidence and supporting evidence; unusable drafts are shown with
+  the reason rather than dropped.
+- **Context Compiler integration**: a `storyState` section carries the state of
+  the involved characters and objects at the scene's entry boundary, with
+  provenance that names the boundary.
+
+Narrative ordering moved into `@jellytind/domain`, since the compiler, the
+timeline and the Story Compiler must agree on what "the previous scene" means.
+
+See [STORY_STATE.md](STORY_STATE.md).
+
 ## V1 (remaining) — Writing IDE
 
 Prove the core paradigm: **AI can operate reliably on a fiction project instead of merely chatting about it.**

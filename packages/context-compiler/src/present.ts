@@ -17,6 +17,7 @@ const HEADINGS: Readonly<Record<ContextSectionName, string>> = {
   characters: "CHARACTERS",
   locations: "LOCATIONS",
   plotThreads: "PLOT THREADS",
+  storyState: "STORY STATE",
   styleRules: "STYLE",
   worldRules: "WORLD RULES",
   additionalRetrievedContext: "ADDITIONAL CONTEXT",

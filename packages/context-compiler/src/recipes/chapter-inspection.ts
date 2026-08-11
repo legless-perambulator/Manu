@@ -4,6 +4,7 @@ import { CompileError } from "../errors";
 import type { ProjectReader } from "../reader";
 import { renderChapter, summariseChapter } from "../render";
 import { adjacentChapters, scenesOfChapter } from "../sequence";
+import { buildTimeline, chapterInvolvement, stateCandidates } from "./state";
 import {
   byId,
   characterCandidate,
@@ -142,6 +143,24 @@ export async function gatherChapterInspection(
           [chapter.id, ...scenesWith],
         ),
       ),
+    );
+  }
+
+  // Story state as it stands entering the chapter's first scene.
+  const involvement = chapterInvolvement(snap.scenes, chapter);
+  if (involvement.firstScene !== undefined) {
+    const timeline = await buildTimeline(reader);
+    const facts = new Map((await reader.listFacts()).map((f) => [f.id as string, f]));
+    candidates.push(
+      ...stateCandidates({
+        timeline,
+        facts,
+        characterIds: involvement.characterIds,
+        objectIds: involvement.objectIds,
+        sceneId: involvement.firstScene.id,
+        position: "before",
+        becauseOf: chapter.id,
+      }),
     );
   }
 

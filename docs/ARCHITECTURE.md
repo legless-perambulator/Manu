@@ -7,7 +7,7 @@ north-star spec see [`../MASTER_BUILD.md`](../MASTER_BUILD.md).
 
 ## Status
 
-**Phases 1 & 3–9 implemented.** On the Phase-0 foundation: the persistent Story
+**Phases 1 & 3–10 implemented.** On the Phase-0 foundation: the persistent Story
 Repository, the fiction-domain **entity graph** with referential integrity,
 deterministic **search & retrieval** (`@jellytind/search`), **revision history**
 — journaled change sets, checkpoints, diffs, revert, and a staging transaction —
@@ -17,8 +17,10 @@ desktop workbench covers files, entities, inspector, search, history/diff, model
 settings, the agent panel and the context inspector. On top of that sits the
 **Context Compiler**: task-specific, attributed, budget-resolved working context
 for every model operation, and **controlled AI manuscript editing**: targeted,
-staged, reviewable prose edits that only a human decision commits. The remaining
-subsystem packages are typed interfaces marked **PLANNED**; features continue as
+staged, reviewable prose edits that only a human decision commits, and **Story
+State V1**: deterministic, time-aware state reconstructable at any scene
+boundary. The remaining subsystem packages are typed interfaces marked
+**PLANNED**; features continue as
 vertical slices (see [`ROADMAP.md`](ROADMAP.md)).
 
 ## Repository layout
@@ -37,6 +39,7 @@ A pnpm-workspaces monorepo. Applications live in `apps/`, libraries in
 │   ├── domain/                  @jellytind/domain        — branded entity IDs + generation
 │   ├── persistence/             @jellytind/persistence   — storage interfaces + in-memory impls
 │   ├── story-repository/        @jellytind/story-repository — project = source of truth
+│   ├── story-state/             @jellytind/story-state   — time-aware story state
 │   ├── model-router/            @jellytind/model-router  — LanguageModel interface, registry, secrets, routing
 │   ├── context-compiler/        @jellytind/context-compiler — task-specific context assembly
 │   ├── story-compiler/          @jellytind/story-compiler — deterministic/semantic checks
@@ -65,6 +68,7 @@ Each layer may depend only on layers below it. The package graph enforces this.
 │ compiler      │                                                 │
 ├───────────────┴───────────────────────────────────────────────┤
 │ story-repository   agent-runtime   model-router (+ providers/*) │
+│ story-state                                                     │
 ├───────────────────────────────────────────────────────────────┤
 │ domain            persistence            search                 │
 ├───────────────────────────────────────────────────────────────┤
@@ -125,6 +129,9 @@ root-confined Rust commands (see [`STORY_REPOSITORY.md`](STORY_REPOSITORY.md)).
   obtains its working context from `@jellytind/context-compiler` by naming a
   recipe and a target. No caller reads project files and pastes them into a
   prompt. See [`CONTEXT_COMPILER.md`](CONTEXT_COMPILER.md).
+- **State is derived, never cached.** Story state is reconstructed by replaying
+  scene-anchored transitions, so no component may hold a "current state"
+  snapshot. See [`STORY_STATE.md`](STORY_STATE.md).
 - **AI never writes to the project directly.** Model output is validated, staged
   through a transaction, presented as a diff, and committed only by an explicit
   human decision — as one attributable, revertible change set. See

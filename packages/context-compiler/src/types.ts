@@ -26,6 +26,9 @@ export type SelectionRule =
   | "style_rule"
   | "character_voice"
   | "world_rule"
+  | "character_state"
+  | "object_state"
+  | "established_fact"
   | "lexical_search"
   | "pinned";
 
@@ -59,6 +62,7 @@ export type ContextSectionName =
   | "characters"
   | "locations"
   | "plotThreads"
+  | "storyState"
   | "styleRules"
   | "worldRules"
   | "additionalRetrievedContext";
@@ -72,6 +76,7 @@ export const SECTION_ORDER: readonly ContextSectionName[] = [
   "characters",
   "locations",
   "plotThreads",
+  "storyState",
   "styleRules",
   "worldRules",
   "additionalRetrievedContext",

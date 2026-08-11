@@ -13,6 +13,7 @@ import {
   StoryRepository,
 } from "@jellytind/story-repository";
 import { ManuscriptEditor } from "./manuscript-editor";
+import { StateExtractor } from "./state-extractor";
 import { validateProposalText } from "./proposal-schema";
 import { EditError } from "./types";
 
@@ -476,5 +477,160 @@ describe("reversibility", () => {
     const latest = (await repo.listChangeSets())[0];
     expect(latest?.actor).toBe("agent");
     expect(latest?.aiOperation).toBe("rewrite_scene");
+  });
+});
+
+// ── AI state extraction ─────────────────────────────────────────────────────
+
+describe("StateExtractor", () => {
+  const STATE_GRANT: PermissionGrant = {
+    permissions: ["read_manuscript", "read_canon", "edit_story_state"],
+  };
+
+  /** A project with the entities a state proposal can legitimately name. */
+  async function withState() {
+    const fixture = await novel();
+    const { repo, mara, elias, sceneA } = fixture;
+    const manor = (await repo.listLocations())[0];
+    const key = await repo.addObject({ name: "Brass Key" });
+    const vault = await repo.addFact({ statement: "A vault lies beneath the manor." });
+    return { ...fixture, manor, key, vault, mara, elias, sceneA };
+  }
+
+  const extractionModel = (transitions: unknown[]) =>
+    new MockLanguageModel({ structured: { transitions } });
+
+  it("proposes transitions without making them canon", async () => {
+    const { repo, mara, elias, manor, key, vault, sceneA } = await withState();
+    const model = extractionModel([
+      {
+        kind: "character_location",
+        subjectId: elias.id,
+        value: manor?.id,
+        confidence: 0.9,
+        evidence: "Elias was already waiting.",
+      },
+      {
+        kind: "knowledge_gained",
+        subjectId: elias.id,
+        value: vault.id,
+        certainty: 0.7,
+        howLearned: "told",
+        confidence: 0.6,
+        evidence: "Mara told him what lay beneath.",
+      },
+      {
+        kind: "object_owner",
+        subjectId: key.id,
+        value: mara.id,
+        confidence: 0.8,
+        evidence: "She pocketed the key.",
+      },
+    ]);
+    const extractor = new StateExtractor({ repo, model, grant: STATE_GRANT });
+
+    const proposal = await extractor.analyseScene(sceneA.id);
+    expect(proposal.transitions).toHaveLength(3);
+    expect(proposal.rejected).toHaveLength(0);
+    expect(proposal.contextRecipe).toBe("scene_inspection");
+
+    // Stored, visible — and excluded from canonical state.
+    const stored = await repo.listStateTransitions();
+    expect(stored).toHaveLength(3);
+    expect(stored.every((t) => t.confirmationStatus === "proposed")).toBe(true);
+    expect(stored.every((t) => t.source === "agent" && t.modelId === "mock:test")).toBe(true);
+    expect(stored[0]?.note).toMatch(/^Evidence:/);
+
+    const timeline = await repo.getStoryTimeline();
+    expect(timeline.characterStateAfterScene(elias.id, sceneA.id).locationId).toBeUndefined();
+    expect(timeline.characterKnowledgeAfterScene(elias.id, sceneA.id)).toHaveLength(0);
+  });
+
+  it("makes a proposal canon only when confirmed", async () => {
+    const { repo, elias, manor, sceneA } = await withState();
+    const extractor = new StateExtractor({
+      repo,
+      model: extractionModel([
+        {
+          kind: "character_location",
+          subjectId: elias.id,
+          value: manor?.id,
+          confidence: 0.9,
+          evidence: "at the manor",
+        },
+      ]),
+      grant: STATE_GRANT,
+    });
+    await extractor.analyseScene(sceneA.id);
+    const [proposed] = await repo.listStateTransitions();
+
+    await extractor.confirm(proposed?.id ?? "");
+    const timeline = await repo.getStoryTimeline();
+    expect(timeline.characterStateAfterScene(elias.id, sceneA.id).locationId).toBe(manor?.id);
+  });
+
+  it("keeps a rejected proposal out of state but visible", async () => {
+    const { repo, elias, manor, sceneA } = await withState();
+    const extractor = new StateExtractor({
+      repo,
+      model: extractionModel([
+        {
+          kind: "character_location",
+          subjectId: elias.id,
+          value: manor?.id,
+          confidence: 0.4,
+          evidence: "unclear",
+        },
+      ]),
+      grant: STATE_GRANT,
+    });
+    await extractor.analyseScene(sceneA.id);
+    const [proposed] = await repo.listStateTransitions();
+    await extractor.reject(proposed?.id ?? "");
+
+    expect((await repo.listStateTransitions())[0]?.confirmationStatus).toBe("rejected");
+    const timeline = await repo.getStoryTimeline();
+    expect(
+      timeline.characterStateAfterScene(elias.id, sceneA.id, { include: "with_proposed" })
+        .locationId,
+    ).toBeUndefined();
+  });
+
+  it("sets aside drafts that name entities of the wrong kind", async () => {
+    const { repo, elias, key, sceneA } = await withState();
+    const extractor = new StateExtractor({
+      repo,
+      model: extractionModel([
+        // A location that is actually an object — the hallucinated-ID failure.
+        {
+          kind: "character_location",
+          subjectId: elias.id,
+          value: key.id,
+          confidence: 0.9,
+          evidence: "nonsense",
+        },
+        { kind: "not_a_kind", subjectId: elias.id, value: "x", confidence: 0.2, evidence: "" },
+      ]),
+      grant: STATE_GRANT,
+    });
+
+    const proposal = await extractor.analyseScene(sceneA.id);
+    expect(proposal.transitions).toHaveLength(0);
+    expect(proposal.rejected).toHaveLength(2);
+    expect(proposal.rejected[0]?.problem).toMatch(/needs a location value/);
+    // Nothing unusable was persisted.
+    expect(await repo.listStateTransitions()).toHaveLength(0);
+  });
+
+  it("requires the edit_story_state permission", async () => {
+    const { repo, sceneA } = await withState();
+    const extractor = new StateExtractor({
+      repo,
+      model: extractionModel([]),
+      grant: { permissions: ["read_canon"] },
+    });
+    await expect(extractor.analyseScene(sceneA.id)).rejects.toMatchObject({
+      editCode: "permission_denied",
+    });
   });
 });

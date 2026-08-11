@@ -68,3 +68,5 @@ export { parseFrontmatter, serializeFrontmatter } from "./frontmatter";
 export type { CatalogEntity } from "./catalog";
 
 export { RepositoryAgentStore } from "./agent-store";
+
+export { TransitionStore } from "./state-store";

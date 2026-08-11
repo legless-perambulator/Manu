@@ -1,0 +1,285 @@
+import {
+  checkPermission,
+  createTask,
+  transition,
+  type PermissionGrant,
+} from "@jellytind/agent-runtime";
+import { ContextCompiler, renderContextPackage } from "@jellytind/context-compiler";
+import { ModelError, type LanguageModel, type OutputSchema } from "@jellytind/model-router";
+import type { StoryRepository } from "@jellytind/story-repository";
+import {
+  describeTransition,
+  TRANSITION_KINDS,
+  validateTransition,
+  type KnowledgeSource,
+  type StateTransition,
+  type TransitionDraft,
+  type TransitionKind,
+} from "@jellytind/story-state";
+import { EditError } from "./types";
+
+const REQUIRED_PERMISSION = "edit_story_state" as const;
+
+/** One change the model believes the scene makes to the story world. */
+export interface ProposedTransition extends TransitionDraft {
+  /** How sure the model is that this change happened. */
+  readonly confidence: number;
+  /** The model's stated evidence — a phrase from the scene. */
+  readonly evidence: string;
+  /** Set when the draft failed validation; it is shown but cannot be saved. */
+  readonly problem?: string;
+}
+
+export interface StateProposal {
+  readonly taskId: string;
+  readonly sceneId: string;
+  readonly transitions: readonly ProposedTransition[];
+  /** Drafts that failed validation, kept visible rather than hidden. */
+  readonly rejected: readonly ProposedTransition[];
+  readonly modelId: string;
+  readonly contextRecipe: string;
+  readonly createdAt: string;
+}
+
+interface RawExtraction {
+  readonly transitions: ReadonlyArray<Record<string, unknown>>;
+}
+
+const EXTRACTION_SCHEMA: OutputSchema<RawExtraction> = {
+  name: "StateExtraction",
+  parse(value: unknown): RawExtraction {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) {
+      throw new EditError("empty_response", "StateExtraction: expected an object.");
+    }
+    const list = (value as { transitions?: unknown }).transitions;
+    if (!Array.isArray(list)) {
+      throw new EditError("empty_response", 'StateExtraction: "transitions" must be an array.');
+    }
+    return {
+      transitions: list.filter(
+        (t): t is Record<string, unknown> => typeof t === "object" && t !== null,
+      ),
+    };
+  },
+};
+
+const SYSTEM_PROMPT = `You extract story-state changes from a scene in a fiction project.
+
+You are given the scene's structured record, its prose, and the state of the story as it stood entering the scene. Report what the scene *changes*, and nothing else.
+
+Rules:
+- Only report changes the scene actually shows or states. Do not infer offstage events.
+- Use the entity IDs given in the context. Never invent an ID; if the change involves something with no ID, leave it out.
+- Do not repeat state that was already true entering the scene.
+- Give each change a confidence between 0 and 1 and quote the phrase that supports it.
+- You are proposing, not deciding. A human confirms every change.`;
+
+const FORMAT = `Reply with JSON only, matching:
+{
+  "transitions": [
+    {
+      "kind": "one of: ${TRANSITION_KINDS.join(", ")}",
+      "subjectId": "the entity the change is about (CHAR_/OBJECT_/FACT_)",
+      "value": "the new value: LOC_ for a location, CHAR_ for an owner, FACT_ for knowledge or a fact, or one of active/inactive/deceased/unknown for a status",
+      "confidence": 0.0,
+      "evidence": "the phrase in the scene that supports this",
+      "howLearned": "witnessed | told | inferred — only for knowledge_gained",
+      "certainty": 1.0
+    }
+  ]
+}
+Return an empty array if the scene changes nothing.`;
+
+export interface StateExtractorOptions {
+  readonly repo: StoryRepository;
+  readonly model: LanguageModel;
+  readonly grant: PermissionGrant;
+  readonly now?: () => string;
+  readonly maxContextTokens?: number;
+}
+
+/**
+ * "Analyse state changes" — the optional operation offered after a scene is
+ * written or edited.
+ *
+ * The model reads the scene *with* the state that preceded it and proposes
+ * structured transitions. Nothing it proposes becomes canon: every draft is
+ * shape-validated and reference-checked, then stored as `proposed` for a human
+ * to confirm, correct or reject (AGENTS.md — "Canon vs Inference";
+ * docs/STORY_STATE.md).
+ */
+export class StateExtractor {
+  private readonly repo: StoryRepository;
+  private readonly model: LanguageModel;
+  private readonly grant: PermissionGrant;
+  private readonly now: () => string;
+  private readonly maxContextTokens: number;
+
+  constructor(options: StateExtractorOptions) {
+    this.repo = options.repo;
+    this.model = options.model;
+    this.grant = options.grant;
+    this.now = options.now ?? (() => new Date().toISOString());
+    this.maxContextTokens = options.maxContextTokens ?? 12_000;
+  }
+
+  /**
+   * Analyse a scene and persist the model's proposals as **proposed**
+   * transitions — visible, correctable, and excluded from canonical state until
+   * confirmed.
+   */
+  async analyseScene(sceneId: string): Promise<StateProposal> {
+    const decision = checkPermission(
+      { name: "analyse_state_changes", permission: REQUIRED_PERMISSION },
+      this.grant,
+    );
+    if (!decision.allowed) {
+      throw new EditError("permission_denied", decision.reason, { details: { sceneId } });
+    }
+
+    const scene = (await this.repo.listScenes()).find((s) => s.id === sceneId);
+    if (scene === undefined) {
+      throw new EditError("unknown_target", `No scene exists with ID "${sceneId}".`);
+    }
+
+    const task = createTask({
+      id: await this.repo.agents.nextTaskId(),
+      goal: `analyse_state_changes: ${sceneId}`,
+      now: this.now(),
+      scope: [sceneId],
+      allowedTools: [],
+      approvalPolicy: "approve_every_edit",
+    });
+    await this.repo.agents.saveTask(task);
+    let current = await this.repo.agents.saveTask(transition(task, "running", { now: this.now() }));
+
+    try {
+      const compiler = new ContextCompiler(this.repo, { now: this.now });
+      const pkg = await compiler.compile({
+        recipe: "scene_inspection",
+        targetId: sceneId,
+        instruction: `Identify the story-state changes ${sceneId} makes.`,
+        budget: { maxTokens: this.maxContextTokens, reserveForOutput: 2_000 },
+      });
+
+      const raw = await this.model.generateStructured(
+        {
+          system: SYSTEM_PROMPT,
+          messages: [
+            { role: "user", content: renderContextPackage(pkg) },
+            { role: "user", content: `Extract the state changes ${sceneId} makes.\n\n${FORMAT}` },
+          ],
+          schema: EXTRACTION_SCHEMA,
+          maxOutputTokens: 2_000,
+        },
+        { timeoutMs: 120_000 },
+      );
+
+      const { valid, rejected } = this.sift(raw.transitions, sceneId);
+
+      // Persist as proposals: inspectable and correctable, but not canon.
+      if (valid.length > 0) {
+        await this.repo.addStateTransitions(valid, {
+          source: "agent",
+          confirmationStatus: "proposed",
+          modelId: this.model.id,
+          taskId: current.id,
+          summary: `Proposed ${String(valid.length)} state change(s) from ${sceneId}`,
+        });
+      }
+
+      current = await this.repo.agents.saveTask(
+        transition(current, "awaiting_approval", { now: this.now() }),
+      );
+      await this.repo.agents.appendActivity({
+        taskId: current.id,
+        timestamp: this.now(),
+        tool: "analyse_state_changes",
+        argumentsSummary: `scene=${sceneId}`,
+        resultSummary: `${String(valid.length)} proposed, ${String(rejected.length)} unusable`,
+        status: "ok",
+      });
+
+      return {
+        taskId: current.id,
+        sceneId,
+        transitions: valid,
+        rejected,
+        modelId: this.model.id,
+        contextRecipe: pkg.metadata.recipe,
+        createdAt: this.now(),
+      };
+    } catch (cause) {
+      const reason = cause instanceof Error ? cause.message : String(cause);
+      await this.repo.agents.saveTask(
+        transition(current, "failed", { now: this.now(), failureReason: reason }),
+      );
+      if (cause instanceof ModelError) throw new EditError("provider_failed", reason, { cause });
+      throw cause;
+    }
+  }
+
+  /**
+   * Split the model's drafts into usable and unusable.
+   *
+   * A draft naming an entity kind that does not match its transition kind — the
+   * classic hallucinated-ID failure — is set aside with the reason rather than
+   * silently dropped, so the author can see what the model tried to claim.
+   */
+  private sift(
+    raw: ReadonlyArray<Record<string, unknown>>,
+    sceneId: string,
+  ): { valid: ProposedTransition[]; rejected: ProposedTransition[] } {
+    const valid: ProposedTransition[] = [];
+    const rejected: ProposedTransition[] = [];
+
+    for (const entry of raw) {
+      const draft: ProposedTransition = {
+        sceneId,
+        kind: String(entry.kind ?? "") as TransitionKind,
+        subjectId: String(entry.subjectId ?? ""),
+        value: String(entry.value ?? ""),
+        confidence: clamp(entry.confidence),
+        evidence: typeof entry.evidence === "string" ? entry.evidence : "",
+        ...(typeof entry.certainty === "number" ? { certainty: clamp(entry.certainty) } : {}),
+        ...(isKnowledgeSource(entry.howLearned) ? { howLearned: entry.howLearned } : {}),
+        note: typeof entry.evidence === "string" ? `Evidence: ${entry.evidence}` : undefined,
+      };
+
+      try {
+        validateTransition(draft);
+        valid.push(draft);
+      } catch (cause) {
+        rejected.push({
+          ...draft,
+          problem: cause instanceof Error ? cause.message : "invalid transition",
+        });
+      }
+    }
+    return { valid, rejected };
+  }
+
+  /** Confirm a proposed transition, making it canon. */
+  confirm(transitionId: string): Promise<StateTransition> {
+    return this.repo.setTransitionStatus(transitionId, "confirmed");
+  }
+
+  /** Reject a proposal. It stays visible as a considered-and-dismissed record. */
+  reject(transitionId: string): Promise<StateTransition> {
+    return this.repo.setTransitionStatus(transitionId, "rejected");
+  }
+
+  /** A one-line rendering of a proposal, for the confirm/edit/reject list. */
+  static describe(t: ProposedTransition): string {
+    return describeTransition(t);
+  }
+}
+
+function clamp(value: unknown): number {
+  const n = typeof value === "number" ? value : 0.5;
+  return Math.min(1, Math.max(0, n));
+}
+
+function isKnowledgeSource(value: unknown): value is KnowledgeSource {
+  return value === "witnessed" || value === "told" || value === "inferred";
+}

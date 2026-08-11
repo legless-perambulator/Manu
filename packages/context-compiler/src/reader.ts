@@ -1,6 +1,7 @@
 import type {
   Chapter,
   Character,
+  Fact,
   Location,
   PlotThread,
   Project,
@@ -9,6 +10,7 @@ import type {
   WorldRule,
 } from "@jellytind/domain";
 import type { SearchHit, SearchQuery } from "@jellytind/search";
+import type { StateTransition } from "@jellytind/story-state";
 
 /**
  * The read surface the Context Compiler needs from a project.
@@ -30,7 +32,15 @@ export interface ProjectReader {
   listLocations(): Promise<Location[]>;
   listPlotThreads(): Promise<PlotThread[]>;
   listWorldRules(): Promise<WorldRule[]>;
+  listFacts(): Promise<Fact[]>;
   listRelationships(): Promise<Relationship[]>;
+
+  /**
+   * Scene-anchored story-state transitions. Recipes reconstruct state at the
+   * target's boundary rather than being handed a "current" snapshot
+   * (docs/STORY_STATE.md).
+   */
+  listStateTransitions(): Promise<StateTransition[]>;
 
   listProjectFiles(prefix?: string): Promise<string[]>;
   readProjectFile(path: string): Promise<string | null>;

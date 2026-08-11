@@ -340,3 +340,50 @@ describe("rendering for a model call", () => {
     );
   });
 });
+
+describe("story state in context", () => {
+  it("includes state at the scene's entry boundary, with the boundary named", async () => {
+    const pkg = await compiler().compile({ recipe: "scene_inspection", targetId: "SCENE_0002" });
+    const state = section(pkg, "storyState");
+    expect(state).toBeDefined();
+
+    // Mara is at the manor entering SCENE_0002, having learned the fact in 0001.
+    const mara = state?.items.find((i) => i.id.startsWith("CHAR_0001"));
+    expect(mara?.provenance.reason).toBe(
+      "story state of CHAR_0001 immediately before SCENE_0002, who is involved in SCENE_0002",
+    );
+    expect(mara?.text).toContain("location: LOC_0001");
+    expect(mara?.text).toContain("FACT_0001: A vault lies beneath the manor.");
+    expect(mara?.text).toContain("witnessed");
+
+    const facts = state?.items.find((i) => i.id.startsWith("facts@"));
+    expect(facts?.text).toContain("FACTS TRUE IMMEDIATELY BEFORE SCENE_0002");
+  });
+
+  it("reports state as of the target, not the latest state", async () => {
+    // Entering SCENE_0001 nothing has happened yet, so no state is available.
+    const first = await compiler().compile({ recipe: "scene_inspection", targetId: "SCENE_0001" });
+    const state = section(first, "storyState");
+    const mara = state?.items.find((i) => i.id.startsWith("CHAR_0001"));
+    expect(mara?.text).toContain("location: unrecorded");
+    expect(mara?.text).toContain("knows: nothing recorded");
+  });
+
+  it("carries state into the rendered context a model receives", async () => {
+    const pkg = await compiler().compile({ recipe: "scene_rewrite", targetId: "SCENE_0002" });
+    const text = renderContextPackage(pkg);
+    expect(text).toContain("## STORY STATE");
+    expect(text).toContain("STATE OF CHAR_0001 immediately before SCENE_0002");
+  });
+
+  it("includes chapter-entry state for chapter inspection", async () => {
+    const pkg = await compiler().compile({
+      recipe: "chapter_inspection",
+      targetId: "CHAPTER_0001",
+    });
+    const state = section(pkg, "storyState");
+    expect(
+      state?.items.every((i) => i.provenance.reason.includes("immediately before SCENE_0001")),
+    ).toBe(true);
+  });
+});

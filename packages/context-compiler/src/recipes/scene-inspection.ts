@@ -3,6 +3,7 @@ import { PRIORITY, type Candidate } from "../candidate";
 import type { ProjectReader } from "../reader";
 import { adjacentScenes } from "../sequence";
 import { CompileError } from "../errors";
+import { buildTimeline, involvedCharacters, stateCandidates } from "./state";
 import {
   byId,
   characterCandidate,
@@ -139,6 +140,22 @@ export async function gatherSceneInspection(
       ),
     );
   }
+
+  // Story state as it stands entering the scene — the answer to "who is where
+  // and who knows what" without re-reading the manuscript.
+  const timeline = await buildTimeline(reader);
+  const facts = new Map((await reader.listFacts()).map((f) => [f.id as string, f]));
+  candidates.push(
+    ...stateCandidates({
+      timeline,
+      facts,
+      characterIds: involvedCharacters(scene),
+      objectIds: [...scene.objectIds] as string[],
+      sceneId: scene.id,
+      position: "before",
+      becauseOf: scene.id,
+    }),
+  );
 
   candidates.push(...worldRuleCandidates(snap.worldRules, scene.id));
 

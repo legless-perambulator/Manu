@@ -13,8 +13,9 @@ import { DiffViewer } from "./DiffViewer";
 import { AgentPanel } from "./AgentPanel";
 import { ContextPanel } from "./ContextPanel";
 import { ProposalReview } from "./ProposalReview";
+import { StatePanel } from "./StatePanel";
 
-type LeftTab = "files" | "entities" | "search" | "history";
+type LeftTab = "files" | "entities" | "search" | "state" | "history";
 type RightTab = "inspector" | "agent" | "context";
 
 interface WorkspaceProps {
@@ -102,6 +103,12 @@ export function Workspace({ repo, secrets, onClose, onOpenSettings }: WorkspaceP
               Search
             </button>
             <button
+              className={`tab${tab === "state" ? " tab--active" : ""}`}
+              onClick={() => setTab("state")}
+            >
+              State
+            </button>
+            <button
               className={`tab${tab === "history" ? " tab--active" : ""}`}
               onClick={() => setTab("history")}
             >
@@ -135,6 +142,14 @@ export function Workspace({ repo, secrets, onClose, onOpenSettings }: WorkspaceP
                 setSelectedEntityId(id);
               }}
               refreshToken={refreshToken}
+            />
+          )}
+          {tab === "state" && (
+            <StatePanel
+              repo={repo}
+              secrets={secrets}
+              refreshToken={refreshToken}
+              onChanged={refresh}
             />
           )}
           {tab === "history" && (

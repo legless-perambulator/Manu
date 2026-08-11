@@ -9,3 +9,12 @@
  */
 export * from "./ids";
 export * from "./entities";
+
+export {
+  orderChapters,
+  orderScenes,
+  adjacentChapters,
+  adjacentScenes,
+  scenesOfChapter,
+} from "./story-order";
+export type { Neighbours } from "./story-order";

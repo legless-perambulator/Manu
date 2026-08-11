@@ -14,7 +14,7 @@ This is **not** a chatbot with a writing editor attached. It lets AI agents insp
 
 ## Status
 
-**Phase 9 complete.** Implemented and tested so far:
+**Phase 10 complete.** Implemented and tested so far:
 
 - **Phase 0** — monorepo, tooling, stable branded entity IDs, persistence and
   model-provider boundaries, Tauri + React desktop shell.
@@ -43,6 +43,11 @@ This is **not** a chatbot with a writing editor attached. It lets AI agents insp
 - **Phase 9** — controlled AI manuscript editing: rewrite a selection, rewrite a
   scene or continue a scene, with the model proposing rather than writing —
   staged, diffed, accepted hunk by hunk, and fully audited and revertible.
+- **Phase 10** — Story State V1: deterministic, time-aware state built from
+  scene-anchored transitions, answering _where was Elias before Scene 42?_ and
+  _did Mara know about the vault yet?_ without re-reading the manuscript — with
+  manual correction, AI extraction that proposes rather than canonises, and
+  state carried into compiled context.
 
 Implementation proceeds as vertical slices — see
 [`docs/ROADMAP.md`](docs/ROADMAP.md) and
@@ -54,7 +59,8 @@ Implementation proceeds as vertical slices — see
 apps/desktop/            Tauri + React desktop shell
 packages/                domain, persistence, model-router, story-compiler,
                          agent-runtime, context-compiler, editing, search,
-                         story-repository, shared, providers/anthropic
+                         story-repository, story-state, shared,
+                         providers/anthropic
 docs/                    living architecture documentation
 ```
 

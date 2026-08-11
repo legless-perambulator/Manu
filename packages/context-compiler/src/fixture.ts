@@ -1,6 +1,7 @@
 import type {
   Chapter,
   Character,
+  Fact,
   Location,
   PlotThread,
   Project,
@@ -9,6 +10,7 @@ import type {
   WorldRule,
 } from "@jellytind/domain";
 import type { SearchHit, SearchQuery } from "@jellytind/search";
+import type { StateTransition } from "@jellytind/story-state";
 import type { ProjectReader } from "./reader";
 
 /**
@@ -193,6 +195,46 @@ export const FIXTURE_RELATIONSHIPS = [
   },
 ] as unknown as Relationship[];
 
+export const FIXTURE_FACTS = [
+  { id: "FACT_0001", statement: "A vault lies beneath the manor.", status: "canonical" },
+] as unknown as Fact[];
+
+/** A small timeline: Mara is at the manor and learns of the vault in SCENE_0001. */
+export const FIXTURE_TRANSITIONS: StateTransition[] = [
+  {
+    id: "TRANS_0001",
+    sceneId: "SCENE_0001",
+    kind: "character_location",
+    subjectId: "CHAR_0001",
+    value: "LOC_0001",
+    source: "author",
+    confirmationStatus: "confirmed",
+    createdAt: "2026-01-01T00:00:00.000Z",
+  },
+  {
+    id: "TRANS_0002",
+    sceneId: "SCENE_0001",
+    kind: "fact_established",
+    subjectId: "FACT_0001",
+    value: "FACT_0001",
+    source: "author",
+    confirmationStatus: "confirmed",
+    createdAt: "2026-01-01T00:00:00.000Z",
+  },
+  {
+    id: "TRANS_0003",
+    sceneId: "SCENE_0001",
+    kind: "knowledge_gained",
+    subjectId: "CHAR_0001",
+    value: "FACT_0001",
+    certainty: 1,
+    howLearned: "witnessed",
+    source: "author",
+    confirmationStatus: "confirmed",
+    createdAt: "2026-01-01T00:00:00.000Z",
+  },
+];
+
 export const FIXTURE_FILES: Readonly<Record<string, string>> = {
   "manuscript/CHAPTER_0001.md":
     "---\nid: CHAPTER_0001\ntitle: Openings\n---\n\nThe hall was colder than Mara remembered.\nElias was already waiting.\n",
@@ -222,6 +264,8 @@ export function fixtureReader(overrides: Partial<ProjectReader> = {}): ProjectRe
     listLocations: () => Promise.resolve([...FIXTURE_LOCATIONS]),
     listPlotThreads: () => Promise.resolve([...FIXTURE_THREADS]),
     listWorldRules: () => Promise.resolve([...FIXTURE_WORLD_RULES]),
+    listFacts: () => Promise.resolve([...FIXTURE_FACTS]),
+    listStateTransitions: () => Promise.resolve([...FIXTURE_TRANSITIONS]),
     listRelationships: () => Promise.resolve([...FIXTURE_RELATIONSHIPS]),
     listProjectFiles: (prefix) =>
       Promise.resolve(
