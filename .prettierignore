@@ -1,0 +1,6 @@
+**/dist/**
+**/build/**
+**/node_modules/**
+**/src-tauri/target/**
+pnpm-lock.yaml
+MASTER_BUILD.md

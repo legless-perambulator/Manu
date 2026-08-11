@@ -1,0 +1,17 @@
+{
+  "name": "@jellytind/context-compiler",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Task-specific working-context construction for model operations.",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "sideEffects": false,
+  "dependencies": {
+    "@jellytind/domain": "workspace:*",
+    "@jellytind/shared": "workspace:*"
+  }
+}
