@@ -11,6 +11,7 @@
   },
   "sideEffects": false,
   "dependencies": {
+    "@jellytind/agent-runtime": "workspace:*",
     "@jellytind/domain": "workspace:*",
     "@jellytind/persistence": "workspace:*",
     "@jellytind/search": "workspace:*",

@@ -34,7 +34,9 @@ import {
 } from "@jellytind/domain";
 import { normalizeProjectPath, type ProjectStore, type ProjectIndex } from "@jellytind/persistence";
 import type { SearchHit, SearchQuery } from "@jellytind/search";
+import type { AgentStore } from "@jellytind/agent-runtime";
 import { RepositoryError } from "./errors";
+import { RepositoryAgentStore } from "./agent-store";
 import { ProjectSearch } from "./project-search";
 import {
   scenesByCharacter,
@@ -118,6 +120,7 @@ export class StoryRepository {
   private readonly history: HistoryStore;
   private readonly graph: EntityGraph;
   private readonly search: ProjectSearch;
+  private readonly agentStore: RepositoryAgentStore;
   private manifest: ProjectManifest;
   private ids: SequentialIdGenerator;
 
@@ -135,6 +138,7 @@ export class StoryRepository {
     this.ids = ids;
     this.graph = new EntityGraph(this.store);
     this.search = new ProjectSearch(this.store, this.graph);
+    this.agentStore = new RepositoryAgentStore(rawStore);
   }
 
   // ── Lifecycle ────────────────────────────────────────────────────────────
@@ -571,6 +575,17 @@ export class StoryRepository {
       kind,
       name: displayName(kind, entity),
     }));
+  }
+
+  // ── Agent tasks & activity ──────────────────────────────────────────────────
+
+  /**
+   * Persistent agent task and activity storage (`.writer/agents/`). Reading the
+   * project is not a story mutation, so these writes bypass the change-set
+   * journal and never appear in the manuscript's revision history.
+   */
+  get agents(): AgentStore {
+    return this.agentStore;
   }
 
   // ── Search & retrieval ──────────────────────────────────────────────────────

@@ -14,7 +14,7 @@ This is **not** a chatbot with a writing editor attached. It lets AI agents insp
 
 ## Status
 
-**Phase 6 complete.** Implemented and tested so far:
+**Phase 7 complete.** Implemented and tested so far:
 
 - **Phase 0** — monorepo, tooling, stable branded entity IDs, persistence and
   model-provider boundaries, Tauri + React desktop shell.
@@ -32,6 +32,10 @@ This is **not** a chatbot with a writing editor attached. It lets AI agents insp
   failures, streaming, structured-output validation, tool calling, a
   deterministic mock provider, the Anthropic adapter, API keys in OS secure
   storage, and a model settings screen.
+- **Phase 7** — the agent runtime: a typed, permission-checked tool system with
+  thirteen read-only project tools, persistent agent tasks, an activity log, and
+  an investigating agent that inspects a project through tools rather than being
+  handed the manuscript — with an Agent panel to drive it.
 
 Implementation proceeds as vertical slices — see
 [`docs/ROADMAP.md`](docs/ROADMAP.md) and

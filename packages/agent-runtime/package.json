@@ -13,6 +13,8 @@
   "dependencies": {
     "@jellytind/domain": "workspace:*",
     "@jellytind/model-router": "workspace:*",
+    "@jellytind/persistence": "workspace:*",
+    "@jellytind/search": "workspace:*",
     "@jellytind/shared": "workspace:*"
   }
 }

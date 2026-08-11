@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
+import type { SecretStore } from "@jellytind/model-router";
 import type { StoryRepository } from "@jellytind/story-repository";
 import { ProjectExplorer } from "./ProjectExplorer";
 import { EntitiesPanel } from "./EntitiesPanel";
@@ -7,23 +8,29 @@ import { HistoryPanel } from "./HistoryPanel";
 import { Editor } from "./Editor";
 import { Inspector } from "./Inspector";
 import { DiffViewer } from "./DiffViewer";
+import { AgentPanel } from "./AgentPanel";
 
 type LeftTab = "files" | "entities" | "search" | "history";
+type RightTab = "inspector" | "agent";
 
 interface WorkspaceProps {
   repo: StoryRepository;
+  secrets: SecretStore;
   onClose: () => void;
   onOpenSettings: () => void;
 }
 
-export function Workspace({ repo, onClose, onOpenSettings }: WorkspaceProps) {
+export function Workspace({ repo, secrets, onClose, onOpenSettings }: WorkspaceProps) {
   const [tab, setTab] = useState<LeftTab>("files");
+  const [rightTab, setRightTab] = useState<RightTab>("inspector");
   const [openPath, setOpenPath] = useState<string | null>(null);
   const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
   const [selectedChangeId, setSelectedChangeId] = useState<string | null>(null);
+  const [activityLine, setActivityLine] = useState<string | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
 
   const refresh = () => setRefreshToken((n) => n + 1);
+  const showActivity = useCallback((line: string | null) => setActivityLine(line), []);
 
   return (
     <div className="app">
@@ -123,12 +130,30 @@ export function Workspace({ repo, onClose, onOpenSettings }: WorkspaceProps) {
         </main>
 
         <aside className="panel panel--inspector">
-          <Inspector
-            repo={repo}
-            entityId={selectedEntityId}
-            onChanged={refresh}
-            onDeleted={() => setSelectedEntityId(null)}
-          />
+          <div className="tabbar">
+            <button
+              className={`tab${rightTab === "inspector" ? " tab--active" : ""}`}
+              onClick={() => setRightTab("inspector")}
+            >
+              Inspector
+            </button>
+            <button
+              className={`tab${rightTab === "agent" ? " tab--active" : ""}`}
+              onClick={() => setRightTab("agent")}
+            >
+              Agent
+            </button>
+          </div>
+          {rightTab === "inspector" ? (
+            <Inspector
+              repo={repo}
+              entityId={selectedEntityId}
+              onChanged={refresh}
+              onDeleted={() => setSelectedEntityId(null)}
+            />
+          ) : (
+            <AgentPanel repo={repo} secrets={secrets} onActivityLine={showActivity} />
+          )}
         </aside>
       </div>
 
@@ -136,6 +161,7 @@ export function Workspace({ repo, onClose, onOpenSettings }: WorkspaceProps) {
         <span className="activity__id">
           {repo.project.id} · schema v{repo.project.schemaVersion}
         </span>
+        {activityLine !== null && <span className="activity__line">{activityLine}</span>}
       </footer>
     </div>
   );

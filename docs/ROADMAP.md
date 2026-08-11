@@ -5,9 +5,11 @@ Versioned delivery plan. Implementation proceeds **vertically**: finish a cohere
 ## Status
 
 **Phases 0 (foundation), 1 (Story Repository), 3 (fiction-domain entities), 4
-(search & retrieval) and 5 (revision history, checkpoints & diffs) complete.**
-AI-facing work (Context Compiler, agent-driven edits) is not yet started — the
-safety layer it depends on now exists.
+(search & retrieval), 5 (revision history, checkpoints & diffs), 6
+(provider-independent model layer) and 7 (agent runtime & read-only tool system)
+complete.** AI can now _inspect_ a project through typed tools; agent-driven
+_edits_ and the Context Compiler are next, on top of the safety layer that
+already exists.
 
 ## Vertical-slice method
 
@@ -138,6 +140,39 @@ The layer every AI feature is built on, deliberately bound to no single vendor.
 Per-task routing policy, cost limits and privacy routing come later.
 
 See [MODEL_ROUTER.md](MODEL_ROUTER.md).
+
+## Phase 7 — Agent runtime & fiction-project tool system ✅
+
+The first real agent, and the moment the core paradigm becomes demonstrable: **AI
+inspects a structured fiction project through dedicated tools instead of
+receiving the whole project in a prompt.**
+
+- **Typed tool system**: name, description, input/output schemas, permission and
+  handler. Every call is resolved, permission-checked, argument-validated,
+  executed, output-validated and logged — a model that asks for a forbidden tool
+  or malformed arguments never reaches a handler.
+- **Thirteen read-only tools**: files (`list_project_files`, `read_file`,
+  `read_range`, `search_project`), entities (`get_project`, `get_chapter`,
+  `get_scene`, `get_character`, `get_location`, `get_plot_thread`) and
+  deterministic graph queries (`get_scenes_by_character`, `…_by_location`,
+  `…_by_plot_thread`).
+- **Permissions architecture** with two independent gates (the agent's granted
+  permissions and the task's tool allow-list). Phase 7 runs read-only; the write
+  permissions are declared so mutating tools slot into an existing model.
+- **Persistent `AgentTask`** (goal, status, scope, allowed tools, approval
+  policy) with an enforced lifecycle, stored in `.writer/agents/` — task state
+  lives in the project, not in a chat transcript.
+- **Activity log** of actions — tool, argument summary, result summary,
+  timestamp, status. Never model reasoning.
+- **Path safety**: agent-supplied paths cannot escape the project root, and
+  `.writer/` internals are refused.
+- **Investigating agent**: a bounded tool loop, then one schema-validated answer
+  that keeps retrieved project content separate from model interpretation.
+- UI: an Agent panel (ask, live activity, grounded answer, cancel, recent tasks).
+
+Broad autonomous manuscript rewriting is deliberately **not** enabled here.
+
+See [AGENT_RUNTIME.md](AGENT_RUNTIME.md) and [AGENT_TOOLS.md](AGENT_TOOLS.md).
 
 ## V1 (remaining) — Writing IDE
 

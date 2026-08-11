@@ -55,3 +55,5 @@ export type { DiffLine, DiffOp, DiffStat } from "./diff";
 export { parseFrontmatter, serializeFrontmatter } from "./frontmatter";
 
 export type { CatalogEntity } from "./catalog";
+
+export { RepositoryAgentStore } from "./agent-store";

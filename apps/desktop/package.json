@@ -13,6 +13,7 @@
     "tauri:build": "tauri build"
   },
   "dependencies": {
+    "@jellytind/agent-runtime": "workspace:*",
     "@jellytind/domain": "workspace:*",
     "@jellytind/shared": "workspace:*",
     "@jellytind/model-router": "workspace:*",

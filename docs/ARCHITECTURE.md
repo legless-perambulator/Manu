@@ -7,13 +7,15 @@ north-star spec see [`../MASTER_BUILD.md`](../MASTER_BUILD.md).
 
 ## Status
 
-**Phases 1, 3, 4 & 5 implemented.** On the Phase-0 foundation: the persistent
-Story Repository, the fiction-domain **entity graph** with referential integrity,
-deterministic **search & retrieval** (`@jellytind/search`), and **revision
-history** — journaled change sets, checkpoints, diffs, revert, and a staging
-transaction — are built and tested, with a functional desktop workbench (files,
-entities, inspector, search, history/diff). The remaining subsystem packages are
-typed interfaces marked **PLANNED**; features continue as vertical slices (see
+**Phases 1 & 3–7 implemented.** On the Phase-0 foundation: the persistent Story
+Repository, the fiction-domain **entity graph** with referential integrity,
+deterministic **search & retrieval** (`@jellytind/search`), **revision history**
+— journaled change sets, checkpoints, diffs, revert, and a staging transaction —
+a **provider-independent model layer**, and the **agent runtime**: typed
+read-only tools, permissions, persistent tasks and an investigating agent. The
+desktop workbench covers files, entities, inspector, search, history/diff, model
+settings and the agent panel. The remaining subsystem packages are typed
+interfaces marked **PLANNED**; features continue as vertical slices (see
 [`ROADMAP.md`](ROADMAP.md)).
 
 ## Repository layout
@@ -31,11 +33,11 @@ A pnpm-workspaces monorepo. Applications live in `apps/`, libraries in
 │   ├── shared/                  @jellytind/shared        — Result, errors, branding, logging
 │   ├── domain/                  @jellytind/domain        — branded entity IDs + generation
 │   ├── persistence/             @jellytind/persistence   — storage interfaces + in-memory impls
-│   ├── story-repository/        @jellytind/story-repository — project = source of truth (PLANNED)
+│   ├── story-repository/        @jellytind/story-repository — project = source of truth
 │   ├── model-router/            @jellytind/model-router  — LanguageModel interface, registry, secrets, routing
 │   ├── context-compiler/        @jellytind/context-compiler — task context construction (PLANNED)
 │   ├── story-compiler/          @jellytind/story-compiler — deterministic/semantic checks
-│   ├── agent-runtime/           @jellytind/agent-runtime — typed tools, tasks, agents
+│   ├── agent-runtime/           @jellytind/agent-runtime — typed tools, permissions, tasks, agents
 │   ├── search/                  @jellytind/search        — lexical search (semantic PLANNED)
 │   └── providers/
 │       └── anthropic/           @jellytind/provider-anthropic — Anthropic adapter (isolated)
@@ -53,12 +55,12 @@ Each layer may depend only on layers below it. The package graph enforces this.
 │ apps/desktop (UI)                                               │
 │   renderer imports domain + shared; Rust host owns FS/window    │
 ├───────────────────────────────────────────────────────────────┤
-│ Application services  (PLANNED: orchestration, tasks, approvals)│
-├───────────────┬───────────────┬───────────────────────────────┤
-│ agent-runtime │ context-       │ story-compiler                 │
-│               │ compiler       │                                │
-├───────────────┴───────────────┴───────────────────────────────┤
-│ story-repository            model-router (+ providers/*)        │
+│ Application services  (PLANNED: orchestration, approvals)       │
+├───────────────┬───────────────────────────────────────────────┤
+│ context-      │ story-compiler                                  │
+│ compiler      │                                                 │
+├───────────────┴───────────────────────────────────────────────┤
+│ story-repository   agent-runtime   model-router (+ providers/*) │
 ├───────────────────────────────────────────────────────────────┤
 │ domain            persistence            search                 │
 ├───────────────────────────────────────────────────────────────┤
@@ -68,21 +70,29 @@ Each layer may depend only on layers below it. The package graph enforces this.
 
 ### Dependency edges (current)
 
-| Package              | Depends on                                                       |
-| -------------------- | ---------------------------------------------------------------- |
-| `shared`             | —                                                                |
-| `domain`             | `shared`                                                         |
-| `persistence`        | `shared`, `domain`                                               |
-| `story-repository`   | `shared`, `domain`, `persistence`, `search`                      |
-| `model-router`       | `shared`                                                         |
-| `provider-anthropic` | `shared`, `model-router`                                         |
-| `search`             | `shared`, `domain`                                               |
-| `story-compiler`     | `shared`, `domain`                                               |
-| `context-compiler`   | `shared`, `domain`                                               |
-| `agent-runtime`      | `shared`, `domain`, `model-router`                               |
-| `apps/desktop`       | `domain`, `persistence`, `story-repository`, `shared` (renderer) |
+| Package              | Depends on                                                                                                   |
+| -------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `shared`             | —                                                                                                            |
+| `domain`             | `shared`                                                                                                     |
+| `persistence`        | `shared`, `domain`                                                                                           |
+| `story-repository`   | `shared`, `domain`, `persistence`, `search`, `agent-runtime`                                                 |
+| `model-router`       | `shared`                                                                                                     |
+| `provider-anthropic` | `shared`, `model-router`                                                                                     |
+| `search`             | `shared`, `domain`                                                                                           |
+| `story-compiler`     | `shared`, `domain`                                                                                           |
+| `context-compiler`   | `shared`, `domain`                                                                                           |
+| `agent-runtime`      | `shared`, `domain`, `model-router`, `persistence`, `search`                                                  |
+| `apps/desktop`       | `domain`, `persistence`, `story-repository`, `model-router`, `provider-anthropic`, `agent-runtime`, `shared` |
 
 There are no cycles. `shared` is a sink; the UI is a source.
+
+`agent-runtime` sits _beside_ `story-repository`, not above it: it depends on
+domain, persistence, search and the model router, and it declares **ports**
+(`ProjectAccess`, `AgentStore`) describing what it needs from a project rather
+than importing the repository. The repository satisfies `ProjectAccess`
+structurally and implements `AgentStore` for `.writer/agents/`, which is why the
+`story-repository → agent-runtime` edge exists and points that way. See
+[`AGENT_RUNTIME.md`](AGENT_RUNTIME.md).
 
 ### Browser-safe vs Node-only code
 

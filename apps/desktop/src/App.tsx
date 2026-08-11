@@ -23,6 +23,7 @@ export function App() {
       ) : (
         <Workspace
           repo={repo}
+          secrets={secrets}
           onClose={() => setRepo(null)}
           onOpenSettings={() => setSettingsOpen(true)}
         />

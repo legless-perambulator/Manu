@@ -926,3 +926,149 @@ code {
   background: rgba(255, 120, 120, 0.14);
   color: #ff9a9a;
 }
+
+/* ── Agent panel ─────────────────────────────────────────── */
+.agent {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 12px;
+  overflow: auto;
+}
+.agent__ask {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.agent__input {
+  font: inherit;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px;
+  resize: vertical;
+}
+.agent__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.agent__section h3 {
+  margin: 0 0 6px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.agent__label {
+  margin: 12px 0 4px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ok);
+}
+.agent__label--inference {
+  color: var(--accent);
+}
+.agent__activity {
+  list-style: none;
+  margin: 0;
+  padding: 8px 10px;
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 11px;
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-height: 180px;
+  overflow: auto;
+}
+.agent__summary {
+  margin: 0 0 4px;
+}
+.agent__findings,
+.agent__uncertainties,
+.agent__tasks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+}
+.agent__findings > li {
+  border-left: 2px solid var(--ok);
+  padding-left: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.agent__uncertainties > li {
+  border-left: 2px solid var(--border);
+  padding-left: 8px;
+  color: var(--muted);
+}
+.agent__sources {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 11px;
+  color: var(--muted);
+}
+.agent__interpretation {
+  margin: 0;
+  border-left: 2px solid var(--accent);
+  padding-left: 8px;
+  font-size: 13px;
+}
+.agent__empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+.agent__tasks > li {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.agent__goal {
+  color: var(--muted);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.badge {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 1px 7px;
+  color: var(--muted);
+  flex: none;
+}
+.badge--completed {
+  border-color: var(--ok);
+  color: var(--ok);
+}
+.badge--running {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.badge--failed {
+  border-color: #ff9a9a;
+  color: #ff9a9a;
+}
+.activity__line {
+  margin-left: 12px;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 11px;
+  color: var(--accent);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

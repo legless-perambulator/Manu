@@ -2,57 +2,142 @@
 
 Agents operate through a **typed tool system**, not as unrestricted text generators. Tools use typed schemas; AI operations produce auditable actions.
 
-- **Package:** `@jellytind/agent-runtime` (the `Tool` contract and `ToolRegistry`)
-- **Depends on:** `@jellytind/domain`, `@jellytind/model-router`, `@jellytind/shared`
-- **Status:** The `Tool<Input, Output>` interface and `ToolRegistry` are **implemented and tested**. The concrete tools listed below are **PLANNED** and land with their subsystems (V1+).
+- **Package:** `@jellytind/agent-runtime`
+- **Depends on:** `@jellytind/domain`, `@jellytind/model-router`, `@jellytind/persistence`, `@jellytind/search`, `@jellytind/shared`
+- **Status (Phase 7):** The tool contract, schema validation, permission model, registry, executor and **thirteen read-only project tools** are **implemented and tested**. Mutating tools are **PLANNED** and must route through the mutation layer ([VERSIONING.md](VERSIONING.md)).
 
-## Implemented: the tool contract
+## The tool contract
 
 ```ts
-interface Tool<Input = unknown, Output = unknown> {
+interface Tool<Input, Output> {
   readonly name: string;
   readonly description: string;
-  readonly readOnly: boolean; // side-effect-free reads vs. mutations
-  execute(input: Input): Promise<Output>;
+  readonly inputSchema: ToolSchema<Input>;
+  readonly outputSchema: ToolSchema<Output>;
+  readonly permission: AgentPermission;
+  handler(input: Input, context: ToolContext): Promise<Output>;
 }
 ```
 
-`ToolRegistry` registers tools by unique name and rejects duplicates/unknowns
-with a typed `ToolError`. `readOnly` lets the runtime separate safe reads from
-mutations that must route through the versioning/approval layer.
+`ToolSchema<T>` extends the model router's `OutputSchema<T>` with a `jsonSchema`
+description, so **one** validating contract guards both structured model output
+and tool arguments, and the same object can be handed to a provider's
+tool-calling API as data.
 
-## Why typed tools
+Read/write classification is **derived** from `permission` rather than declared
+separately (`isReadOnly`), so a tool cannot claim to be read-only while holding
+a write permission.
 
-Prefer:
+`ToolRegistry` registers tools by unique name and rejects duplicates and unknown
+names with a typed `AgentError`. It stores tools in an erased form
+(`RegisteredTool`) so differently-shaped tools share one collection; the
+executor restores safety by validating every value through the schemas.
 
-```
-update_character_state(character = CHAR_ELIAS, after_scene = SCENE_0042, changes = {...})
-```
+## The executor is the chokepoint
 
-over an agent silently rewriting arbitrary state files. Typed tools give the harness control over what changed and allow validation before commit. Mutating tools route through the mutation layer so every change is attributable, inspectable and reversible (see [VERSIONING.md](VERSIONING.md)).
-
-## Foundational tools
-
-```
-list_files()      read_file()       read_range()
-create_file()     write_file()      replace_range()
-move_file()       search_project()
-
-get_character()   get_scene()       get_location()
-get_story_state() get_plot_threads()
-
-create_checkpoint()  show_diff()    revert_change()   compare_versions()
-```
-
-## Fiction-specific tools
+`ToolExecutor` runs every call in a fixed order:
 
 ```
+resolve in registry → check permission → validate input → run handler
+                    → validate output → log activity
+```
+
+A model that asks for an unregistered tool, a forbidden tool, or malformed
+arguments **never reaches a handler**. Failures are _returned_, not thrown — a
+failed tool call is ordinary agent business, and the model is told what went
+wrong so it can try something else. Only cancellation aborts a run.
+
+## Permissions
+
+```ts
+type AgentPermission =
+  | "read_manuscript"
+  | "read_canon" // read-only
+  | "edit_manuscript"
+  | "edit_story_state"
+  | "create_entities"
+  | "delete_entities"
+  | "run_research"
+  | "create_branches"
+  | "apply_refactors"
+  | "run_simulations"
+  | "use_external_services";
+```
+
+A call is allowed only when **both** gates pass:
+
+1. the tool's `permission` is in the grant's `permissions`, and
+2. the tool's name is in the task's `allowedTools` (when set).
+
+Two independent gates means widening one never silently widens the other. Phase
+7 runs under `READ_ONLY_GRANT`, which carries no write permission at all, so no
+configuration mistake can turn an investigation into an edit. The write
+permissions above are declared now so mutating tools slot into an existing model
+rather than requiring it to be retrofitted around them.
+
+## Implemented tools (Phase 7 — all read-only)
+
+```
+list_project_files()  read_file()   read_range()   search_project()
+
+get_project()  get_chapter()  get_scene()
+get_character()  get_location()  get_plot_thread()
+
+get_scenes_by_character()   get_scenes_by_location()   get_scenes_by_plot_thread()
+```
+
+- `get_character` returns the character _and_ every relationship they are part
+  of; `get_chapter` returns the chapter _and_ its scenes — retrieval is shaped
+  around the questions writers actually ask.
+- The `get_scenes_by_*` tools are deterministic graph queries computed from scene
+  records, not inferred from prose.
+- `search_project` returns located excerpts, never whole files.
+
+## Path safety
+
+`read_file`, `read_range` and `list_project_files` are the only tools that accept
+a raw path — the one input a model can invent freely. Both guards apply:
+
+1. **Traversal.** `normalizeProjectPath` rejects absolute paths, drive letters,
+   NUL bytes and any `..` resolving above the project root.
+2. **Internals.** `.writer/` — manifest, derived indexes, revision history and
+   the agent's own task log — is refused. Project metadata is exposed
+   deliberately through `get_project` instead, and `.writer/` entries are
+   filtered out of file listings.
+
+Everything else addresses entities by **stable ID**, and an ID of the wrong kind
+(`get_scene` given `CHAR_0001`) is rejected before any lookup.
+
+## Tool design rules
+
+- **Typed schemas in and out.** Both directions are validated; a schema drops
+  keys it does not declare, so a model cannot smuggle extra arguments past a tool.
+- **Read vs mutate separation.** Read tools are side-effect free. Mutating tools
+  will route through the mutation layer, respect the agent's permissions, and
+  record provenance.
+- **IDs, not names.** Tools address entities by stable ID wherever practical;
+  raw paths are accepted only where a writer genuinely works in files.
+- **Auditable actions.** Every call — success, denial or failure — is logged to
+  the activity feed. Every future _mutating_ call additionally yields a revision
+  entry with agent, model, task, affected entities, before/after, reason and
+  approval status.
+- **Scoped.** A call must respect the calling task's `allowedTools` and the
+  agent's permission set (see [AGENT_RUNTIME.md](AGENT_RUNTIME.md)).
+- **Context-aware generation tools** (`draft_scene`, `continue_scene`, …) will
+  obtain their context from the [Context Compiler](CONTEXT_COMPILER.md), never by
+  ad-hoc dumping of the manuscript.
+
+## Planned tools
+
+```
+create_file()   write_file()    replace_range()   move_file()
+create_scene()  split_scene()   move_scene()      delete_scene()
+create_checkpoint()  show_diff()  revert_change()  compare_versions()
+
 get_character_state()     get_character_knowledge()   get_character_timeline()
 get_relationship_state()  get_location_state()        get_object_state()
 get_active_threads()      get_scene_context()         get_chapter_context()
 get_world_rule()          get_fact()                  trace_fact()
-
-create_scene()   split_scene()   move_scene()   delete_scene()
 
 generate_outline()   generate_scene_plan()   draft_scene()   continue_scene()
 
@@ -66,15 +151,9 @@ check_unresolved_threads()
 update_story_state()
 ```
 
-## Tool design rules
-
-- **Typed schemas in and out.** Inputs and outputs are validated against schemas; malformed model output is rejected/repaired, never applied blindly (see [MODEL_ROUTER.md](MODEL_ROUTER.md)).
-- **Read vs mutate separation.** Read tools are side-effect free. Mutating tools go through the mutation layer, respect the agent's permissions, and record provenance.
-- **IDs, not names.** Tools address entities by stable ID.
-- **Auditable actions.** Every mutating call yields a revision entry with agent, model, task, affected entities, before/after, reason and approval status.
-- **Scoped.** A tool call must respect the calling task's `scope` / allowed files/entities and the agent's permission set (see [AGENT_RUNTIME.md](AGENT_RUNTIME.md)).
-- **Context-aware generation tools** (`draft_scene`, `continue_scene`, …) obtain their context from the [Context Compiler](CONTEXT_COMPILER.md), never by ad-hoc dumping of the manuscript.
-
 ## Extensibility
 
-The tool surface is designed to grow into a plugin/MCP-style ecosystem so third-party writing tools can be added without modifying core (see [ROADMAP.md](ROADMAP.md) V6). New tools must conform to the same typed-schema, permission and audit contract.
+The tool surface is designed to grow into a plugin/MCP-style ecosystem so
+third-party writing tools can be added without modifying core (see
+[ROADMAP.md](ROADMAP.md) V6). New tools must conform to the same typed-schema,
+permission and audit contract.

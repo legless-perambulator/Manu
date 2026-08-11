@@ -44,6 +44,9 @@ importers:
 
   apps/desktop:
     dependencies:
+      '@jellytind/agent-runtime':
+        specifier: workspace:*
+        version: link:../../packages/agent-runtime
       '@jellytind/domain':
         specifier: workspace:*
         version: link:../../packages/domain
@@ -108,6 +111,12 @@ importers:
       '@jellytind/model-router':
         specifier: workspace:*
         version: link:../model-router
+      '@jellytind/persistence':
+        specifier: workspace:*
+        version: link:../persistence
+      '@jellytind/search':
+        specifier: workspace:*
+        version: link:../search
       '@jellytind/shared':
         specifier: workspace:*
         version: link:../shared
@@ -173,6 +182,9 @@ importers:
 
   packages/story-repository:
     dependencies:
+      '@jellytind/agent-runtime':
+        specifier: workspace:*
+        version: link:../agent-runtime
       '@jellytind/domain':
         specifier: workspace:*
         version: link:../domain
