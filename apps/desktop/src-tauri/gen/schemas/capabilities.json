@@ -4,6 +4,6 @@
     "description": "Default capability for the main window (core commands only).",
     "local": true,
     "windows": ["main"],
-    "permissions": ["core:default"]
+    "permissions": ["core:default", "dialog:default"]
   }
 }

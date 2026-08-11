@@ -1,26 +1,25 @@
-import type { StoryProjectId } from "@jellytind/domain";
-import type { ProjectStore } from "@jellytind/persistence";
+export { StoryRepository } from "./story-repository";
+export type {
+  CreateProjectOptions,
+  OpenProjectOptions,
+  ProjectValidation,
+} from "./story-repository";
 
-/**
- * @jellytind/story-repository — the authoritative view of a writing project.
- *
- * The Story Repository is the source of truth (AGENTS.md). This package will sit
- * above {@link ProjectStore}, parsing the portable Markdown/YAML/JSON files into
- * typed domain entities and mediating all mutations through the versioning
- * layer. Phase 0 defines the interface only; the implementation is delivered in
- * the V1 slice (docs/STORY_REPOSITORY.md, docs/ROADMAP.md).
- *
- * @remarks PLANNED — entity read/write methods are added per vertical slice.
- */
-export interface ProjectMetadata {
-  readonly id: StoryProjectId;
-  readonly name: string;
-  readonly createdAt: string;
-}
+export { RepositoryError } from "./errors";
+export type { RepositoryErrorCode } from "./errors";
 
-export interface StoryRepository {
-  readonly metadata: ProjectMetadata;
-  /** The underlying portable file store. */
-  readonly files: ProjectStore;
-  // Typed entity accessors (getScene, getCharacter, …) are PLANNED (V1+).
-}
+export { validateManifest, buildManifest } from "./manifest";
+
+export {
+  PROJECT_DIRECTORIES,
+  EXPLORER_ROOTS,
+  PATHS,
+  chapterFilePath,
+  characterFilePath,
+  locationFilePath,
+} from "./paths";
+
+export { buildProjectTree } from "./tree";
+export type { TreeNode } from "./tree";
+
+export type { CatalogEntity } from "./catalog";

@@ -2,46 +2,105 @@
 
 The Story Repository is the authoritative project source. Chat history, model memory, cached summaries and derived indexes are **not** authoritative. Every canonical fact must ultimately resolve back to the repository or to explicitly confirmed structured story state.
 
-- **Packages:** `@jellytind/persistence` (storage interfaces), `@jellytind/story-repository` (typed project view)
+- **Packages:** `@jellytind/persistence` (storage boundary), `@jellytind/story-repository` (the service)
 - **Depends on:** `@jellytind/domain`, `@jellytind/shared`
-- **Status:** Storage **interfaces + in-memory implementations** exist and are tested; the native filesystem + SQLite adapters and the typed repository are **PLANNED** (V1).
+- **Status (Phase 1):** **Implemented and tested.** Create / open / validate / save projects on real disk; atomic writes; path-traversal prevention; stable entity IDs; a SQLite derived index with migrations; and a desktop create/open/edit flow with a project explorer.
 
-The layout below is the target contract; exact filenames may evolve, but the principle is fixed: **story information exists as structured project data, not trapped inside prompts or chat history.**
+The principle is fixed: **story information exists as structured project data, not trapped inside prompts or chat history.**
 
-## Implemented: the storage boundary
+## The storage boundary
 
 `@jellytind/persistence` defines the narrow interfaces every higher layer uses,
-so the backend can vary (native FS via Tauri, in-memory for tests, future sync)
-without touching domain or application code.
+so the backend can vary without touching domain or application code.
 
 ```ts
 interface ProjectStore {
   // the portable file store (source of truth)
   readFile(path): Promise<string | null>;
-  writeFile(path, content): Promise<void>;
+  writeFile(path, content): Promise<void>; // atomic (temp + rename)
   exists(path): Promise<boolean>;
   list(prefix?): Promise<string[]>;
   delete(path): Promise<void>;
-}
-interface StateStore {
-  // derived, SQLite-backed later; reconstructable
-  get<T>(key): Promise<T | null>;
-  set<T>(key, value): Promise<void>;
-  delete(key): Promise<void>;
-  keys(prefix?): Promise<string[]>;
-}
-interface RevisionStore {
-  // append-only history (see VERSIONING.md)
-  append(entry): Promise<void>;
-  get(id): Promise<RevisionEntry | null>;
-  list(options?): Promise<RevisionEntry[]>;
+  createDirectory(path): Promise<void>;
 }
 ```
 
-`InMemoryProjectStore` and `InMemoryStateStore` ship now as the reference
-implementations and test doubles; native adapters implement the same contracts.
-`@jellytind/story-repository` will sit above `ProjectStore`, parsing files into
-typed domain entities and mediating mutations through the versioning layer.
+Implementations:
+
+- **`InMemoryProjectStore`** — tests and the reference contract.
+- **`NodeProjectStore`** (`@jellytind/persistence/node`) — real filesystem with
+  atomic temp-file-then-rename writes and root confinement; used by tests and any
+  Node host.
+- **`TauriProjectStore`** (in the desktop app) — delegates to root-confined Rust
+  commands in the host process; the renderer never touches the filesystem
+  directly.
+
+Path safety is layered: the pure `normalizeProjectPath` rejects absolute paths
+and `..` traversal (browser-safe, no `node:*`); `NodeProjectStore` re-checks the
+resolved absolute path; and the Rust commands independently confine every path
+to the project root. `StateStore` / `RevisionStore` remain interfaces for later
+slices.
+
+## The Story Repository service
+
+`@jellytind/story-repository`'s `StoryRepository` class is the authoritative
+gateway to a project, built on `ProjectStore` and independent of any particular
+backend. Public API (Phase 1):
+
+```ts
+StoryRepository.createProject({ store, title, rootPath?, index? })
+StoryRepository.openProject({ store, rootPath?, index? })
+StoryRepository.validateProject(store)                 // → { ok, manifest?, errors, code? }
+repo.saveProjectMetadata({ title })
+repo.listProjectFiles(prefix?) / readProjectFile / writeProjectFile
+repo.createDirectory / fileExists
+repo.addChapter / addCharacter / addLocation / addPlotThread
+repo.listChapters / listCharacters / listLocations / listPlotThreads
+```
+
+Every file method validates its path (traversal is rejected) and writes go
+through the store's atomic write. Entity creation allocates a stable ID, writes
+the entity's content file (or, for plot threads, `plot/plot_threads.json`), and
+records a catalog entry.
+
+## Stable IDs & their persistence
+
+Entity IDs come from `SequentialIdGenerator` (`@jellytind/domain`) and depend
+only on kind + a monotonic counter — never on names. The counter snapshot is
+persisted in `.writer/state/id-sequences.json`; on open it is reloaded (or
+reconstructed from existing IDs), so IDs stay stable and never collide across
+sessions.
+
+## SQLite derived index
+
+An optional `ProjectIndex` (`@jellytind/persistence`) mirrors entity metadata into
+SQLite for fast querying. It is **derived and reconstructable** — never the
+exclusive home of manuscript content. Schema is applied by a versioned migration
+runner (`schema_migrations`, `project_metadata`, `entities`). The Node binding
+uses the built-in `node:sqlite` (zero native deps); the browser/host binding is a
+Tauri/rusqlite adapter (attached host-side).
+
+## Project manifest (`.writer/project.json`)
+
+The identity record of a project. Small and forward-compatible: readers tolerate
+unknown extra fields, and `schemaVersion` drives migrations.
+
+```jsonc
+{
+  "schemaVersion": 1, // Story Repository format; bumped when the on-disk format changes
+  "id": "PROJ_…", // stable project id (never derived from the title)
+  "title": "My Novel",
+  "createdAt": "2026-…Z",
+  "updatedAt": "2026-…Z",
+  "appFormatVersion": "0.1.0", // app that last wrote the project (informational)
+}
+```
+
+`schemaVersion` and `appFormatVersion` are distinct: the former gates migrations,
+the latter is diagnostic. A manifest whose `schemaVersion` is **newer** than the
+running app is rejected (`unsupported_schema`) rather than silently mishandled.
+Migration functions keyed off `schemaVersion` are the forward path; none are
+needed yet at v1.
 
 ## Principles
 

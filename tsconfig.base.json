@@ -30,6 +30,7 @@
       "@jellytind/shared": ["packages/shared/src/index.ts"],
       "@jellytind/domain": ["packages/domain/src/index.ts"],
       "@jellytind/persistence": ["packages/persistence/src/index.ts"],
+      "@jellytind/persistence/node": ["packages/persistence/src/node/index.ts"],
       "@jellytind/story-repository": ["packages/story-repository/src/index.ts"],
       "@jellytind/model-router": ["packages/model-router/src/index.ts"],
       "@jellytind/context-compiler": ["packages/context-compiler/src/index.ts"],

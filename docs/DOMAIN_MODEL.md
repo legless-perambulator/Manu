@@ -4,7 +4,7 @@ The fiction domain model is the authoritative representation of story data. UI c
 
 - **Package:** `@jellytind/domain`
 - **Depends on:** `@jellytind/shared`
-- **Status:** Identity foundation (IDs) **implemented and tested**; concrete entity types **PLANNED** (added per vertical slice, V1+).
+- **Status:** Identity foundation (IDs) **implemented and tested**. Phase-1 entity types (`Project`, `Chapter`, `Character`, `Location`, `PlotThread`) and the `ProjectManifest` are **implemented**; richer entities (Scene, Fact, Relationship, WorldRule, …) remain **PLANNED**.
 
 ## Implemented: stable entity IDs
 
@@ -49,7 +49,16 @@ Key guarantees (covered by tests in `packages/domain`):
 - Prefixes (`CHAR`, `SCENE`, `LOC`, `THREAD`, `FACT`, `OBJECT`, `EVENT`,
   `CHAPTER`, `PROJ`) are part of the on-disk contract.
 
-## Planned: entity types
+## Implemented: Phase-1 entity types
+
+`Project`, `Chapter`, `Character`, `Location`, `PlotThread` are defined in
+`@jellytind/domain` with branded IDs and minimal metadata (title/name, order,
+status, `filePath`, aliases). `PlotThread` uses the lifecycle statuses below;
+`Chapter` uses `outline | drafting | drafted | revised | final`. The
+`ProjectManifest` (schema version, id, title, timestamps, app format version) is
+the `.writer/project.json` record (see [STORY_REPOSITORY.md](STORY_REPOSITORY.md)).
+
+## Planned: further entity types
 
 The following entities are specified but not yet implemented as TypeScript types;
 each arrives with its vertical slice.

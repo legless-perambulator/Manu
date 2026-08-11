@@ -4,7 +4,8 @@ Versioned delivery plan. Implementation proceeds **vertically**: finish a cohere
 
 ## Status
 
-**Phase 0 (technical foundation) complete.** V1 not yet started.
+**Phase 0 (technical foundation) and Phase 1 (Story Repository) complete.** The
+rest of V1 (Context Compiler, AI edits, checkpoints) is not yet started.
 
 ## Vertical-slice method
 
@@ -41,7 +42,23 @@ Establish the architecture and toolchain without building product features.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the resulting structure.
 
-## V1 — Writing IDE
+## Phase 1 — The Story Repository ✅
+
+The persistent, authoritative project format.
+
+- Domain: `Project`, `Chapter`, `Character`, `Location`, `PlotThread`, and the
+  `ProjectManifest` with schema versioning.
+- Persistence: pure path-safety, `NodeProjectStore` (atomic writes, traversal
+  prevention), and a SQLite derived index with a versioned migration runner.
+- `StoryRepository` service: create / open / validate / save; safe file
+  read/write/list/mkdir/exists; entity creation with stable, persisted IDs.
+- Desktop app: create / open project flow, project explorer over the real
+  repository, and a Markdown editor that saves through the repository. Filesystem
+  access is mediated by root-confined Rust commands.
+
+See [STORY_REPOSITORY.md](STORY_REPOSITORY.md).
+
+## V1 (remaining) — Writing IDE
 
 Prove the core paradigm: **AI can operate reliably on a fiction project instead of merely chatting about it.**
 

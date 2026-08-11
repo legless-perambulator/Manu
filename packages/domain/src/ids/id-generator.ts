@@ -1,8 +1,25 @@
 import { formatEntityId, parseId, type IdFor } from "./ids";
-import { ENTITY_KINDS, isSequenceKind, type SequenceKind } from "./entity-kind";
+import { ENTITY_KINDS, isEntityKind, isSequenceKind, type SequenceKind } from "./entity-kind";
 
 /** A per-kind snapshot of the last-used sequence numbers. */
 export type SequenceSnapshot = Partial<Record<SequenceKind, number>>;
+
+/**
+ * Coerce untrusted JSON (e.g. a persisted id-sequence file) into a valid
+ * {@link SequenceSnapshot}, dropping unknown keys and non-integer/negative
+ * values. Never throws; unrecognised input yields an empty snapshot.
+ */
+export function normalizeSequenceSnapshot(raw: unknown): SequenceSnapshot {
+  const out: SequenceSnapshot = {};
+  if (typeof raw !== "object" || raw === null) return out;
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (!isEntityKind(key) || !isSequenceKind(key)) continue;
+    if (typeof value === "number" && Number.isInteger(value) && value >= 0) {
+      out[key] = value;
+    }
+  }
+  return out;
+}
 
 /**
  * Allocates stable, monotonic entity IDs. Allocation depends only on entity

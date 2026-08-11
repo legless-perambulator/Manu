@@ -7,10 +7,13 @@ north-star spec see [`../MASTER_BUILD.md`](../MASTER_BUILD.md).
 
 ## Status
 
-**Phase 0 — technical foundation.** The monorepo, tooling, domain identity
-foundation, and the persistence / model-provider boundaries exist and are
-tested. Most subsystem packages are typed interfaces marked **PLANNED**; product
-features are built as vertical slices from V1 onward (see [`ROADMAP.md`](ROADMAP.md)).
+**Phase 1 — the Story Repository.** On top of the Phase-0 foundation, the
+persistent project format is implemented: `@jellytind/domain` (entities +
+manifest), `@jellytind/persistence` (path safety, `NodeProjectStore`, SQLite
+migrations) and `@jellytind/story-repository` (the create/open/validate/save
+service) are built and tested, and the desktop app can create, open and edit real
+projects. The remaining subsystem packages are typed interfaces marked
+**PLANNED**; features continue as vertical slices (see [`ROADMAP.md`](ROADMAP.md)).
 
 ## Repository layout
 
@@ -64,21 +67,30 @@ Each layer may depend only on layers below it. The package graph enforces this.
 
 ### Dependency edges (current)
 
-| Package              | Depends on                         |
-| -------------------- | ---------------------------------- |
-| `shared`             | —                                  |
-| `domain`             | `shared`                           |
-| `persistence`        | `shared`, `domain`                 |
-| `story-repository`   | `shared`, `domain`, `persistence`  |
-| `model-router`       | `shared`                           |
-| `provider-anthropic` | `shared`, `model-router`           |
-| `search`             | `shared`, `domain`                 |
-| `story-compiler`     | `shared`, `domain`                 |
-| `context-compiler`   | `shared`, `domain`                 |
-| `agent-runtime`      | `shared`, `domain`, `model-router` |
-| `apps/desktop`       | `shared`, `domain` (renderer)      |
+| Package              | Depends on                                                       |
+| -------------------- | ---------------------------------------------------------------- |
+| `shared`             | —                                                                |
+| `domain`             | `shared`                                                         |
+| `persistence`        | `shared`, `domain`                                               |
+| `story-repository`   | `shared`, `domain`, `persistence`                                |
+| `model-router`       | `shared`                                                         |
+| `provider-anthropic` | `shared`, `model-router`                                         |
+| `search`             | `shared`, `domain`                                               |
+| `story-compiler`     | `shared`, `domain`                                               |
+| `context-compiler`   | `shared`, `domain`                                               |
+| `agent-runtime`      | `shared`, `domain`, `model-router`                               |
+| `apps/desktop`       | `domain`, `persistence`, `story-repository`, `shared` (renderer) |
 
 There are no cycles. `shared` is a sink; the UI is a source.
+
+### Browser-safe vs Node-only code
+
+`@jellytind/persistence` has two entry points. The main barrel is **browser-safe**
+(pure TypeScript, no `node:*`) and is what the renderer bundles transitively via
+`@jellytind/story-repository`. Node-only filesystem/SQLite adapters live behind the
+`@jellytind/persistence/node` subpath and are imported only by tests and Node
+hosts — never by the renderer. The desktop app reaches the real filesystem through
+root-confined Rust commands (see [`STORY_REPOSITORY.md`](STORY_REPOSITORY.md)).
 
 ## Boundary rules (enforced by structure)
 

@@ -43,5 +43,5 @@ export type {
   ParsedId,
 } from "./ids";
 
-export { SequentialIdGenerator } from "./id-generator";
+export { SequentialIdGenerator, normalizeSequenceSnapshot } from "./id-generator";
 export type { IdGenerator, SequenceSnapshot } from "./id-generator";

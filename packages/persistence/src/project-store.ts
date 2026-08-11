@@ -22,6 +22,8 @@ export interface ProjectStore {
   list(prefix?: string): Promise<string[]>;
   /** Remove a file. Removing a missing file is a no-op. */
   delete(path: string): Promise<void>;
+  /** Create a directory (recursively). Creating an existing directory is a no-op. */
+  createDirectory(path: string): Promise<void>;
 }
 
 /**
@@ -30,6 +32,7 @@ export interface ProjectStore {
  */
 export class InMemoryProjectStore implements ProjectStore {
   private readonly files = new Map<string, string>();
+  private readonly directories = new Set<string>();
 
   constructor(seed: Record<string, string> = {}) {
     for (const [path, content] of Object.entries(seed)) {
@@ -47,7 +50,13 @@ export class InMemoryProjectStore implements ProjectStore {
   }
 
   exists(path: string): Promise<boolean> {
-    return Promise.resolve(this.files.has(normalize(path)));
+    const key = normalize(path);
+    return Promise.resolve(this.files.has(key) || this.directories.has(key));
+  }
+
+  createDirectory(path: string): Promise<void> {
+    this.directories.add(normalize(path));
+    return Promise.resolve();
   }
 
   list(prefix?: string): Promise<string[]> {

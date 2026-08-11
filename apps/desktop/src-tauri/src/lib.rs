@@ -1,3 +1,5 @@
+mod project_fs;
+
 use serde::Serialize;
 
 /// Application metadata surfaced to the renderer. Mirrored by the `AppInfo`
@@ -9,8 +11,7 @@ pub struct AppInfo {
     tagline: String,
 }
 
-/// Minimal command proving the Tauri <-> React bridge works. Real project
-/// commands (filesystem access, agent invocation, …) are added in later slices.
+/// Minimal command proving the Tauri <-> React bridge works.
 #[tauri::command]
 fn app_info() -> AppInfo {
     AppInfo {
@@ -23,7 +24,16 @@ fn app_info() -> AppInfo {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![app_info])
+        .plugin(tauri_plugin_dialog::init())
+        .invoke_handler(tauri::generate_handler![
+            app_info,
+            project_fs::project_read_text,
+            project_fs::project_write_atomic,
+            project_fs::project_exists,
+            project_fs::project_mkdir,
+            project_fs::project_remove,
+            project_fs::project_list,
+        ])
         .run(tauri::generate_context!())
         .expect("error while running JellyTind desktop application");
 }

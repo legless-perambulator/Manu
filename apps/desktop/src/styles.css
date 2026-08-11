@@ -139,3 +139,219 @@ code {
   border-radius: 4px;
   font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
+
+/* ── Buttons ─────────────────────────────────────────────── */
+.btn {
+  font: inherit;
+  color: var(--text);
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 7px 12px;
+  cursor: pointer;
+}
+.btn:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.btn--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #10131c;
+  font-weight: 600;
+}
+.btn--ghost {
+  background: transparent;
+}
+.btn--small {
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+/* ── Start screen ────────────────────────────────────────── */
+.start {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  padding: 24px;
+}
+.start__card {
+  width: 100%;
+  max-width: 460px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 28px;
+}
+.start__brand {
+  margin: 0;
+  color: var(--accent);
+  font-size: 28px;
+}
+.start__tagline {
+  margin: 4px 0 20px;
+  color: var(--muted);
+}
+.start__warn {
+  background: rgba(255, 196, 105, 0.12);
+  border: 1px solid rgba(255, 196, 105, 0.4);
+  color: #ffce85;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+.start__section {
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.start__section h2 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin: 0;
+}
+.start__input {
+  font: inherit;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+}
+.start__error {
+  margin-top: 16px;
+  color: #ff8f8f;
+  font-size: 13px;
+}
+
+/* ── Workbench (two column) ──────────────────────────────── */
+.workbench--two {
+  grid-template-columns: 260px 1fr;
+}
+
+/* ── Explorer ────────────────────────────────────────────── */
+.panel--explorer {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.explorer__actions {
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.explorer {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+.explorer__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+}
+.explorer__refresh {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 15px;
+}
+.explorer__tree {
+  overflow: auto;
+  flex: 1;
+  padding: 4px 0;
+}
+.tree__row {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--text);
+  font: inherit;
+  padding: 3px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tree__row:hover {
+  background: var(--panel-alt);
+}
+.tree__row--dir {
+  color: var(--text);
+}
+.tree__row--file {
+  color: var(--muted);
+}
+.tree__row--active {
+  background: rgba(124, 156, 255, 0.16);
+  color: var(--text);
+}
+.tree__chevron {
+  display: inline-block;
+  width: 14px;
+  color: var(--muted);
+}
+
+/* ── Editor ──────────────────────────────────────────────── */
+.panel--editor {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.editor,
+.editor--empty {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.editor--empty {
+  display: grid;
+  place-items: center;
+}
+.editor__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.editor__path {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 12px;
+  color: var(--muted);
+}
+.editor__error {
+  color: #ff8f8f;
+  padding: 6px 12px;
+  margin: 0;
+  font-size: 13px;
+}
+.editor__area {
+  flex: 1;
+  resize: none;
+  border: none;
+  outline: none;
+  padding: 16px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.activity__id {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 12px;
+  color: var(--muted);
+}
