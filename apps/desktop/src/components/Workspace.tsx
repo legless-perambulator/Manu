@@ -9,9 +9,10 @@ import { Editor } from "./Editor";
 import { Inspector } from "./Inspector";
 import { DiffViewer } from "./DiffViewer";
 import { AgentPanel } from "./AgentPanel";
+import { ContextPanel } from "./ContextPanel";
 
 type LeftTab = "files" | "entities" | "search" | "history";
-type RightTab = "inspector" | "agent";
+type RightTab = "inspector" | "agent" | "context";
 
 interface WorkspaceProps {
   repo: StoryRepository;
@@ -143,17 +144,25 @@ export function Workspace({ repo, secrets, onClose, onOpenSettings }: WorkspaceP
             >
               Agent
             </button>
+            <button
+              className={`tab${rightTab === "context" ? " tab--active" : ""}`}
+              onClick={() => setRightTab("context")}
+            >
+              Context
+            </button>
           </div>
-          {rightTab === "inspector" ? (
+          {rightTab === "inspector" && (
             <Inspector
               repo={repo}
               entityId={selectedEntityId}
               onChanged={refresh}
               onDeleted={() => setSelectedEntityId(null)}
             />
-          ) : (
+          )}
+          {rightTab === "agent" && (
             <AgentPanel repo={repo} secrets={secrets} onActivityLine={showActivity} />
           )}
+          {rightTab === "context" && <ContextPanel repo={repo} refreshToken={refreshToken} />}
         </aside>
       </div>
 

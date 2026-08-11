@@ -12,6 +12,7 @@
   "sideEffects": false,
   "dependencies": {
     "@jellytind/domain": "workspace:*",
+    "@jellytind/search": "workspace:*",
     "@jellytind/shared": "workspace:*"
   }
 }

@@ -1,39 +1,47 @@
-import type { AnyId } from "@jellytind/domain";
-
 /**
- * @jellytind/context-compiler — constructs the best working context per task.
+ * @jellytind/context-compiler — task-specific working context for model calls.
  *
- * Not general RAG: a task-specific, explicit, inspectable, budget-aware
- * selection over domain relationships, state, search and summaries
- * (MASTER_BUILD.md §7, docs/CONTEXT_COMPILER.md). Phase 0 defines the shape of a
- * recipe and its compiled output; the compiler implementation is PLANNED for V1.
+ * Not general RAG: an explicit, attributed, budget-resolved selection over the
+ * project's own relationships (MASTER_BUILD.md §7, docs/CONTEXT_COMPILER.md).
+ * Every model operation obtains its context from here rather than assembling a
+ * prompt out of arbitrary project files.
  */
 
-/** Named source of context, so every inclusion is attributable and inspectable. */
-export interface ContextFragment {
-  readonly source: string;
-  readonly text: string;
-  readonly entities?: readonly AnyId[];
-}
+export { ContextCompiler, RECIPES, RECIPE_NAMES } from "./compiler";
+export type { CompileRequest, ContextCompilerOptions, RecipeInfo, RecipeName } from "./compiler";
 
-/** Declarative description of which sources to include, in priority order. */
-export interface ContextRecipe {
-  readonly task: string;
-  readonly maxTokens?: number;
-  readonly sources: readonly string[];
-  readonly pinned?: readonly AnyId[];
-}
+export { CompileError } from "./errors";
+export type { CompileErrorCode } from "./errors";
 
-export interface CompiledContext {
-  readonly recipe: ContextRecipe;
-  readonly fragments: readonly ContextFragment[];
-  readonly estimatedTokens: number;
-}
+export { DEFAULT_BUDGET, SECTION_ORDER, section, allItems, includedIds } from "./types";
+export type {
+  BudgetNote,
+  ContextBudget,
+  ContextItem,
+  ContextMetadata,
+  ContextPackage,
+  ContextSection,
+  ContextSectionName,
+  Provenance,
+  Rendering,
+  SelectionRule,
+  TargetRef,
+} from "./types";
 
-/**
- * PLANNED (V1). Given a recipe and project data, produce a
- * {@link CompiledContext}.
- */
-export interface ContextCompiler {
-  compile(recipe: ContextRecipe): Promise<CompiledContext>;
-}
+export type { ProjectReader } from "./reader";
+
+export { renderContextPackage } from "./present";
+export type { PresentOptions } from "./present";
+
+export { CHARACTER_ESTIMATOR, estimateTokens } from "./tokens";
+export type { TokenCounter } from "./tokens";
+
+export {
+  adjacentChapters,
+  adjacentScenes,
+  orderChapters,
+  orderScenes,
+  scenesOfChapter,
+} from "./sequence";
+export { PRIORITY } from "./candidate";
+export type { Candidate } from "./candidate";

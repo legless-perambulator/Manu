@@ -174,6 +174,36 @@ Broad autonomous manuscript rewriting is deliberately **not** enabled here.
 
 See [AGENT_RUNTIME.md](AGENT_RUNTIME.md) and [AGENT_TOOLS.md](AGENT_TOOLS.md).
 
+## Phase 8 — Context Compiler V1 ✅
+
+Explicit, task-specific context assembly — so no writing operation ever has to
+build a giant prompt out of random project files.
+
+- **`ContextPackage`** with fixed, ordered sections (task, target, primaryText,
+  adjacentScenes, characters, locations, plotThreads, styleRules, worldRules,
+  additionalRetrievedContext).
+- **Provenance on every element**: a machine-readable rule, a sentence a user
+  reads (`participant in SCENE_0042`), and the chain of IDs that led there.
+- **Three explicit recipes** — scene inspection, scene rewrite (which composes
+  it and adds style and character-voice material), and chapter inspection (which
+  takes neighbouring chapters as summaries, never as prose). There is
+  deliberately no universal recipe.
+- **Token budget** with an output reserve and priority bands. Nothing is
+  silently truncated: elements degrade through declared steps — full, summary,
+  reference, excluded — and every degradation is recorded with its cost and
+  reason. Prose excerpts state inline how much was omitted. The task and target
+  are always present, even when the budget cannot fit them.
+- **Deterministic first**: selection follows the project's own references with a
+  total ordering, so compiling twice yields an identical package. Semantic
+  retrieval augments this later.
+- **Package rendering** — the pure function that turns a package into the text a
+  model call receives, so the inspector and the model cannot diverge.
+- UI: a Context tab that compiles any recipe against any scene or chapter at a
+  chosen budget and shows what was selected, why, what the budget did, and the
+  exact compiled text.
+
+See [CONTEXT_COMPILER.md](CONTEXT_COMPILER.md).
+
 ## V1 (remaining) — Writing IDE
 
 Prove the core paradigm: **AI can operate reliably on a fiction project instead of merely chatting about it.**

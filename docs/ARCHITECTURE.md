@@ -7,15 +7,17 @@ north-star spec see [`../MASTER_BUILD.md`](../MASTER_BUILD.md).
 
 ## Status
 
-**Phases 1 & 3–7 implemented.** On the Phase-0 foundation: the persistent Story
+**Phases 1 & 3–8 implemented.** On the Phase-0 foundation: the persistent Story
 Repository, the fiction-domain **entity graph** with referential integrity,
 deterministic **search & retrieval** (`@jellytind/search`), **revision history**
 — journaled change sets, checkpoints, diffs, revert, and a staging transaction —
 a **provider-independent model layer**, and the **agent runtime**: typed
 read-only tools, permissions, persistent tasks and an investigating agent. The
 desktop workbench covers files, entities, inspector, search, history/diff, model
-settings and the agent panel. The remaining subsystem packages are typed
-interfaces marked **PLANNED**; features continue as vertical slices (see
+settings, the agent panel and the context inspector. On top of that sits the
+**Context Compiler**: task-specific, attributed, budget-resolved working context
+for every model operation. The remaining subsystem packages are typed interfaces
+marked **PLANNED**; features continue as vertical slices (see
 [`ROADMAP.md`](ROADMAP.md)).
 
 ## Repository layout
@@ -35,7 +37,7 @@ A pnpm-workspaces monorepo. Applications live in `apps/`, libraries in
 │   ├── persistence/             @jellytind/persistence   — storage interfaces + in-memory impls
 │   ├── story-repository/        @jellytind/story-repository — project = source of truth
 │   ├── model-router/            @jellytind/model-router  — LanguageModel interface, registry, secrets, routing
-│   ├── context-compiler/        @jellytind/context-compiler — task context construction (PLANNED)
+│   ├── context-compiler/        @jellytind/context-compiler — task-specific context assembly
 │   ├── story-compiler/          @jellytind/story-compiler — deterministic/semantic checks
 │   ├── agent-runtime/           @jellytind/agent-runtime — typed tools, permissions, tasks, agents
 │   ├── search/                  @jellytind/search        — lexical search (semantic PLANNED)
@@ -116,6 +118,10 @@ root-confined Rust commands (see [`STORY_REPOSITORY.md`](STORY_REPOSITORY.md)).
 - **Credentials are not project content.** Provider API keys are held by the
   desktop host in OS secure storage and never written into a Story Repository,
   its manifest, its entities or its history.
+- **Model context is compiled, not assembled ad hoc.** Every model operation
+  obtains its working context from `@jellytind/context-compiler` by naming a
+  recipe and a target. No caller reads project files and pastes them into a
+  prompt. See [`CONTEXT_COMPILER.md`](CONTEXT_COMPILER.md).
 - **Agent prompts are not domain modelling.** Rules that can be encoded in the
   domain or checked deterministically live in code (e.g. `@jellytind/domain`
   ID invariants, `@jellytind/story-compiler` checks), not in a prompt.

@@ -14,7 +14,7 @@ This is **not** a chatbot with a writing editor attached. It lets AI agents insp
 
 ## Status
 
-**Phase 7 complete.** Implemented and tested so far:
+**Phase 8 complete.** Implemented and tested so far:
 
 - **Phase 0** — monorepo, tooling, stable branded entity IDs, persistence and
   model-provider boundaries, Tauri + React desktop shell.
@@ -36,6 +36,10 @@ This is **not** a chatbot with a writing editor attached. It lets AI agents insp
   thirteen read-only project tools, persistent agent tasks, an activity log, and
   an investigating agent that inspects a project through tools rather than being
   handed the manuscript — with an Agent panel to drive it.
+- **Phase 8** — Context Compiler V1: task-specific context packages with
+  provenance on every element, three explicit recipes, a token budget that
+  degrades through declared steps instead of truncating silently, and a Context
+  tab for inspecting exactly what a model would receive.
 
 Implementation proceeds as vertical slices — see
 [`docs/ROADMAP.md`](docs/ROADMAP.md) and

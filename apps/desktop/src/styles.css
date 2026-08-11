@@ -1072,3 +1072,99 @@ code {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ── Context inspector ───────────────────────────────────── */
+.context {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  overflow: auto;
+}
+.context__controls .field {
+  margin-bottom: 8px;
+}
+.context__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+}
+.context__meta .btn {
+  align-self: flex-start;
+  margin-top: 4px;
+}
+.context__section h3 {
+  margin: 0 0 6px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.context__items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ctx {
+  border-left: 2px solid var(--ok);
+  padding: 2px 0 2px 8px;
+}
+.ctx--summary {
+  border-left-color: var(--accent);
+}
+.ctx--reference,
+.ctx--excluded {
+  border-left-color: #ff9a9a;
+}
+.ctx__head {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 12px;
+}
+.ctx__id {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 11px;
+}
+.ctx__label {
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ctx__tokens {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 11px;
+  flex: none;
+}
+.ctx__why {
+  font-size: 12px;
+  color: var(--muted);
+}
+.ctx__downgrade {
+  font-size: 11px;
+  color: var(--accent);
+}
+.context__text {
+  margin: 0;
+  padding: 10px;
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 60vh;
+  overflow: auto;
+}
