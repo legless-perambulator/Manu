@@ -32,7 +32,7 @@ A pnpm-workspaces monorepo. Applications live in `apps/`, libraries in
 │   ├── domain/                  @jellytind/domain        — branded entity IDs + generation
 │   ├── persistence/             @jellytind/persistence   — storage interfaces + in-memory impls
 │   ├── story-repository/        @jellytind/story-repository — project = source of truth (PLANNED)
-│   ├── model-router/            @jellytind/model-router  — LanguageModel interface + routing
+│   ├── model-router/            @jellytind/model-router  — LanguageModel interface, registry, secrets, routing
 │   ├── context-compiler/        @jellytind/context-compiler — task context construction (PLANNED)
 │   ├── story-compiler/          @jellytind/story-compiler — deterministic/semantic checks
 │   ├── agent-runtime/           @jellytind/agent-runtime — typed tools, tasks, agents
@@ -100,8 +100,12 @@ root-confined Rust commands (see [`STORY_REPOSITORY.md`](STORY_REPOSITORY.md)).
   mediated by the Rust host, not done ad hoc in React.
 - **Provider code must not leak.** All model access goes through the
   `LanguageModel` interface in `@jellytind/model-router`. Anthropic-specific wire
-  shapes live only inside `@jellytind/provider-anthropic` (`wire.ts`, `mapping.ts`)
-  and are never re-exported. See [`MODEL_ROUTER.md`](MODEL_ROUTER.md).
+  shapes live only inside `@jellytind/provider-anthropic` (`wire.ts`, `sse.ts`,
+  `mapping.ts`) and are never re-exported; every failure crosses the boundary as
+  a typed `ModelError`. See [`MODEL_ROUTER.md`](MODEL_ROUTER.md).
+- **Credentials are not project content.** Provider API keys are held by the
+  desktop host in OS secure storage and never written into a Story Repository,
+  its manifest, its entities or its history.
 - **Agent prompts are not domain modelling.** Rules that can be encoded in the
   domain or checked deterministically live in code (e.g. `@jellytind/domain`
   ID invariants, `@jellytind/story-compiler` checks), not in a prompt.

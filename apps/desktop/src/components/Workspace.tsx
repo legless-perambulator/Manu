@@ -10,7 +10,13 @@ import { DiffViewer } from "./DiffViewer";
 
 type LeftTab = "files" | "entities" | "search" | "history";
 
-export function Workspace({ repo, onClose }: { repo: StoryRepository; onClose: () => void }) {
+interface WorkspaceProps {
+  repo: StoryRepository;
+  onClose: () => void;
+  onOpenSettings: () => void;
+}
+
+export function Workspace({ repo, onClose, onOpenSettings }: WorkspaceProps) {
   const [tab, setTab] = useState<LeftTab>("files");
   const [openPath, setOpenPath] = useState<string | null>(null);
   const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
@@ -24,6 +30,9 @@ export function Workspace({ repo, onClose }: { repo: StoryRepository; onClose: (
       <header className="titlebar">
         <span className="brand">JellyTind</span>
         <span className="subtitle">{repo.project.title}</span>
+        <button className="btn btn--ghost" onClick={onOpenSettings}>
+          Model settings
+        </button>
         <button className="btn btn--ghost" onClick={onClose}>
           Close project
         </button>

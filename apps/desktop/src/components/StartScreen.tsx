@@ -4,7 +4,12 @@ import { createProjectAt, openProjectAt, validateProjectAt } from "../repo/sessi
 import { pickDirectory } from "../lib/dialog";
 import { isTauri } from "../tauri";
 
-export function StartScreen({ onReady }: { onReady: (repo: StoryRepository) => void }) {
+interface StartScreenProps {
+  onReady: (repo: StoryRepository) => void;
+  onOpenSettings: () => void;
+}
+
+export function StartScreen({ onReady, onOpenSettings }: StartScreenProps) {
   const [title, setTitle] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -78,6 +83,13 @@ export function StartScreen({ onReady }: { onReady: (repo: StoryRepository) => v
           <h2>Open project</h2>
           <button className="btn" onClick={handleOpen} disabled={busy || !inApp}>
             Open existing project…
+          </button>
+        </section>
+
+        <section className="start__section">
+          <h2>Model provider</h2>
+          <button className="btn btn--ghost" onClick={onOpenSettings}>
+            Model settings…
           </button>
         </section>
 

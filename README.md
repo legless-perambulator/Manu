@@ -14,11 +14,27 @@ This is **not** a chatbot with a writing editor attached. It lets AI agents insp
 
 ## Status
 
-**Phase 0 — technical foundation, complete.** The monorepo, tooling, domain
-identity foundation (stable branded entity IDs), persistence and
-model-provider boundaries, and a Tauri + React desktop shell are in place and
-tested. No product features have been built yet. Implementation proceeds as
-vertical slices — see [`docs/ROADMAP.md`](docs/ROADMAP.md) and
+**Phase 6 complete.** Implemented and tested so far:
+
+- **Phase 0** — monorepo, tooling, stable branded entity IDs, persistence and
+  model-provider boundaries, Tauri + React desktop shell.
+- **Phase 1** — the Story Repository: portable on-disk project format, atomic
+  root-confined writes, SQLite index, project creation/open/validate UI.
+- **Phase 3** — fiction-domain entities (characters, locations, objects, plot
+  threads, facts, world rules, events, relationships) with referential
+  integrity and an entity inspector.
+- **Phase 4** — project search and retrieval: lexical index, structured
+  queries, global search UI.
+- **Phase 5** — revision history: change sets, checkpoints, diffs, revert, and
+  a staging transaction ready for AI operations.
+- **Phase 6** — provider-independent language-model infrastructure: the
+  `LanguageModel` interface with declared capabilities, a model registry, typed
+  failures, streaming, structured-output validation, tool calling, a
+  deterministic mock provider, the Anthropic adapter, API keys in OS secure
+  storage, and a model settings screen.
+
+Implementation proceeds as vertical slices — see
+[`docs/ROADMAP.md`](docs/ROADMAP.md) and
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## Repository layout

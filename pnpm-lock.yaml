@@ -47,9 +47,15 @@ importers:
       '@jellytind/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@jellytind/model-router':
+        specifier: workspace:*
+        version: link:../../packages/model-router
       '@jellytind/persistence':
         specifier: workspace:*
         version: link:../../packages/persistence
+      '@jellytind/provider-anthropic':
+        specifier: workspace:*
+        version: link:../../packages/providers/anthropic
       '@jellytind/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -62,6 +68,9 @@ importers:
       '@tauri-apps/plugin-dialog':
         specifier: ^2.0.1
         version: 2.7.2
+      '@tauri-apps/plugin-http':
+        specifier: ^2.0.1
+        version: 2.5.9
       react:
         specifier: ^18.3.1
         version: 18.3.1
@@ -866,6 +875,9 @@ packages:
 
   '@tauri-apps/plugin-dialog@2.7.2':
     resolution: {integrity: sha512-pX0IGm1I3I6wc+zeKYcq1GSqogK6okCNX5fOdaNU5ab1AjGS6l1E5wFNjEb7meg7ZFSp0JUs+0jQGQNyOvLrsg==}
+
+  '@tauri-apps/plugin-http@2.5.9':
+    resolution: {integrity: sha512-lCiY0+vs4HvIUSvZrBs8TC3TiCB0MOPRmiUjTq4prW7SlcJE2jdLeT6KBsJrT9Tlplufl7W1pY6SFAO3gCWxDA==}
 
   '@types/babel__core@7.20.5':
     resolution: {integrity: sha512-qoQprZvz5wQFJwMDqeseRXWv3rqMvhgpbXFfVyWhbx9X47POIA6i/+dXefEmZKoAgOaTdaIgNSMqMIU61yRyzA==}
@@ -2132,6 +2144,10 @@ snapshots:
       '@tauri-apps/cli-win32-x64-msvc': 2.11.4
 
   '@tauri-apps/plugin-dialog@2.7.2':
+    dependencies:
+      '@tauri-apps/api': 2.11.1
+
+  '@tauri-apps/plugin-http@2.5.9':
     dependencies:
       '@tauri-apps/api': 2.11.1
 

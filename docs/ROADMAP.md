@@ -112,6 +112,33 @@ The safety layer required before unrestricted AI editing.
 
 See [VERSIONING.md](VERSIONING.md).
 
+## Phase 6 — Provider-independent language-model infrastructure ✅
+
+The layer every AI feature is built on, deliberately bound to no single vendor.
+
+- `LanguageModel` with four capabilities — `generateText`, `streamText`,
+  `generateStructured`, `runWithTools` — plus a declared `ModelCapabilities`
+  record, so a provider need not support everything and unsupported use fails
+  typed rather than confusingly.
+- **Model registry**: `ModelDescriptor` metadata (provider, model id, display
+  name, capabilities, context window, cost) as data. No product behaviour is
+  hard-coded around a current model name.
+- **Typed failures**: one `ModelError` with a `modelCode` covering network,
+  rate limit, auth, malformed output, timeout, cancellation, unsupported
+  capability and provider errors.
+- **Anthropic adapter**: the first functioning provider — text, SSE streaming,
+  structured output and tool calling — with every wire shape private to the
+  package.
+- **Mock provider**: deterministic, records calls, can disable capabilities and
+  inject any failure, so the whole abstraction is tested with no external API.
+- **API keys** in operating-system secure storage via the desktop host, never in
+  a Story Repository.
+- UI: model settings (choose provider, choose model, store key, test connection).
+
+Per-task routing policy, cost limits and privacy routing come later.
+
+See [MODEL_ROUTER.md](MODEL_ROUTER.md).
+
 ## V1 (remaining) — Writing IDE
 
 Prove the core paradigm: **AI can operate reliably on a fiction project instead of merely chatting about it.**

@@ -31,6 +31,28 @@ Do **not** architect the system so that every project fundamentally requires one
 - Support keeping sensitive projects on local models or BYOK endpoints, so manuscript text need not be sent to a third-party hosted provider if the user forbids it.
 - Track which model/provider handled each operation (provenance in the audit trail) so data flow is inspectable.
 
+## Credential storage (implemented)
+
+Provider API keys are credentials, not project content.
+
+- Keys are stored by the desktop host in the operating system's credential store
+  (macOS Keychain, Windows Credential Manager, Freedesktop Secret Service),
+  reached through `SecretStore` so no core code depends on the mechanism.
+- Where a machine offers no such service (headless Linux, containers), the host
+  falls back to an owner-only (`0600`) file in the application-config directory
+  and the settings UI states which backend is in use — the product does not claim
+  a guarantee the platform is not providing.
+- **No key is ever written into a Story Repository**: not into project files, the
+  manifest, entities, the search index or revision history. A project directory
+  can be copied, synced or shared without carrying credentials, which is what
+  keeps portability from becoming a leak.
+- The selected provider/model is a machine-local preference, stored outside the
+  project, so repositories stay free of machine-specific configuration.
+- Keys are read at call time and not held in application state longer than a
+  request needs them.
+
+See [MODEL_ROUTER.md](MODEL_ROUTER.md).
+
 ## Provider independence as a privacy property
 
 Because no core data is bound to a single provider (see [ARCHITECTURE.md](ARCHITECTURE.md)), a user can move to a more private provider — or fully local models — without losing their project.
@@ -49,3 +71,4 @@ Collaboration (co-authors, editors, beta readers, researchers) is designed for l
 - No mandatory dependency on one company's cloud for core data.
 - Model routing can honour "local/BYOK only" for sensitive content.
 - Every operation's model/provider is recorded for inspectability.
+- Provider credentials live in host secure storage, never inside a project.
