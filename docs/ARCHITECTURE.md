@@ -7,7 +7,7 @@ north-star spec see [`../MASTER_BUILD.md`](../MASTER_BUILD.md).
 
 ## Status
 
-**Phases 1 & 3–8 implemented.** On the Phase-0 foundation: the persistent Story
+**Phases 1 & 3–9 implemented.** On the Phase-0 foundation: the persistent Story
 Repository, the fiction-domain **entity graph** with referential integrity,
 deterministic **search & retrieval** (`@jellytind/search`), **revision history**
 — journaled change sets, checkpoints, diffs, revert, and a staging transaction —
@@ -16,9 +16,10 @@ read-only tools, permissions, persistent tasks and an investigating agent. The
 desktop workbench covers files, entities, inspector, search, history/diff, model
 settings, the agent panel and the context inspector. On top of that sits the
 **Context Compiler**: task-specific, attributed, budget-resolved working context
-for every model operation. The remaining subsystem packages are typed interfaces
-marked **PLANNED**; features continue as vertical slices (see
-[`ROADMAP.md`](ROADMAP.md)).
+for every model operation, and **controlled AI manuscript editing**: targeted,
+staged, reviewable prose edits that only a human decision commits. The remaining
+subsystem packages are typed interfaces marked **PLANNED**; features continue as
+vertical slices (see [`ROADMAP.md`](ROADMAP.md)).
 
 ## Repository layout
 
@@ -40,6 +41,7 @@ A pnpm-workspaces monorepo. Applications live in `apps/`, libraries in
 │   ├── context-compiler/        @jellytind/context-compiler — task-specific context assembly
 │   ├── story-compiler/          @jellytind/story-compiler — deterministic/semantic checks
 │   ├── agent-runtime/           @jellytind/agent-runtime — typed tools, permissions, tasks, agents
+│   ├── editing/                 @jellytind/editing       — controlled AI manuscript editing
 │   ├── search/                  @jellytind/search        — lexical search (semantic PLANNED)
 │   └── providers/
 │       └── anthropic/           @jellytind/provider-anthropic — Anthropic adapter (isolated)
@@ -57,7 +59,7 @@ Each layer may depend only on layers below it. The package graph enforces this.
 │ apps/desktop (UI)                                               │
 │   renderer imports domain + shared; Rust host owns FS/window    │
 ├───────────────────────────────────────────────────────────────┤
-│ Application services  (PLANNED: orchestration, approvals)       │
+│ Application services: editing (orchestration: PLANNED)          │
 ├───────────────┬───────────────────────────────────────────────┤
 │ context-      │ story-compiler                                  │
 │ compiler      │                                                 │
@@ -84,6 +86,7 @@ Each layer may depend only on layers below it. The package graph enforces this.
 | `story-compiler`     | `shared`, `domain`                                                                                           |
 | `context-compiler`   | `shared`, `domain`                                                                                           |
 | `agent-runtime`      | `shared`, `domain`, `model-router`, `persistence`, `search`                                                  |
+| `editing`            | `shared`, `domain`, `story-repository`, `context-compiler`, `model-router`, `agent-runtime`                  |
 | `apps/desktop`       | `domain`, `persistence`, `story-repository`, `model-router`, `provider-anthropic`, `agent-runtime`, `shared` |
 
 There are no cycles. `shared` is a sink; the UI is a source.
@@ -122,6 +125,10 @@ root-confined Rust commands (see [`STORY_REPOSITORY.md`](STORY_REPOSITORY.md)).
   obtains its working context from `@jellytind/context-compiler` by naming a
   recipe and a target. No caller reads project files and pastes them into a
   prompt. See [`CONTEXT_COMPILER.md`](CONTEXT_COMPILER.md).
+- **AI never writes to the project directly.** Model output is validated, staged
+  through a transaction, presented as a diff, and committed only by an explicit
+  human decision — as one attributable, revertible change set. See
+  [`AI_EDITING.md`](AI_EDITING.md).
 - **Agent prompts are not domain modelling.** Rules that can be encoded in the
   domain or checked deterministically live in code (e.g. `@jellytind/domain`
   ID invariants, `@jellytind/story-compiler` checks), not in a prompt.

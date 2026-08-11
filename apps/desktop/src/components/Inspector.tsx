@@ -20,11 +20,21 @@ interface Props {
   entityId: string | null;
   onChanged: () => void;
   onDeleted: () => void;
+  /** Run a scene-level AI operation. Absent when editing is unavailable. */
+  onSceneEdit?: (operation: "rewrite_scene" | "continue_scene", sceneId: string) => void;
+  aiBusy?: boolean;
 }
 
 const isId = (v: unknown): v is string => typeof v === "string" && /^[A-Z]+_/.test(v);
 
-export function Inspector({ repo, entityId, onChanged, onDeleted }: Props) {
+export function Inspector({
+  repo,
+  entityId,
+  onChanged,
+  onDeleted,
+  onSceneEdit,
+  aiBusy = false,
+}: Props) {
   const [kind, setKind] = useState<Kind | null>(null);
   const [draft, setDraft] = useState<Rec | null>(null);
   const [names, setNames] = useState<Map<string, string>>(new Map());
@@ -188,6 +198,28 @@ export function Inspector({ repo, entityId, onChanged, onDeleted }: Props) {
         </label>
       )}
 
+      {kind === "scene" && onSceneEdit !== undefined && (
+        <div className="inspector__ai">
+          <span className="review__label">AI operations</span>
+          <div className="inspector__ai-row">
+            <button
+              className="btn btn--small"
+              disabled={aiBusy}
+              onClick={() => onSceneEdit("rewrite_scene", entityId)}
+            >
+              Rewrite scene
+            </button>
+            <button
+              className="btn btn--small"
+              disabled={aiBusy}
+              onClick={() => onSceneEdit("continue_scene", entityId)}
+            >
+              Continue scene
+            </button>
+          </div>
+          <p className="hint">Both produce a proposal to review — nothing is written directly.</p>
+        </div>
+      )}
       {kind === "scene" ? (
         <SceneLinks draft={draft} options={options} setField={setField} />
       ) : (

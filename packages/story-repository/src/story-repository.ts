@@ -68,7 +68,14 @@ import {
 import type { HasId } from "./stores";
 import { JournaledProjectStore } from "./journaled-store";
 import { HistoryStore, type SnapshotFile } from "./history-store";
-import type { Actor, ChangeSet, ChangeSetSummary, Checkpoint, EntityChange } from "./history";
+import type {
+  Actor,
+  AiProvenance,
+  ChangeSet,
+  ChangeSetSummary,
+  Checkpoint,
+  EntityChange,
+} from "./history";
 import { StagedTransaction, type StagedFileOp } from "./transaction";
 
 const HISTORY_PREFIX = ".writer/revisions/";
@@ -105,6 +112,15 @@ export interface DeleteResult {
   readonly deletedId: string;
   /** Entities that were modified/removed to remove references (unlink mode). */
   readonly unlinked: readonly string[];
+}
+
+/** Attribution for a staged transaction's resulting change set. */
+export interface TransactionMeta {
+  readonly actor?: Actor;
+  readonly operation?: string;
+  readonly taskId?: string;
+  readonly modelId?: string;
+  readonly ai?: AiProvenance;
 }
 
 const nowIso = (): string => new Date().toISOString();
@@ -840,12 +856,21 @@ export class StoryRepository {
    * writes, `preview()` them, then `commit()` (records one change set) or
    * `discard()`. The primitive future AI workflows use to stay reversible.
    */
-  beginTransaction(summary = "Staged changes"): StagedTransaction {
+  beginTransaction(summary = "Staged changes", meta: TransactionMeta = {}): StagedTransaction {
     return new StagedTransaction(
       (path) => this.store.readFile(path),
-      async (ops: StagedFileOp[], entities: EntityChange[], sum: string) => {
+      async (ops: StagedFileOp[], entities: EntityChange[], sum: string, at?: TransactionMeta) => {
+        const final = { ...meta, ...at };
         const change = await this.recordChange(
-          { actor: "agent", operation: "transaction", summary: sum, entitiesChanged: entities },
+          {
+            actor: final.actor ?? "agent",
+            operation: final.operation ?? "transaction",
+            summary: sum,
+            entitiesChanged: entities,
+            ...(final.taskId !== undefined ? { taskId: final.taskId } : {}),
+            ...(final.modelId !== undefined ? { modelId: final.modelId } : {}),
+            ...(final.ai !== undefined ? { ai: final.ai } : {}),
+          },
           async () => {
             for (const op of ops) {
               if (op.content === null) await this.store.delete(op.path);
@@ -883,6 +908,7 @@ export class StoryRepository {
       revertsChangeSetId?: string;
       taskId?: string;
       modelId?: string;
+      ai?: AiProvenance;
     },
     body: () => Promise<void>,
   ): Promise<ChangeSet> {
@@ -907,6 +933,7 @@ export class StoryRepository {
         : {}),
       ...(meta.taskId !== undefined ? { taskId: meta.taskId } : {}),
       ...(meta.modelId !== undefined ? { modelId: meta.modelId } : {}),
+      ...(meta.ai !== undefined ? { ai: meta.ai } : {}),
     });
   }
 

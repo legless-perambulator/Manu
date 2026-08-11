@@ -204,6 +204,37 @@ build a giant prompt out of random project files.
 
 See [CONTEXT_COMPILER.md](CONTEXT_COMPILER.md).
 
+## Phase 9 — Controlled AI manuscript editing ✅
+
+The phase where the product stops resembling a writing chatbot: the AI knows what
+it is editing because the harness supplies structured story context, and every
+proposed change is reviewable and reversible before it exists.
+
+- **Three operations**: `rewrite_selection` (with the directives _rewrite,
+  shorten, expand, strengthen dialogue, increase tension, remove exposition_),
+  `rewrite_scene` and `continue_scene`. Autonomous chapter rewriting is
+  deliberately not implemented.
+- **The workflow**, using the existing subsystems rather than around them:
+  identify target → compile context (Context Compiler) → invoke model (Model
+  Router) → validate response → stage (StagedTransaction) → present diff →
+  accept or reject → commit as one ChangeSet → audit.
+- **The model never writes to a file.** Nothing is committed without an explicit
+  human decision.
+- **Scene markers** (`<!-- scene: SCENE_0001 -->`) give a scene's prose a
+  boundary inside its chapter file — invisible in rendered Markdown, portable,
+  optional, with two unambiguous fallbacks and a clear error instead of a guess.
+- **Validation**: a schema for the reply, then deterministic checks for empty,
+  unchanged and runaway output.
+- **Hunk-level review**: accept all, reject, or tick individual hunks and take
+  only those, with a preview of the file as it would be saved.
+- **Audit**: AI provenance on the change set (operation, target, instruction,
+  context recipe and tokens, model, task, approval, hunks taken) plus every
+  outcome — including rejections — in the agent activity log.
+- Each operation is a persisted `AgentTask` requiring the `edit_manuscript`
+  permission, which is checked before any model is called.
+
+See [AI_EDITING.md](AI_EDITING.md).
+
 ## V1 (remaining) — Writing IDE
 
 Prove the core paradigm: **AI can operate reliably on a fiction project instead of merely chatting about it.**

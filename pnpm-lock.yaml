@@ -53,6 +53,9 @@ importers:
       '@jellytind/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@jellytind/editing':
+        specifier: workspace:*
+        version: link:../../packages/editing
       '@jellytind/model-router':
         specifier: workspace:*
         version: link:../../packages/model-router
@@ -141,6 +144,27 @@ importers:
       '@jellytind/shared':
         specifier: workspace:*
         version: link:../shared
+
+  packages/editing:
+    dependencies:
+      '@jellytind/agent-runtime':
+        specifier: workspace:*
+        version: link:../agent-runtime
+      '@jellytind/context-compiler':
+        specifier: workspace:*
+        version: link:../context-compiler
+      '@jellytind/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@jellytind/model-router':
+        specifier: workspace:*
+        version: link:../model-router
+      '@jellytind/shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@jellytind/story-repository':
+        specifier: workspace:*
+        version: link:../story-repository
 
   packages/model-router:
     dependencies:

@@ -50,7 +50,9 @@ export function isTerminal(status: TaskStatus): boolean {
 const TRANSITIONS: Readonly<Record<TaskStatus, readonly TaskStatus[]>> = {
   pending: ["running", "cancelled", "failed"],
   running: ["awaiting_approval", "completed", "failed", "cancelled"],
-  awaiting_approval: ["running", "cancelled", "failed"],
+  // Approval can either resume work or be the last step, as it is for a
+  // manuscript edit whose only remaining action is the commit itself.
+  awaiting_approval: ["running", "completed", "cancelled", "failed"],
   completed: [],
   failed: [],
   cancelled: [],

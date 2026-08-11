@@ -1,0 +1,21 @@
+{
+  "name": "@jellytind/editing",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Controlled AI manuscript editing: propose, review, accept or reject.",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "sideEffects": false,
+  "dependencies": {
+    "@jellytind/agent-runtime": "workspace:*",
+    "@jellytind/context-compiler": "workspace:*",
+    "@jellytind/domain": "workspace:*",
+    "@jellytind/model-router": "workspace:*",
+    "@jellytind/shared": "workspace:*",
+    "@jellytind/story-repository": "workspace:*"
+  }
+}

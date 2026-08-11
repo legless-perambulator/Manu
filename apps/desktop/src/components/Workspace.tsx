@@ -1,6 +1,8 @@
 import { useCallback, useState } from "react";
+import type { EditProposal, EditRequest, ManuscriptEditor } from "@jellytind/editing";
 import type { SecretStore } from "@jellytind/model-router";
 import type { StoryRepository } from "@jellytind/story-repository";
+import { createManuscriptEditor, explainEditError } from "../lib/editing";
 import { ProjectExplorer } from "./ProjectExplorer";
 import { EntitiesPanel } from "./EntitiesPanel";
 import { SearchPanel } from "./SearchPanel";
@@ -10,6 +12,7 @@ import { Inspector } from "./Inspector";
 import { DiffViewer } from "./DiffViewer";
 import { AgentPanel } from "./AgentPanel";
 import { ContextPanel } from "./ContextPanel";
+import { ProposalReview } from "./ProposalReview";
 
 type LeftTab = "files" | "entities" | "search" | "history";
 type RightTab = "inspector" | "agent" | "context";
@@ -29,9 +32,40 @@ export function Workspace({ repo, secrets, onClose, onOpenSettings }: WorkspaceP
   const [selectedChangeId, setSelectedChangeId] = useState<string | null>(null);
   const [activityLine, setActivityLine] = useState<string | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
+  const [editor, setEditor] = useState<ManuscriptEditor | null>(null);
+  const [proposal, setProposal] = useState<EditProposal | null>(null);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
 
   const refresh = () => setRefreshToken((n) => n + 1);
   const showActivity = useCallback((line: string | null) => setActivityLine(line), []);
+
+  /**
+   * Run an AI edit and show the proposal. The editor is built lazily so opening
+   * a project never requires a configured model.
+   */
+  const runEdit = useCallback(
+    async (request: EditRequest) => {
+      setAiBusy(true);
+      setAiError(null);
+      setActivityLine(`${request.operation.replace(/_/g, " ")}…`);
+      try {
+        const active = editor ?? (await createManuscriptEditor(repo, secrets));
+        if (editor === null) setEditor(active);
+        setProposal(await active.propose(request));
+        setSelectedChangeId(null);
+      } catch (cause) {
+        setAiError(explainEditError(cause));
+      } finally {
+        setAiBusy(false);
+        setActivityLine(null);
+      }
+    },
+    [editor, repo, secrets],
+  );
+
+  const sceneIdForEditor =
+    selectedEntityId?.startsWith("SCENE_") === true ? selectedEntityId : null;
 
   return (
     <div className="app">
@@ -115,7 +149,17 @@ export function Workspace({ repo, secrets, onClose, onOpenSettings }: WorkspaceP
         </aside>
 
         <main className="panel panel--editor">
-          {selectedChangeId !== null ? (
+          {aiError !== null && <p className="editor__error">{aiError}</p>}
+          {proposal !== null && editor !== null ? (
+            <ProposalReview
+              editor={editor}
+              proposal={proposal}
+              onResolved={(outcome) => {
+                setProposal(null);
+                if (outcome === "accepted") refresh();
+              }}
+            />
+          ) : selectedChangeId !== null ? (
             <DiffViewer
               repo={repo}
               changeId={selectedChangeId}
@@ -126,7 +170,14 @@ export function Workspace({ repo, secrets, onClose, onOpenSettings }: WorkspaceP
               onClose={() => setSelectedChangeId(null)}
             />
           ) : (
-            <Editor repo={repo} path={openPath} onSaved={refresh} />
+            <Editor
+              repo={repo}
+              path={openPath}
+              onSaved={refresh}
+              sceneId={sceneIdForEditor}
+              aiBusy={aiBusy}
+              onRunEdit={(request) => void runEdit(request)}
+            />
           )}
         </main>
 
@@ -157,6 +208,12 @@ export function Workspace({ repo, secrets, onClose, onOpenSettings }: WorkspaceP
               entityId={selectedEntityId}
               onChanged={refresh}
               onDeleted={() => setSelectedEntityId(null)}
+              aiBusy={aiBusy}
+              onSceneEdit={(operation, sceneId) =>
+                void runEdit(
+                  operation === "rewrite_scene" ? { operation, sceneId } : { operation, sceneId },
+                )
+              }
             />
           )}
           {rightTab === "agent" && (

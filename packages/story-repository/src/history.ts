@@ -25,6 +25,35 @@ export interface EntityChange {
   readonly change: "created" | "updated" | "deleted";
 }
 
+/**
+ * Audit trail for a change an AI proposed and a human approved.
+ *
+ * Recorded on the change set itself, so the answer to "which model changed this,
+ * under what instruction, with what context, and who approved it?" lives beside
+ * the before/after text rather than in a separate log that can drift
+ * (AGENTS.md — "AI Mutation Rules"; docs/VERSIONING.md).
+ */
+export interface AiProvenance {
+  /** The editing operation, e.g. "rewrite_selection". */
+  readonly operation: string;
+  /** Scene or chapter the operation targeted. */
+  readonly targetId: string;
+  /** What the user asked for. */
+  readonly instruction: string;
+  /** Optional shaping directive, e.g. "increase_tension". */
+  readonly directive?: string;
+  /** Which Context Compiler recipe supplied the model's working context. */
+  readonly contextRecipe: string;
+  readonly contextTokens: number;
+  readonly modelId: string;
+  readonly taskId: string;
+  readonly approval: "accepted" | "partially_accepted";
+  readonly approvedAt: string;
+  /** Hunks the reviewer took, out of those offered. */
+  readonly acceptedHunks?: number;
+  readonly offeredHunks?: number;
+}
+
 export interface ChangeSet {
   readonly id: string;
   readonly timestamp: string;
@@ -39,6 +68,8 @@ export interface ChangeSet {
   readonly status: ChangeStatus;
   /** If this change reverts another, the id of the change it reverts. */
   readonly revertsChangeSetId?: string;
+  /** Present when an AI proposed this change and a human approved it. */
+  readonly ai?: AiProvenance;
 }
 
 /** Compact history-log entry (no file content) for fast listing. */
@@ -52,6 +83,8 @@ export interface ChangeSetSummary {
   readonly fileCount: number;
   readonly entityCount: number;
   readonly revertsChangeSetId?: string;
+  /** The AI operation behind this change, when there was one. */
+  readonly aiOperation?: string;
 }
 
 export interface Checkpoint {
@@ -76,5 +109,6 @@ export function summarize(change: ChangeSet): ChangeSetSummary {
     ...(change.revertsChangeSetId !== undefined
       ? { revertsChangeSetId: change.revertsChangeSetId }
       : {}),
+    ...(change.ai !== undefined ? { aiOperation: change.ai.operation } : {}),
   };
 }

@@ -16,6 +16,7 @@
     "@jellytind/agent-runtime": "workspace:*",
     "@jellytind/context-compiler": "workspace:*",
     "@jellytind/domain": "workspace:*",
+    "@jellytind/editing": "workspace:*",
     "@jellytind/shared": "workspace:*",
     "@jellytind/model-router": "workspace:*",
     "@jellytind/persistence": "workspace:*",
