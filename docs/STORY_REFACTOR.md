@@ -2,7 +2,13 @@
 
 The fiction equivalent of refactoring software: change a structural element and understand the blast radius **before** touching the manuscript.
 
-- **Status:** **PLANNED (V2).** No code yet. Depends on the [Domain Model](DOMAIN_MODEL.md) (stable IDs — already implemented — are what make blast-radius analysis tractable), [Story State](STORY_STATE.md), the causality graph, and [Versioning](VERSIONING.md) branches.
+- **Status:** **PLANNED (V2)** — but its foundation is built. The **causality
+  graph** and **blast-radius analysis** are implemented and tested as of Phase
+  19 ([CAUSALITY.md](CAUSALITY.md)), so the "what breaks if I change this?"
+  half of a refactor already works; what remains is planning and applying the
+  change. Also depends on the [Domain Model](DOMAIN_MODEL.md) (stable IDs are
+  what make blast-radius analysis tractable), [Story State](STORY_STATE.md) and
+  [Versioning](VERSIONING.md) branches.
 
 ## Principle
 
@@ -25,7 +31,10 @@ High-risk dependencies:
 
 ## Dependency / causality analysis
 
-Refactor relies on the **Causality Graph**: scenes and events declare dependencies, so changing or deleting one reveals what breaks.
+Refactor relies on the **Causality Graph**, which is now real: scenes, events,
+facts, threads, setups, objects and decisions declare dependencies, so changing
+or deleting one reveals what breaks. See [CAUSALITY.md](CAUSALITY.md) for the
+relation kinds, the queries and the guarantees.
 
 ```
 Elias discovers letter → Confronts father → Father lies → Elias contacts Mara
@@ -38,7 +47,9 @@ Deleting or significantly changing a scene surfaces its dependents and explains 
 Removing SCENE_0042 may break causal dependencies for: SCENE_0051, SCENE_0053, SCENE_0061
 ```
 
-This is the fiction equivalent of dependency analysis.
+This is the fiction equivalent of dependency analysis, and every entry comes
+with the path that explains it — `SCENE_0042 → causes → SCENE_0051 → enables →
+SCENE_0053` — because a list of IDs is not something a writer can act on.
 
 ## Supported refactors
 

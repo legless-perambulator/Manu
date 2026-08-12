@@ -4,6 +4,7 @@ import { MockLanguageModel } from "@jellytind/model-router";
 import type { PermissionGrant } from "@jellytind/agent-runtime";
 import { StoryRepository } from "@jellytind/story-repository";
 import { DiagnosisAnalyst, renderTraceForModel } from "./diagnosis-analyst";
+import { DependencyAnalyst } from "./dependency-analyst";
 import { EditError } from "./types";
 
 const READ_ONLY: PermissionGrant = { permissions: ["read_manuscript", "read_canon"] };
@@ -225,5 +226,127 @@ describe("what the model is shown", () => {
     expect(rendered).toContain("MEASUREMENTS — counts, not verdicts.");
     expect(rendered).toContain("NOT inspected:");
     expect(rendered).toContain("Do not reason about text you were not shown");
+  });
+});
+
+/**
+ * Proposing causality.
+ *
+ * The failure worth guarding against is not a bad sentence — it is a
+ * hallucinated dependency a writer trusts and plans a rewrite around. So every
+ * proposal is validated against real entities, kept out of the graph, and
+ * anything unusable is shown rather than dropped.
+ */
+describe("proposing dependencies", () => {
+  async function scoped() {
+    const store = new InMemoryProjectStore();
+    const repo = await StoryRepository.createProject({ store, title: "Blackthorn" });
+    const elias = await repo.addCharacter({ name: "Elias" });
+    const chapter = await repo.addChapter({ title: "The Letter" });
+    const first = await repo.addScene({
+      title: "Elias discovers the letter",
+      chapterId: chapter.id,
+      characterIds: [elias.id],
+      purpose: ["He finds it in the drawer"],
+    });
+    const second = await repo.addScene({
+      title: "Elias confronts his father",
+      chapterId: chapter.id,
+      characterIds: [elias.id],
+    });
+    const scaffold = (await repo.readProjectFile(chapter.filePath)) ?? "";
+    await repo.writeProjectFile(chapter.filePath, `${scaffold}\nThe drawer was unlocked.\n`);
+    return { repo, first, second, elias };
+  }
+
+  const proposing = (dependencies: unknown[]) =>
+    new MockLanguageModel({ structured: { dependencies } as Record<string, unknown> });
+
+  it("stores proposals out of the graph, awaiting review", async () => {
+    const { repo, first, second } = await scoped();
+    const analyst = new DependencyAnalyst({
+      repo,
+      model: proposing([
+        {
+          fromId: first.id,
+          kind: "enables",
+          toId: second.id,
+          description: "He would have no reason to confront him otherwise.",
+          evidence: "The drawer was unlocked.",
+        },
+      ]),
+      grant: READ_ONLY,
+      now: () => "2026-01-01T00:00:00.000Z",
+    });
+
+    const proposal = await analyst.analyseScope([first.id, second.id]);
+
+    expect(proposal.proposed).toHaveLength(1);
+    expect(proposal.proposed[0]?.status).toBe("proposed");
+    expect(proposal.proposed[0]?.source).toBe("agent");
+    expect(proposal.proposed[0]?.modelId).toBe("mock:test");
+    // Not in the graph until a human accepts it.
+    expect(await repo.getTransitiveDependents(first.id as string)).toEqual([]);
+  });
+
+  it("sets aside an invented ID and says what the model tried to claim", async () => {
+    const { repo, first } = await scoped();
+    const analyst = new DependencyAnalyst({
+      repo,
+      model: proposing([
+        { fromId: first.id, kind: "causes", toId: "SCENE_9999", evidence: "as shown" },
+        { fromId: first.id, kind: "influences", toId: first.id, evidence: "as shown" },
+        { fromId: first.id, kind: "causes", toId: first.id, evidence: "as shown" },
+      ]),
+      grant: READ_ONLY,
+    });
+
+    const proposal = await analyst.analyseScope([first.id]);
+
+    expect(proposal.proposed).toEqual([]);
+    expect(proposal.rejected).toHaveLength(3);
+    expect(proposal.rejected[0]?.problem).toContain("SCENE_9999");
+    expect(proposal.rejected[1]?.problem).toContain("not a relationship kind");
+    expect(proposal.rejected[2]?.problem).toContain("itself");
+  });
+
+  it("refuses a proposal with no evidence behind it", async () => {
+    const { repo, first, second } = await scoped();
+    const analyst = new DependencyAnalyst({
+      repo,
+      model: proposing([{ fromId: first.id, kind: "causes", toId: second.id }]),
+      grant: READ_ONLY,
+    });
+
+    const proposal = await analyst.analyseScope([first.id, second.id]);
+    expect(proposal.rejected[0]?.problem).toContain("cannot be reviewed");
+  });
+
+  it("drops a proposal the model made twice", async () => {
+    const { repo, first, second } = await scoped();
+    const draft = { fromId: first.id, kind: "causes", toId: second.id, evidence: "as shown" };
+    const analyst = new DependencyAnalyst({
+      repo,
+      model: proposing([draft, draft]),
+      grant: READ_ONLY,
+    });
+
+    const proposal = await analyst.analyseScope([first.id, second.id]);
+    expect(proposal.proposed).toHaveLength(1);
+    expect(proposal.rejected[0]?.problem).toContain("twice");
+  });
+
+  it("needs a scope, and real scenes in it", async () => {
+    const { repo } = await scoped();
+    const analyst = new DependencyAnalyst({ repo, model: proposing([]), grant: READ_ONLY });
+
+    await expect(analyst.analyseScope([])).rejects.toThrow(/Name the scenes/);
+    await expect(analyst.analyseScope(["SCENE_9999"])).rejects.toThrow(/None of those scenes/);
+  });
+
+  it("refuses without permission to read canon", async () => {
+    const { repo, first } = await scoped();
+    const analyst = new DependencyAnalyst({ repo, model: proposing([]), grant: NO_ACCESS });
+    await expect(analyst.analyseScope([first.id])).rejects.toThrow(/permission/i);
   });
 });

@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-import { describeStoryTime, entityKindOf, normaliseStoryTime } from "@jellytind/domain";
+import {
+  describeStoryTime,
+  entityKindOf,
+  isDependencyNode,
+  normaliseStoryTime,
+} from "@jellytind/domain";
 import type { ReferenceEdge, StoryRepository } from "@jellytind/story-repository";
+import type { BlastRadius } from "@jellytind/story-causality";
 import {
   KIND_LABEL,
   SCALAR_FIELDS,
@@ -42,10 +48,19 @@ export function Inspector({
   const [dirty, setDirty] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<ReferenceEdge[] | null>(null);
+  /**
+   * What the registered causality graph says rests on this entity.
+   *
+   * Shown before deletion because a reference is "something points at this"
+   * while a dependency is "the writer told us this matters" — and the second is
+   * the one worth stopping for (docs/STORY_REFACTOR.md).
+   */
+  const [pendingRadius, setPendingRadius] = useState<BlastRadius | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
     setPendingDelete(null);
+    setPendingRadius(null);
     if (entityId === null) {
       setDraft(null);
       setKind(null);
@@ -109,14 +124,25 @@ export function Inspector({
   async function requestDelete() {
     setError(null);
     try {
-      const refs = await repo.findReferences(String(draft?.id));
-      if (refs.length === 0) {
-        await repo.deleteEntity(String(draft?.id));
+      const id = String(draft?.id);
+      const [refs, radius, dependencies] = await Promise.all([
+        repo.findReferences(id),
+        isDependencyNode(id)
+          ? repo.calculateBlastRadius(id)
+          : Promise.resolve(null as BlastRadius | null),
+        repo.listDependencies(),
+      ]);
+      const touching = dependencies.filter(
+        (d) => d.status !== "rejected" && (d.fromId === id || d.toId === id),
+      );
+      if (refs.length === 0 && touching.length === 0) {
+        await repo.deleteEntity(id);
         onChanged();
         onDeleted();
-      } else {
-        setPendingDelete(refs);
+        return;
       }
+      setPendingDelete(refs);
+      setPendingRadius(radius !== null && radius.total > 0 ? radius : null);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -257,16 +283,48 @@ export function Inspector({
 
       {pendingDelete !== null ? (
         <div className="inspector__danger">
-          <p>
-            Referenced by {pendingDelete.length}{" "}
-            {pendingDelete.length === 1 ? "entity" : "entities"}:{" "}
-            {pendingDelete.map((r) => names.get(r.fromId) ?? r.fromId).join(", ")}.
-          </p>
+          {pendingDelete.length > 0 && (
+            <p>
+              Referenced by {pendingDelete.length}{" "}
+              {pendingDelete.length === 1 ? "entity" : "entities"}:{" "}
+              {pendingDelete.map((r) => names.get(r.fromId) ?? r.fromId).join(", ")}.
+            </p>
+          )}
+          {pendingRadius !== null && (
+            <>
+              <p>
+                <strong>{pendingRadius.total}</strong> registered story element
+                {pendingRadius.total === 1 ? "" : "s"} depend
+                {pendingRadius.total === 1 ? "s" : ""} on this, directly or through others:
+              </p>
+              <ul className="state__knowledge">
+                {pendingRadius.affected.slice(0, 8).map((affected) => (
+                  <li key={affected.id}>
+                    {names.get(affected.id) ?? affected.id}
+                    <span className="ctx__id">
+                      {" "}
+                      {affected.direct ? "direct" : `${affected.distance} steps`}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p className="hint">
+                Deleting removes those links as well. Nothing is lost that a revert cannot bring
+                back.
+              </p>
+            </>
+          )}
           <div className="inspector__actions">
             <button className="btn btn--danger" onClick={() => void confirmUnlinkDelete()}>
               Unlink &amp; delete
             </button>
-            <button className="btn" onClick={() => setPendingDelete(null)}>
+            <button
+              className="btn"
+              onClick={() => {
+                setPendingDelete(null);
+                setPendingRadius(null);
+              }}
+            >
               Cancel
             </button>
           </div>

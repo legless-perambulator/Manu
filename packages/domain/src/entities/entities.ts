@@ -11,6 +11,7 @@ import type {
   WorldRuleId,
   RelationshipId,
   SetupId,
+  DecisionId,
 } from "../ids/ids";
 import type { StoryDuration, StoryTime } from "../story-time";
 
@@ -308,6 +309,30 @@ export interface Relationship {
   /** Starting free-form status, e.g. "warm", "strained". Optional to record. */
   readonly status: string;
   readonly description: string;
+}
+
+/**
+ * A choice a character makes, as a first-class thing.
+ *
+ * Plot is what happens; a decision is why the next thing happens. "Elias
+ * confronts his father" is not a scene — it is the choice the scene contains,
+ * and it is what the *next* choice rests on. Causality needs it as a node,
+ * because a chain of scenes explains sequence while a chain of decisions
+ * explains consequence (docs/STORY_REFACTOR.md — the causality graph).
+ *
+ * Recording one is optional and deliberate. A story does not need every choice
+ * written down; it needs the ones later choices depend on.
+ */
+export interface Decision {
+  readonly id: DecisionId;
+  /** What they decide, in the author's words. */
+  readonly description: string;
+  readonly characterId: CharacterId;
+  /** Where the choice is made. */
+  readonly sceneId?: SceneId;
+  /** Why they make it, when the author wants it recorded. */
+  readonly reason?: string;
+  readonly notes?: string;
 }
 
 /**

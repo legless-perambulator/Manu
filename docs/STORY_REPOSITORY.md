@@ -236,6 +236,7 @@ MY_NOVEL/
 | Prose                            | `manuscript/**.md`                        | Yes            |
 | Scene structure                  | `scenes/*.yaml`                           | Yes            |
 | Canon story facts, world rules   | `story/`, `world/`, `plot/`               | Yes            |
+| Registered causality             | `plot/dependencies.json`                  | Yes (canon)    |
 | Confirmed story state            | `.writer/state/transitions.json`          | Yes            |
 | Story chronology, travel times   | `.writer/state/timeline.json`             | Yes            |
 | Story tests                      | `.writer/tests/story_tests.json`          | Yes (canon)    |

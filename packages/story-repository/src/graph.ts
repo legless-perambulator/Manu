@@ -13,6 +13,7 @@ import {
   normalizeEvent,
   normalizeRelationship,
   normalizeSetup,
+  normalizeDecision,
 } from "./codecs";
 
 /** Entity kinds that carry structured records (excludes the project container). */
@@ -27,7 +28,8 @@ export type GraphKind =
   | "world_rule"
   | "event"
   | "relationship"
-  | "setup";
+  | "setup"
+  | "decision";
 
 /** Describes one reference-bearing field on an entity kind. */
 interface RefField {
@@ -62,6 +64,10 @@ const REFERENCE_FIELDS: Partial<Record<GraphKind, readonly RefField[]>> = {
   relationship: [
     { field: "characterAId", target: "character", multi: false, required: true },
     { field: "characterBId", target: "character", multi: false, required: true },
+  ],
+  decision: [
+    { field: "characterId", target: "character", multi: false, required: true },
+    { field: "sceneId", target: "scene", multi: false, required: false },
   ],
   setup: [
     { field: "setupSceneIds", target: "scene", multi: true, required: false },
@@ -109,6 +115,7 @@ export class EntityGraph {
       event: new JsonCollectionStore(store, PATHS.events, normalizeEvent),
       relationship: new JsonCollectionStore(store, PATHS.relationships, normalizeRelationship),
       setup: new JsonCollectionStore(store, PATHS.setups, normalizeSetup),
+      decision: new JsonCollectionStore(store, PATHS.decisions, normalizeDecision),
     };
   }
 
@@ -129,6 +136,7 @@ export class EntityGraph {
       "event",
       "relationship",
       "setup",
+      "decision",
     ];
   }
 

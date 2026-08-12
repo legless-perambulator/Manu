@@ -14,7 +14,7 @@ This is **not** a chatbot with a writing editor attached. It lets AI agents insp
 
 ## Status
 
-**Phase 18 complete.** Implemented and tested so far:
+**Phase 19 complete.** Implemented and tested so far:
 
 - **Phase 0** — monorepo, tooling, stable branded entity IDs, persistence and
   model-provider boundaries, Tauri + React desktop shell.
@@ -90,6 +90,13 @@ This is **not** a chatbot with a writing editor attached. It lets AI agents insp
   evidence half runs with no model at all; a model's reading is labelled as
   judgement, must cite the evidence it rests on, and proposes interventions
   nothing applies.
+- **Phase 19** — the story causality and dependency graph: registered
+  cause-and-effect between scenes, events, facts, threads, setups, objects and
+  decisions, so _if I remove this scene, what depends on it?_ is answered from
+  persistent story architecture rather than by asking a model. Blast radius
+  explains every affected element with the path that reaches it, traversal is
+  cycle-safe, deletion warns first, and a model may propose links but never
+  register them.
 
 Implementation proceeds as vertical slices — see
 [`docs/ROADMAP.md`](docs/ROADMAP.md) and
@@ -100,9 +107,9 @@ Implementation proceeds as vertical slices — see
 ```
 apps/desktop/            Tauri + React desktop shell
 packages/                domain, persistence, model-router, story-compiler,
-                         story-debugger, agent-runtime, context-compiler,
-                         editing, search, story-repository, story-state,
-                         shared, providers/anthropic
+                         story-debugger, story-causality, agent-runtime,
+                         context-compiler, editing, search, story-repository,
+                         story-state, shared, providers/anthropic
 docs/                    living architecture documentation
 ```
 

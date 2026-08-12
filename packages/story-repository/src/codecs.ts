@@ -10,6 +10,7 @@ import {
   isEventId,
   isRelationshipId,
   isSetupId,
+  isDecisionId,
   CHAPTER_STATUSES,
   SCENE_STATUSES,
   CHARACTER_STATUSES,
@@ -32,6 +33,7 @@ import {
   type StoryEvent,
   type Relationship,
   type Setup,
+  type Decision,
   type FactId,
   type CharacterId,
   type LocationId,
@@ -302,5 +304,20 @@ export function normalizeRelationship(raw: unknown): Relationship | null {
     type: str(d.type),
     status: str(d.status),
     description: str(d.description),
+  };
+}
+
+export function normalizeDecision(raw: unknown): Decision | null {
+  if (typeof raw !== "object" || raw === null) return null;
+  const d = raw as Record<string, unknown>;
+  if (!isDecisionId(str(d.id))) return null;
+  if (!isCharacterId(str(d.characterId))) return null;
+  return {
+    id: d.id as Decision["id"],
+    description: str(d.description),
+    characterId: d.characterId as CharacterId,
+    ...(optId(d.sceneId, isSceneId) !== undefined ? { sceneId: d.sceneId as SceneId } : {}),
+    ...(optStr(d.reason) !== undefined ? { reason: optStr(d.reason) } : {}),
+    ...(optStr(d.notes) !== undefined ? { notes: optStr(d.notes) } : {}),
   };
 }

@@ -10,7 +10,7 @@ Versioned delivery plan. Implementation proceeds **vertically**: finish a cohere
 (Context Compiler V1), 9 (controlled AI manuscript editing), 10 (Story State V1)
 11 (knowledge & belief graph), 12 (dynamic relationship state), 13 (Story
 Timeline Engine), 14 (object continuity), 15 (narrative threads), 16 (Story
-Compiler V1), 17 (Story Tests) and 18 (Story Debugger V1) complete.** AI can inspect a project through
+Compiler V1), 17 (Story Tests), 18 (Story Debugger V1) and 19 (causality graph) complete.** AI can inspect a project through
 typed tools, receive explicit attributed context — including who is where, who
 knows what, and who believes something false at a named scene boundary — and
 propose targeted prose edits and state changes that a human reviews before
@@ -559,6 +559,43 @@ generic writing advice.
 
 See [STORY_DEBUGGER.md](STORY_DEBUGGER.md).
 
+## Phase 19 — Story causality and dependency graph ✅
+
+A manuscript records sequence. This records **consequence** — the foundation
+Story Refactor is built on.
+
+- **Eight relations** — causes, enables, motivates, reveals, requires,
+  depends_on, prevents, resolves — stored as the writer phrased them and
+  traversed on **one normalised arrow**, so `A requires B` and `B enables A`
+  behave identically and nobody has to think backwards.
+- **Nodes**: scenes, events, facts, threads, setups, objects, characters, and a
+  new `Decision` entity — because a chain of scenes explains sequence while a
+  chain of decisions explains consequence.
+- **Registration is explicit and validated.** Both endpoints must exist and must
+  be kinds that can participate; a link naming a deleted scene would silently
+  poison every blast radius after it.
+- **Only registered dependencies exist.** Nothing is inferred into the graph,
+  and this is deliberately not an attempt to encode every causal relation in a
+  novel — a warning that fires on everything is one nobody reads.
+- **AI proposals are held.** `DependencyAnalyst` analyses a named run of scenes
+  and stores everything as `proposed`, out of the graph until a human accepts
+  it. Invented IDs and evidence-free claims are set aside _with the reason_.
+- **The five queries** — dependencies, dependents, transitive dependents,
+  dependency path, blast radius — all filterable by relation kind and depth.
+- **Blast radius explains itself**: every affected element carries the path that
+  reaches it, up to three routes each.
+- **Cycles never crash.** Traversal is cycle-safe everywhere; loops are reported
+  as warnings, never prevented — a writer may mean one.
+- **Deletion warns first**, naming how many elements depend on the entity and
+  showing the radius before the confirmation.
+- **Compiler rule** `dependency_integrity`: dangling endpoints and
+  self-dependencies as errors, loops and effects-before-causes as warnings,
+  duplicates as notes. Confirmed edges only.
+- **A graph view built for reading**: upstream, the node, downstream, in three
+  columns; click to re-centre; filter by relation kind.
+
+See [CAUSALITY.md](CAUSALITY.md).
+
 ## V1 (remaining) — Writing IDE
 
 Prove the core paradigm: **AI can operate reliably on a fiction project instead of merely chatting about it.**
@@ -579,7 +616,7 @@ The application begins understanding the structure of the story.
 - scenes as entities · story state · timeline
 - character knowledge · relationships · object continuity
 - plot-thread lifecycle · world rules
-- Story Compiler (deterministic + semantic checks) · dependency/causality graph
+- Story Compiler (deterministic + semantic checks) · **dependency/causality graph ✅**
 - Story Refactor V1 · **Story Debugger V1 ✅**
 
 ## V3 — Agent System

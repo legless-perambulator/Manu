@@ -18,6 +18,7 @@ These documents are **living**: update the relevant document whenever an archite
 | [TIMELINE.md](TIMELINE.md)                   | Story-world chronology versus manuscript presentation.    |
 | [OBJECTS_LOCATIONS.md](OBJECTS_LOCATIONS.md) | Object continuity, nested locations, physical checks.     |
 | [NARRATIVE_THREADS.md](NARRATIVE_THREADS.md) | Plot-thread lifecycle, setups, payoffs, foreshadowing.    |
+| [CAUSALITY.md](CAUSALITY.md)                 | The story dependency graph and blast-radius analysis.     |
 | [SEARCH.md](SEARCH.md)                       | Deterministic full-text + structured retrieval.           |
 | [CONTEXT_COMPILER.md](CONTEXT_COMPILER.md)   | How working context is constructed for each operation.    |
 | [STORY_COMPILER.md](STORY_COMPILER.md)       | Deterministic + semantic story checks and the build.      |

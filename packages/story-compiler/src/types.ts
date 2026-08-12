@@ -1,6 +1,8 @@
 import type {
   Chapter,
   Character,
+  Decision,
+  Dependency,
   Fact,
   Location,
   PlotThread,
@@ -48,7 +50,8 @@ export type RuleCategory =
   | "plot_threads"
   | "setup_payoff"
   | "project_rules"
-  | "story_tests";
+  | "story_tests"
+  | "causality";
 
 export const RULE_CATEGORIES: readonly RuleCategory[] = [
   "referential_integrity",
@@ -60,6 +63,7 @@ export const RULE_CATEGORIES: readonly RuleCategory[] = [
   "setup_payoff",
   "project_rules",
   "story_tests",
+  "causality",
 ];
 
 /**
@@ -78,7 +82,8 @@ export type BuildInputKind =
   | "setups"
   | "world_rules"
   | "prose"
-  | "story_tests";
+  | "story_tests"
+  | "dependencies";
 
 /**
  * One finding from one rule.
@@ -138,6 +143,8 @@ export interface BuildContext {
   readonly setups: readonly Setup[];
   readonly relationships: readonly Relationship[];
   readonly storyTests: readonly StoryTest[];
+  readonly dependencies: readonly Dependency[];
+  readonly decisions: readonly Decision[];
   readonly transitions: readonly StateTransition[];
   readonly temporalLinks: readonly TemporalLink[];
   readonly travelRules: readonly TravelRule[];

@@ -68,6 +68,9 @@ importers:
       '@jellytind/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@jellytind/story-causality':
+        specifier: workspace:*
+        version: link:../../packages/story-causality
       '@jellytind/story-debugger':
         specifier: workspace:*
         version: link:../../packages/story-debugger
@@ -216,6 +219,15 @@ importers:
 
   packages/shared: {}
 
+  packages/story-causality:
+    dependencies:
+      '@jellytind/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@jellytind/shared':
+        specifier: workspace:*
+        version: link:../shared
+
   packages/story-compiler:
     dependencies:
       '@jellytind/domain':
@@ -224,6 +236,9 @@ importers:
       '@jellytind/shared':
         specifier: workspace:*
         version: link:../shared
+      '@jellytind/story-causality':
+        specifier: workspace:*
+        version: link:../story-causality
       '@jellytind/story-state':
         specifier: workspace:*
         version: link:../story-state
@@ -263,6 +278,9 @@ importers:
       '@jellytind/shared':
         specifier: workspace:*
         version: link:../shared
+      '@jellytind/story-causality':
+        specifier: workspace:*
+        version: link:../story-causality
       '@jellytind/story-compiler':
         specifier: workspace:*
         version: link:../story-compiler

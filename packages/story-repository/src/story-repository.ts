@@ -18,6 +18,13 @@ import {
   type StoryEvent,
   type Relationship,
   type Setup,
+  type Decision,
+  type Dependency,
+  type DependencyKind,
+  type DependencySource,
+  type DependencyStatus,
+  DEPENDENCY_NODE_KINDS,
+  isDependencyNode,
   type Subtlety,
   type ChapterStatus,
   type SceneStatus,
@@ -120,6 +127,14 @@ import {
   type Intervention,
   type ParsedCommand,
 } from "@jellytind/story-debugger";
+import {
+  CausalityGraph,
+  checkDependencies,
+  type BlastRadius,
+  type DependencyFinding,
+  type DependencyPath,
+  type TraversalOptions,
+} from "@jellytind/story-causality";
 import { RepositoryError } from "./errors";
 import { RepositoryAgentStore } from "./agent-store";
 import { TransitionStore } from "./state-store";
@@ -127,6 +142,7 @@ import { TimelineStore } from "./timeline-store";
 import { BuildStore } from "./build-store";
 import { TestStore } from "./test-store";
 import { DebugStore } from "./debug-store";
+import { DependencyStore } from "./dependency-store";
 import { ProjectSearch } from "./project-search";
 import {
   scenesByCharacter,
@@ -250,6 +266,7 @@ export class StoryRepository {
   private readonly builds: BuildStore;
   private readonly tests: TestStore;
   private readonly debugReports: DebugStore;
+  private readonly dependencies: DependencyStore;
   private manifest: ProjectManifest;
   private ids: SequentialIdGenerator;
 
@@ -281,6 +298,9 @@ export class StoryRepository {
     // Not journaled, for the same reason as builds: investigating a problem is
     // not a change to the story.
     this.debugReports = new DebugStore(rawStore);
+    // Journaled: a registered dependency is the author's claim about how their
+    // story holds together, as authored as a plot thread.
+    this.dependencies = new DependencyStore(this.store);
   }
 
   // ── Lifecycle ────────────────────────────────────────────────────────────
@@ -753,6 +773,36 @@ export class StoryRepository {
     return setup;
   }
 
+  /**
+   * Record a choice a character makes.
+   *
+   * Optional and deliberate: a story does not need every decision written
+   * down, it needs the ones later decisions rest on
+   * (docs/STORY_REFACTOR.md — causality).
+   */
+  async addDecision(input: {
+    description: string;
+    characterId: CharacterId;
+    sceneId?: SceneId;
+    reason?: string;
+    notes?: string;
+  }): Promise<Decision> {
+    const id = this.ids.next("decision");
+    const decision: Decision = {
+      id,
+      description: input.description,
+      characterId: input.characterId,
+      ...(input.sceneId !== undefined ? { sceneId: input.sceneId } : {}),
+      ...(input.reason !== undefined ? { reason: input.reason } : {}),
+      ...(input.notes !== undefined ? { notes: input.notes } : {}),
+    };
+    await this.persistEntity("decision", decision, decision.description, undefined, {
+      operation: "add_decision",
+      change: "created",
+    });
+    return decision;
+  }
+
   // ── Entity reads ───────────────────────────────────────────────────────────
 
   listChapters = (): Promise<Chapter[]> => this.listOf<Chapter>("chapter");
@@ -766,6 +816,7 @@ export class StoryRepository {
   listEvents = (): Promise<StoryEvent[]> => this.listOf<StoryEvent>("event");
   listRelationships = (): Promise<Relationship[]> => this.listOf<Relationship>("relationship");
   listSetups = (): Promise<Setup[]> => this.listOf<Setup>("setup");
+  listDecisions = (): Promise<Decision[]> => this.listOf<Decision>("decision");
 
   private async listOf<T>(kind: GraphKind): Promise<T[]> {
     return (await this.graph.store(kind).list()) as unknown as T[];
@@ -1221,6 +1272,8 @@ export class StoryRepository {
       setups,
       relationships,
       storyTests,
+      dependencies,
+      decisions,
       transitions,
       temporalLinks,
       travelRules,
@@ -1239,6 +1292,8 @@ export class StoryRepository {
       this.listSetups(),
       this.listRelationships(),
       this.tests.list(),
+      this.dependencies.list(),
+      this.listDecisions(),
       this.transitions.list(),
       this.timeline.listLinks(),
       this.timeline.listTravelRules(),
@@ -1259,6 +1314,8 @@ export class StoryRepository {
       setups,
       relationships,
       storyTests,
+      dependencies,
+      decisions,
       transitions,
       temporalLinks,
       travelRules,
@@ -1329,6 +1386,224 @@ export class StoryRepository {
     const previous =
       previousSummary === undefined ? undefined : await this.builds.get(previousSummary.id);
     return compareBuilds(previous ?? undefined, build);
+  }
+
+  // ── Causality and dependencies ──────────────────────────────────────────────
+
+  listDependencies(): Promise<Dependency[]> {
+    return this.dependencies.list();
+  }
+
+  getDependency(id: string): Promise<Dependency | null> {
+    return this.dependencies.get(id);
+  }
+
+  /**
+   * Register a cause-and-effect link.
+   *
+   * Both endpoints must exist and must be kinds that can participate — a
+   * dependency naming a location or a deleted scene is a claim about nothing,
+   * and one recorded now would silently poison every blast radius later.
+   *
+   * A human's link is `confirmed`; a model's arrives `proposed` and stays out
+   * of the graph until someone accepts it (AGENTS.md — "Canon vs Inference").
+   */
+  async addDependencies(
+    drafts: ReadonlyArray<{
+      kind: DependencyKind;
+      fromId: string;
+      toId: string;
+      description?: string;
+      evidence?: string;
+    }>,
+    options: {
+      source?: DependencySource;
+      status?: DependencyStatus;
+      modelId?: string;
+      summary?: string;
+    } = {},
+  ): Promise<Dependency[]> {
+    const source = options.source ?? "human";
+    const status = options.status ?? (source === "human" ? "confirmed" : "proposed");
+    const existing = await this.graph.existingIds();
+
+    for (const draft of drafts) {
+      for (const endpoint of [draft.fromId, draft.toId]) {
+        if (!isDependencyNode(endpoint)) {
+          throw new RepositoryError(
+            "invalid_reference",
+            `${endpoint} cannot take part in a dependency. Dependencies link ${DEPENDENCY_NODE_KINDS.join(", ")}.`,
+            { details: { endpoint } },
+          );
+        }
+        if (!existing.has(endpoint)) {
+          throw new RepositoryError(
+            "invalid_reference",
+            `${endpoint} does not exist in this project.`,
+            { details: { endpoint } },
+          );
+        }
+      }
+      if (draft.fromId === draft.toId) {
+        throw new RepositoryError(
+          "invalid_reference",
+          `A dependency cannot link ${draft.fromId} to itself.`,
+          { details: { endpoint: draft.fromId } },
+        );
+      }
+    }
+
+    const now = this.clock();
+    const prepared = drafts.map((draft) => ({
+      kind: draft.kind,
+      fromId: draft.fromId,
+      toId: draft.toId,
+      ...(draft.description !== undefined ? { description: draft.description } : {}),
+      ...(draft.evidence !== undefined ? { evidence: draft.evidence } : {}),
+      status,
+      source,
+      ...(options.modelId !== undefined ? { modelId: options.modelId } : {}),
+      createdAt: now,
+    }));
+
+    let stored: Dependency[] = [];
+    await this.recordChange(
+      {
+        actor: source === "agent" ? "agent" : "human",
+        operation: "add_dependencies",
+        summary:
+          options.summary ??
+          `${status === "proposed" ? "Propose" : "Register"} ${String(drafts.length)} dependency(ies)`,
+        ...(options.modelId !== undefined ? { modelId: options.modelId } : {}),
+      },
+      async () => {
+        stored = await this.dependencies.append(prepared);
+        await this.touch();
+      },
+    );
+    return stored;
+  }
+
+  /** Accept or reject a proposal, or correct a link the writer already made. */
+  async updateDependency(
+    id: string,
+    patch: {
+      kind?: DependencyKind;
+      description?: string;
+      status?: DependencyStatus;
+    },
+  ): Promise<Dependency> {
+    const current = await this.dependencies.get(id);
+    if (current === null) {
+      throw new RepositoryError("entity_not_found", `No dependency with id ${id}.`);
+    }
+    let next: Dependency = current;
+    await this.recordChange(
+      {
+        actor: "human",
+        operation: "update_dependency",
+        summary: `Update dependency ${id}`,
+      },
+      async () => {
+        next = (await this.dependencies.update(id, patch)) as Dependency;
+        await this.touch();
+      },
+    );
+    return next;
+  }
+
+  async deleteDependency(id: string): Promise<void> {
+    if ((await this.dependencies.get(id)) === null) {
+      throw new RepositoryError("entity_not_found", `No dependency with id ${id}.`);
+    }
+    await this.recordChange(
+      { actor: "human", operation: "delete_dependency", summary: `Delete dependency ${id}` },
+      async () => {
+        await this.dependencies.remove([id]);
+        await this.touch();
+      },
+    );
+  }
+
+  /**
+   * The causality graph.
+   *
+   * Confirmed edges only, unless the caller is reviewing proposals — planning a
+   * refactor against a model's guess would be worse than planning against
+   * nothing (docs/STORY_REFACTOR.md).
+   */
+  async getCausalityGraph(options: { includeProposed?: boolean } = {}): Promise<CausalityGraph> {
+    return new CausalityGraph(await this.dependencies.list(), options);
+  }
+
+  /** What this entity rests on — one step upstream. */
+  async getDependenciesOf(entityId: string, options: TraversalOptions = {}) {
+    return (await this.getCausalityGraph()).getDependencies(entityId, options);
+  }
+
+  /** What rests on this entity — one step downstream. */
+  async getDependentsOf(entityId: string, options: TraversalOptions = {}) {
+    return (await this.getCausalityGraph()).getDependents(entityId, options);
+  }
+
+  async getTransitiveDependents(
+    entityId: string,
+    options: TraversalOptions = {},
+  ): Promise<string[]> {
+    return (await this.getCausalityGraph()).getTransitiveDependents(entityId, options);
+  }
+
+  async getDependencyPath(
+    fromId: string,
+    toId: string,
+    options: TraversalOptions = {},
+  ): Promise<DependencyPath | null> {
+    return (await this.getCausalityGraph()).getDependencyPath(fromId, toId, options);
+  }
+
+  /**
+   * What a change to this entity may reach.
+   *
+   * The acceptance question of the whole subsystem: *if I remove this scene,
+   * what later story elements depend on it?* — answered from persistent story
+   * architecture rather than by asking a model to guess.
+   */
+  async calculateBlastRadius(
+    entityId: string,
+    options: TraversalOptions = {},
+  ): Promise<BlastRadius> {
+    return (await this.getCausalityGraph()).calculateBlastRadius(entityId, options);
+  }
+
+  /** Deterministic checks over the registered graph. */
+  async checkDependencyGraph(): Promise<DependencyFinding[]> {
+    const [dependencies, existingIds, scenes, chapters, events, decisions] = await Promise.all([
+      this.dependencies.list(),
+      this.graph.existingIds(),
+      this.listScenes(),
+      this.listChapters(),
+      this.listEvents(),
+      this.listDecisions(),
+    ]);
+
+    // Non-scene nodes are placed by the scene they happen in, so an ordering
+    // check can compare a fact or a decision against a scene at all.
+    const sceneOf = new Map<string, string>();
+    for (const event of events) {
+      if (event.sceneId !== undefined) sceneOf.set(event.id as string, event.sceneId as string);
+    }
+    for (const decision of decisions) {
+      if (decision.sceneId !== undefined) {
+        sceneOf.set(decision.id as string, decision.sceneId as string);
+      }
+    }
+
+    return checkDependencies({
+      dependencies,
+      existingIds,
+      sceneOrder: orderScenes(scenes, chapters).map((s) => s.id as string),
+      sceneOf,
+    });
   }
 
   // ── Story Debugger ──────────────────────────────────────────────────────────
@@ -2144,6 +2419,23 @@ export class StoryRepository {
       );
     }
 
+    // Registered causality is the strongest reason of all to hesitate: these
+    // are the links a writer told the project to warn them about.
+    const depending = await this.dependencies.touching(id);
+    if (depending.length > 0 && mode === "prevent") {
+      const radius = await this.calculateBlastRadius(id);
+      throw new RepositoryError(
+        "has_references",
+        `${id} takes part in ${String(depending.length)} registered dependency(ies), and ${String(radius.total)} story element(s) depend on it directly or transitively. Review them first or delete with mode "unlink".`,
+        {
+          details: {
+            dependencies: depending.map((d) => d.id),
+            blastRadius: radius.affected.map((a) => a.id),
+          },
+        },
+      );
+    }
+
     if (referrers.length > 0 && mode === "prevent") {
       throw new RepositoryError(
         "has_references",
@@ -2170,6 +2462,7 @@ export class StoryRepository {
         }
         await this.timeline.removeLinksFor(id);
         for (const test of asserting) await this.tests.remove(test.id as string);
+        await this.dependencies.remove(depending.map((d) => d.id));
         if (referrers.length > 0) {
           unlinked = await this.graph.unlinkReferences(id);
           for (const otherId of unlinked) {

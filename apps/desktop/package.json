@@ -21,6 +21,7 @@
     "@jellytind/persistence": "workspace:*",
     "@jellytind/provider-anthropic": "workspace:*",
     "@jellytind/shared": "workspace:*",
+    "@jellytind/story-causality": "workspace:*",
     "@jellytind/story-debugger": "workspace:*",
     "@jellytind/story-repository": "workspace:*",
     "@jellytind/story-state": "workspace:*",

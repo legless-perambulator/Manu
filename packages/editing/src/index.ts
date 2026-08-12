@@ -35,3 +35,10 @@ export type { ProposedTransition, StateExtractorOptions, StateProposal } from ".
 
 export { DiagnosisAnalyst, renderTraceForModel } from "./diagnosis-analyst";
 export type { DiagnosisAnalystOptions } from "./diagnosis-analyst";
+
+export { DependencyAnalyst, sift } from "./dependency-analyst";
+export type {
+  DependencyAnalystOptions,
+  DependencyProposal,
+  ProposedDependency,
+} from "./dependency-analyst";

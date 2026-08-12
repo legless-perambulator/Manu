@@ -1,4 +1,4 @@
-import { DiagnosisAnalyst, ManuscriptEditor } from "@jellytind/editing";
+import { DependencyAnalyst, DiagnosisAnalyst, ManuscriptEditor } from "@jellytind/editing";
 import type { PermissionGrant } from "@jellytind/agent-runtime";
 import type { SecretStore } from "@jellytind/model-router";
 import type { StoryRepository } from "@jellytind/story-repository";
@@ -69,4 +69,18 @@ export async function createDiagnosisAnalyst(
 ): Promise<DiagnosisAnalyst> {
   const model = await createConfiguredModel(loadModelSettings(), secrets);
   return new DiagnosisAnalyst({ repo, model, grant: STORY_DEBUG_GRANT });
+}
+
+/**
+ * Build a {@link DependencyAnalyst} for the open project.
+ *
+ * Read-only: it proposes causality, and everything it proposes is stored as
+ * `proposed` for a human to accept or reject (docs/STORY_REFACTOR.md).
+ */
+export async function createDependencyAnalyst(
+  repo: StoryRepository,
+  secrets: SecretStore,
+): Promise<DependencyAnalyst> {
+  const model = await createConfiguredModel(loadModelSettings(), secrets);
+  return new DependencyAnalyst({ repo, model, grant: STORY_DEBUG_GRANT });
 }

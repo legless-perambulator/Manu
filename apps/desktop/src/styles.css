@@ -1668,3 +1668,31 @@ code {
   border-left: 2px solid #ffc36a;
   background: rgba(255, 195, 106, 0.06);
 }
+
+/* Causality graph — three readable columns, not a spider's web */
+.causality__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 6px;
+}
+.causality__filter {
+  white-space: nowrap;
+}
+.causality__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.causality__node {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 2px 0;
+}
+.causality__focus {
+  border-left: 2px solid var(--accent);
+  padding-left: 10px;
+}

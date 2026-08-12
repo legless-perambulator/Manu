@@ -21,6 +21,7 @@ export const ENTITY_KINDS = [
   "world_rule",
   "relationship",
   "setup",
+  "decision",
   "test",
 ] as const;
 
@@ -47,6 +48,7 @@ export const ID_PREFIX = {
   world_rule: "RULE",
   relationship: "REL",
   setup: "SETUP",
+  decision: "DECISION",
   test: "TEST",
 } as const satisfies Record<EntityKind, string>;
 

@@ -16,7 +16,10 @@ The fiction domain model is the authoritative representation of story data. UI c
   intent is **implemented** (Phase 18): `Character.goals` records what someone
   is trying to do, the counterpart of a scene's `purpose`, so the debugger can
   ask whether a decision serves it ([STORY_DEBUGGER.md](STORY_DEBUGGER.md)).
-  Numeric relationship state remains **PLANNED**.
+  Causality is **implemented** (Phase 19): the `Decision` entity and the
+  `Dependency` vocabulary record why one part of a story exists because of
+  another ([CAUSALITY.md](CAUSALITY.md)). Numeric relationship state remains
+  **PLANNED**.
 
 ## Implemented: stable entity IDs
 
@@ -71,6 +74,7 @@ All cross-entity references are by **stable ID**.
 | Entity         | Key fields                                                                          | References (by ID)                                                                      |
 | -------------- | ----------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
 | `Character`    | name, aliases, description, role, goals, notes, status                              | —                                                                                       |
+| `Decision`     | description, characterId, sceneId?, reason?, notes?                                 | character, scene                                                                        |
 | `Location`     | name, aliases, description, notes                                                   | `parentLocationId?` → location (nesting; containment-aware)                             |
 | `StoryObject`  | name, aliases, description, status (`exists`/`lost`/`destroyed`/`hidden`/`unknown`) | —                                                                                       |
 | `PlotThread`   | name, description, status                                                           | `introducedSceneId?`, `resolvedSceneId?`, `relatedSceneIds[]` → scene                   |

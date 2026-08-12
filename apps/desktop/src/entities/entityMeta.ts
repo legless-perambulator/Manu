@@ -23,6 +23,7 @@ export const KIND_LABEL: Record<Kind, string> = {
   event: "Events",
   relationship: "Relationships",
   setup: "Setups & Payoffs",
+  decision: "Decisions",
 };
 
 /** Order the entity panel presents kinds in. */
@@ -37,6 +38,7 @@ export const KIND_ORDER: Kind[] = [
   "event",
   "relationship",
   "setup",
+  "decision",
   "chapter",
 ];
 
@@ -106,6 +108,11 @@ export const SCALAR_FIELDS: Record<Kind, readonly ScalarField[]> = {
     { key: "description", label: "What is planted", multiline: true },
     { key: "payoffDescription", label: "What it pays off", multiline: true },
     { key: "intendedInterpretation", label: "Intended reading" },
+    { key: "notes", label: "Notes", multiline: true },
+  ],
+  decision: [
+    { key: "description", label: "What they decide", multiline: true },
+    { key: "reason", label: "Why", multiline: true },
     { key: "notes", label: "Notes", multiline: true },
   ],
 };

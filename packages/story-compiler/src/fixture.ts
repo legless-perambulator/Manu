@@ -2,6 +2,8 @@ import {
   orderScenes,
   type Chapter,
   type Character,
+  type Decision,
+  type Dependency,
   type Fact,
   type Location,
   type PlotThread,
@@ -124,6 +126,8 @@ export interface FixtureOverrides {
   readonly worldRules?: readonly WorldRule[];
   readonly relationships?: readonly Relationship[];
   readonly storyTests?: readonly StoryTest[];
+  readonly dependencies?: readonly Dependency[];
+  readonly decisions?: readonly Decision[];
   readonly danglingReferences?: readonly DanglingReference[];
 }
 
@@ -198,6 +202,8 @@ export function buildContext(overrides: FixtureOverrides = {}): Omit<BuildContex
     locations,
     objects,
     threads,
+    dependencies: overrides.dependencies ?? [],
+    decisions: overrides.decisions ?? [],
     facts,
     worldRules: overrides.worldRules ?? [],
     events: [],

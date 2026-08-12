@@ -1,9 +1,9 @@
 {
-  "name": "@jellytind/story-compiler",
+  "name": "@jellytind/story-causality",
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Deterministic and semantic story checks (the Story Build).",
+  "description": "The story causality and dependency graph: traversal, paths and blast radius.",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
@@ -12,8 +12,6 @@
   "sideEffects": false,
   "dependencies": {
     "@jellytind/domain": "workspace:*",
-    "@jellytind/shared": "workspace:*",
-    "@jellytind/story-causality": "workspace:*",
-    "@jellytind/story-state": "workspace:*"
+    "@jellytind/shared": "workspace:*"
   }
 }

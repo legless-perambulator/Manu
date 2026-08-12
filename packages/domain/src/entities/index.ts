@@ -11,6 +11,7 @@ export type {
   StoryEvent,
   Relationship,
   Setup,
+  Decision,
   ChapterStatus,
   SceneStatus,
   CharacterStatus,

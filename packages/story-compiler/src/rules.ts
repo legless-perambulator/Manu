@@ -9,6 +9,8 @@ import type {
   NarrativeFinding,
   TimelineViolation,
 } from "@jellytind/story-state";
+import { orderScenes } from "@jellytind/domain";
+import { checkDependencies } from "@jellytind/story-causality";
 import type { BuildContext, DiagnosticDraft, Severity, StoryCompilerRule } from "./types";
 
 /**
@@ -487,6 +489,67 @@ const storyTests: StoryCompilerRule = {
 };
 
 /**
+ * Registered causality.
+ *
+ * A dependency is an authored claim about how the story holds together, and
+ * like any other authored claim it goes stale: the scene it named gets cut, a
+ * link points the wrong way, the same edge gets registered twice. None of that
+ * is visible without looking (docs/STORY_REFACTOR.md).
+ *
+ * The compiler consumes `checkDependencies` rather than re-deriving it, for
+ * the same reason every other rule here is a thin adapter.
+ */
+const dependencyIntegrity: StoryCompilerRule = {
+  id: "dependency_integrity",
+  name: "Registered dependencies",
+  category: "causality",
+  description: "Causal links whose endpoints are gone, loop, duplicate, or run backwards.",
+  inputs: ["dependencies", "entities", "scenes"],
+  run(context) {
+    const sceneOf = new Map<string, string>();
+    for (const event of context.events) {
+      if (event.sceneId !== undefined) sceneOf.set(event.id as string, event.sceneId as string);
+    }
+    for (const decision of context.decisions) {
+      if (decision.sceneId !== undefined) {
+        sceneOf.set(decision.id as string, decision.sceneId as string);
+      }
+    }
+
+    const existingIds = new Set<string>([
+      ...context.scenes.map((s) => s.id as string),
+      ...context.chapters.map((c) => c.id as string),
+      ...context.characters.map((c) => c.id as string),
+      ...context.locations.map((l) => l.id as string),
+      ...context.objects.map((o) => o.id as string),
+      ...context.threads.map((t) => t.id as string),
+      ...context.facts.map((f) => f.id as string),
+      ...context.events.map((e) => e.id as string),
+      ...context.setups.map((s) => s.id as string),
+      ...context.decisions.map((d) => d.id as string),
+      ...context.relationships.map((r) => r.id as string),
+    ]);
+
+    return checkDependencies({
+      dependencies: context.dependencies,
+      existingIds,
+      sceneOrder: orderScenes(context.scenes, context.chapters).map((s) => s.id as string),
+      sceneOf,
+    }).map((finding) => ({
+      severity: finding.severity,
+      message: finding.message,
+      entities: finding.entities,
+      ...(finding.sceneId !== undefined ? { sceneId: finding.sceneId } : {}),
+      evidence: finding.evidence,
+      ...(finding.suggestedAction !== undefined
+        ? { suggestedAction: finding.suggestedAction }
+        : {}),
+      key: `${finding.kind}:${finding.dependencyId ?? finding.entities.join(",")}`,
+    }));
+  },
+};
+
+/**
  * Every rule the compiler ships with, in the order a build reports them.
  *
  * A plain array so later phases — and eventually plugins — can concatenate
@@ -504,6 +567,7 @@ export const CORE_RULES: readonly StoryCompilerRule[] = [
   setupPayoff,
   worldRuleEvaluation,
   storyTests,
+  dependencyIntegrity,
 ];
 
 /** Look a rule up by ID — for configuration UIs and for tests. */

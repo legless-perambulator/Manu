@@ -22,6 +22,7 @@ import { ThreadPanel } from "./ThreadPanel";
 import { BuildPanel } from "./BuildPanel";
 import { StoryTestPanel } from "./StoryTestPanel";
 import { DebugPanel } from "./DebugPanel";
+import { CausalityPanel } from "./CausalityPanel";
 
 type LeftTab =
   | "files"
@@ -36,6 +37,7 @@ type LeftTab =
   | "build"
   | "tests"
   | "debug"
+  | "causality"
   | "history";
 type RightTab = "inspector" | "agent" | "context";
 
@@ -193,6 +195,12 @@ export function Workspace({ repo, secrets, onClose, onOpenSettings }: WorkspaceP
               Debug
             </button>
             <button
+              className={`tab${tab === "causality" ? " tab--active" : ""}`}
+              onClick={() => setTab("causality")}
+            >
+              Causality
+            </button>
+            <button
               className={`tab${tab === "history" ? " tab--active" : ""}`}
               onClick={() => setTab("history")}
             >
@@ -303,6 +311,21 @@ export function Workspace({ repo, secrets, onClose, onOpenSettings }: WorkspaceP
           )}
           {tab === "debug" && (
             <DebugPanel
+              repo={repo}
+              secrets={secrets}
+              refreshToken={refreshToken}
+              onChanged={refresh}
+              onSelectEntity={(id) => {
+                setSelectedEntityId(id);
+                setRightTab("inspector");
+              }}
+              onOpenScene={(sceneId) => {
+                void openScene(sceneId);
+              }}
+            />
+          )}
+          {tab === "causality" && (
+            <CausalityPanel
               repo={repo}
               secrets={secrets}
               refreshToken={refreshToken}

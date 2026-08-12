@@ -11,6 +11,26 @@ export * from "./ids";
 export * from "./entities";
 
 export {
+  DEPENDENCY_KINDS,
+  DEPENDENCY_KIND_INFO,
+  DEPENDENCY_NODE_KINDS,
+  DEPENDENCY_STATUSES,
+  DEPENDENCY_SOURCES,
+  isDependencyNode,
+  isDependencyKind,
+  influenceOf,
+  describeDependency,
+} from "./causality";
+export type {
+  Dependency,
+  DependencyKind,
+  DependencyKindInfo,
+  DependencySource,
+  DependencyStatus,
+  Influence,
+} from "./causality";
+
+export {
   orderChapters,
   orderScenes,
   adjacentChapters,

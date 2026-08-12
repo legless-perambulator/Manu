@@ -6,8 +6,8 @@ over structured state rather than by a model re-reading the manuscript.
 
 - **Package:** `@jellytind/story-compiler`
 - **Depends on:** `@jellytind/domain`, `@jellytind/shared`, `@jellytind/story-state`
-- **Status (Phase 17):** **V1 implemented and tested.** The diagnostic model,
-  the rule registry, eleven deterministic rules, configuration, build history
+- **Status (Phase 19):** **V1 implemented and tested.** The diagnostic model,
+  the rule registry, twelve deterministic rules, configuration, build history
   and comparison, the agent tools and the Story Build view are built, and the
   build runs the writer's deterministic Story Tests
   ([STORY_TESTS.md](STORY_TESTS.md)). Semantic checks, semantic test evaluation
@@ -42,13 +42,14 @@ a check that already exists in the subsystem that owns the data:
 | `scene_relationships`   | — structural, and nowhere else to live          |
 | `world_rules`           | — recorded statuses against declared hard rules |
 | `story_tests`           | `runStoryTests` (the story-test engine)         |
+| `dependency_integrity`  | `checkDependencies` (the causality graph)       |
 
 Re-deriving any of that inside the compiler would create a second
 implementation of continuity to drift apart from the first. A rule's job is to
 run the check that already exists and dress its findings as diagnostics with
 evidence and a suggested action.
 
-The two rules with no upstream owner are genuinely new checks, and even those
+The rules with no upstream owner are genuinely new checks, and even those
 live as close to their data as they can: "a dead character appears alive" was
 added to `checkContinuity` in `@jellytind/story-state`, beside its siblings,
 rather than inside the compiler.
@@ -117,7 +118,7 @@ build knowing anything about them.
 
 ### A rule that throws is a finding
 
-One broken rule must not cost a writer the other nine answers. A throw becomes
+One broken rule must not cost a writer the other eleven answers. A throw becomes
 an `error` diagnostic saying the check could not run, and the build continues —
 because _a check that could not run is not a check that passed_, and a build
 must never imply otherwise.
