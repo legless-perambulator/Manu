@@ -4,7 +4,7 @@ Explicit, machine-readable story state so the LLM does not have to reconstruct e
 
 - **Package:** `@jellytind/story-state` (timeline + validation), persisted by `@jellytind/story-repository`
 - **Depends on:** `@jellytind/domain`, `@jellytind/shared`
-- **Status (Phase 10 V1, extended in Phase 11):** **Implemented and tested.** Character location, alive/dead status, object ownership and location, canonical facts, a full **knowledge and belief graph** — states, acquisition sources, false beliefs, transfer chains and deterministic violation checks — and **dynamic relationship state** with optional analytical dimensions, all reconstructable at any scene boundary, with manual editing, AI extraction and Context Compiler integration. Physical condition, goals and reader knowledge are **PLANNED**.
+- **Status (Phase 10 V1, extended in Phase 11):** **Implemented and tested.** Character location, alive/dead status, object ownership and location, canonical facts, a full **knowledge and belief graph** — states, acquisition sources, false beliefs, transfer chains and deterministic violation checks — and **dynamic relationship state** with optional analytical dimensions, all reconstructable at any scene boundary, with manual editing, AI extraction and Context Compiler integration. Phase 13 adds the **story-world chronology** — see [TIMELINE.md](TIMELINE.md) — which supplies this same replay engine with a second scene order. Physical condition, goals and reader knowledge are **PLANNED**.
 
 ## State is transitions, not a snapshot
 
@@ -405,10 +405,23 @@ with no model involved.
   For analysis, not to mechanically dictate creative writing.
 - Reader knowledge — what the manuscript has exposed, as distinct from what
   characters hold.
-- Story-world chronology distinct from reader presentation order (flashbacks,
-  nonlinear structure).
 - Explainability: justifying a belief with the scene and phrase that produced it —
   the evidence is already stored on each transition's `note`.
+
+## Two scene orders
+
+Transitions are anchored to scenes, and a scene order turns them into state. The
+manuscript's order is one such order; the story world's chronology is another,
+and in a nonlinear story they disagree.
+
+```ts
+new StoryTimeline(orderScenes(scenes, chapters), transitions); // the reader's sequence
+chronology.stateTimeline(transitions); // the world's sequence
+```
+
+Same replay machinery, two questions: _what had the reader been told by chapter
+12?_ and _what was true in the world at that moment?_ A flashback makes those
+different answers. See [TIMELINE.md](TIMELINE.md).
 
 ## Invariants
 

@@ -70,3 +70,4 @@ export type { CatalogEntity } from "./catalog";
 export { RepositoryAgentStore } from "./agent-store";
 
 export { TransitionStore } from "./state-store";
+export { TimelineStore } from "./timeline-store";

@@ -7,6 +7,8 @@ import type {
   Project,
   Relationship,
   Scene,
+  StoryEvent,
+  TemporalLink,
   WorldRule,
 } from "@jellytind/domain";
 import type { SearchHit, SearchQuery } from "@jellytind/search";
@@ -63,6 +65,11 @@ export const FIXTURE_CHAPTERS = [
   },
 ] as unknown as Chapter[];
 
+/**
+ * Story times make the fixture nonlinear on purpose: SCENE_0003 is presented
+ * third and happens first, two years before the rest. Anything that treats
+ * chapter order as chronology gets this project wrong (docs/TIMELINE.md).
+ */
 export const FIXTURE_SCENES: Scene[] = [
   scene("SCENE_0001", "Arrival", "CHAPTER_0001", {
     pov: "CHAR_0001",
@@ -70,6 +77,8 @@ export const FIXTURE_SCENES: Scene[] = [
     characterIds: ["CHAR_0001"],
     plotThreadIds: ["THREAD_0001"],
     purpose: ["establish the manor"],
+    storyTime: { kind: "exact", instant: "2019-03-04T09:00:00Z" },
+    duration: { hours: 2 },
   }),
   scene("SCENE_0002", "The Argument", "CHAPTER_0001", {
     pov: "CHAR_0001",
@@ -77,18 +86,54 @@ export const FIXTURE_SCENES: Scene[] = [
     characterIds: ["CHAR_0001", "CHAR_0002"],
     plotThreadIds: ["THREAD_0001", "THREAD_0002"],
     purpose: ["Mara refuses Elias's help"],
+    storyTime: { kind: "exact", instant: "2019-03-04T18:00:00Z" },
   }),
   scene("SCENE_0003", "Aftermath", "CHAPTER_0001", {
     pov: "CHAR_0002",
     locationId: "LOC_0002",
     characterIds: ["CHAR_0002", "CHAR_0003"],
     plotThreadIds: ["THREAD_0003"],
+    storyTime: { kind: "exact", instant: "2017-06-01T12:00:00Z" },
   }),
   scene("SCENE_0004", "The Vault", "CHAPTER_0002", {
     pov: "CHAR_0001",
     characterIds: ["CHAR_0001"],
     plotThreadIds: ["THREAD_0002"],
+    storyTime: { kind: "exact", instant: "2019-03-05T09:00:00Z" },
   }),
+];
+
+/** One event before the manuscript opens, one off-page between scenes. */
+export const FIXTURE_EVENTS = [
+  {
+    id: "EVENT_0001",
+    name: "The fire at the manor",
+    description: "The east wing burned.",
+    storyTime: { kind: "exact", instant: "1997-08-14T22:00:00Z" },
+    locationId: "LOC_0001",
+    characterIds: ["CHAR_0002"],
+    plotThreadIds: ["THREAD_0001"],
+  },
+  {
+    id: "EVENT_0002",
+    name: "The letter arrives",
+    description: "Delivered while no one is watching.",
+    storyTime: { kind: "exact", instant: "2019-03-04T21:00:00Z" },
+    characterIds: ["CHAR_0002"],
+  },
+] as unknown as StoryEvent[];
+
+export const FIXTURE_TEMPORAL_LINKS: TemporalLink[] = [
+  {
+    id: "TLINK_0001",
+    fromId: "EVENT_0002",
+    toId: "SCENE_0004",
+    relation: "before",
+    note: "The letter is waiting when they reach the vault.",
+    source: "author",
+    confirmationStatus: "confirmed",
+    createdAt: "2026-01-01T00:00:00.000Z",
+  },
 ];
 
 export const FIXTURE_CHARACTERS = [
@@ -300,6 +345,8 @@ export function fixtureReader(overrides: Partial<ProjectReader> = {}): ProjectRe
     listFacts: () => Promise.resolve([...FIXTURE_FACTS]),
     listStateTransitions: () => Promise.resolve([...FIXTURE_TRANSITIONS]),
     listRelationships: () => Promise.resolve([...FIXTURE_RELATIONSHIPS]),
+    listEvents: () => Promise.resolve([...FIXTURE_EVENTS]),
+    listTemporalLinks: () => Promise.resolve([...FIXTURE_TEMPORAL_LINKS]),
     listProjectFiles: (prefix) =>
       Promise.resolve(
         Object.keys(FIXTURE_FILES)

@@ -32,29 +32,43 @@ import {
   type ObjectId,
   type PlotThreadId,
   type FactId,
+  type StoryTime,
+  type StoryDuration,
+  type TemporalLink,
+  type TemporalRelation,
+  type TravelRule,
   orderScenes,
+  normaliseStoryTime,
 } from "@jellytind/domain";
 import { normalizeProjectPath, type ProjectStore, type ProjectIndex } from "@jellytind/persistence";
 import type { SearchHit, SearchQuery } from "@jellytind/search";
 import type { AgentStore } from "@jellytind/agent-runtime";
 import {
   checkKnowledgeViolations,
+  checkTimeline,
   factKnowledgeGraph,
   falseBeliefsAt,
+  StoryChronology,
   StoryTimeline,
+  timelineNodes,
   validateTransition,
+  type CharacterTimelineEntry,
   type FactKnowledgeGraph,
   type KnowledgeViolation,
   type RelationshipChange,
   type RelationshipState,
   type StateBoundary,
   type StateTransition,
+  type TimelineNode,
+  type TimelinePoint,
   type TimelineView,
+  type TimelineViolation,
   type TransitionDraft,
 } from "@jellytind/story-state";
 import { RepositoryError } from "./errors";
 import { RepositoryAgentStore } from "./agent-store";
 import { TransitionStore } from "./state-store";
+import { TimelineStore } from "./timeline-store";
 import { ProjectSearch } from "./project-search";
 import {
   scenesByCharacter,
@@ -161,6 +175,7 @@ export class StoryRepository {
   private readonly search: ProjectSearch;
   private readonly agentStore: RepositoryAgentStore;
   private readonly transitions: TransitionStore;
+  private readonly timeline: TimelineStore;
   private manifest: ProjectManifest;
   private ids: SequentialIdGenerator;
 
@@ -181,6 +196,8 @@ export class StoryRepository {
     this.agentStore = new RepositoryAgentStore(rawStore);
     // Journaled: a state transition is canon, so changing it is a change set.
     this.transitions = new TransitionStore(this.store);
+    // Likewise chronology: "this happens before that" is an authored claim.
+    this.timeline = new TimelineStore(this.store);
   }
 
   // ── Lifecycle ────────────────────────────────────────────────────────────
@@ -378,11 +395,17 @@ export class StoryRepository {
     factIds?: readonly FactId[];
     purpose?: readonly string[];
     status?: SceneStatus;
+    /** Where the scene sits in story-world time — not where it sits in the book. */
+    storyTime?: StoryTime | string;
+    duration?: StoryDuration;
   }): Promise<Scene> {
     const id = this.ids.next("scene");
+    const storyTime = normaliseStoryTime(input.storyTime);
     const scene: Scene = {
       id,
       title: input.title,
+      ...(storyTime !== undefined ? { storyTime } : {}),
+      ...(input.duration !== undefined ? { duration: input.duration } : {}),
       ...(input.chapterId !== undefined ? { chapterId: input.chapterId } : {}),
       ...(input.pov !== undefined ? { pov: input.pov } : {}),
       ...(input.locationId !== undefined ? { locationId: input.locationId } : {}),
@@ -547,20 +570,26 @@ export class StoryRepository {
   async addEvent(input: {
     name: string;
     description?: string;
-    storyTime?: string;
+    /** Accepts a structured story time, or free-form text to be interpreted. */
+    storyTime?: StoryTime | string;
+    duration?: StoryDuration;
     sceneId?: SceneId;
     locationId?: LocationId;
     characterIds?: readonly CharacterId[];
+    plotThreadIds?: readonly PlotThreadId[];
   }): Promise<StoryEvent> {
     const id = this.ids.next("event");
+    const storyTime = normaliseStoryTime(input.storyTime);
     const event: StoryEvent = {
       id,
       name: input.name,
       description: input.description ?? "",
-      ...(input.storyTime !== undefined ? { storyTime: input.storyTime } : {}),
+      ...(storyTime !== undefined ? { storyTime } : {}),
+      ...(input.duration !== undefined ? { duration: input.duration } : {}),
       ...(input.sceneId !== undefined ? { sceneId: input.sceneId } : {}),
       ...(input.locationId !== undefined ? { locationId: input.locationId } : {}),
       characterIds: input.characterIds ?? [],
+      plotThreadIds: input.plotThreadIds ?? [],
     };
     await this.persistEntity("event", event, event.name, undefined, {
       operation: "add_event",
@@ -941,6 +970,247 @@ export class StoryRepository {
     });
   }
 
+  // ── Story chronology ────────────────────────────────────────────────────────
+
+  /** Every authored temporal relation, confirmed or otherwise. */
+  listTemporalLinks(): Promise<TemporalLink[]> {
+    return this.timeline.listLinks();
+  }
+
+  /** Every declared travel time. Empty by default, and that is the safe default. */
+  listTravelRules(): Promise<TravelRule[]> {
+    return this.timeline.listTravelRules();
+  }
+
+  /**
+   * The story-world chronology: scenes and events ordered as they happen rather
+   * than as they are presented (docs/TIMELINE.md).
+   */
+  async getStoryChronology(view: TimelineView = {}): Promise<StoryChronology> {
+    const [scenes, chapters, events, links] = await Promise.all([
+      this.listScenes(),
+      this.listChapters(),
+      this.listEvents(),
+      this.timeline.listLinks(),
+    ]);
+    return new StoryChronology(timelineNodes({ scenes, chapters, events }), links, { view });
+  }
+
+  /**
+   * Record temporal relations.
+   *
+   * Both ends must exist as a scene or event: a chronology that references
+   * entities the project does not have is not a chronology, it is a guess.
+   */
+  async addTemporalLinks(
+    drafts: ReadonlyArray<{
+      fromId: string;
+      toId: string;
+      relation: TemporalRelation;
+      gap?: StoryDuration;
+      note?: string;
+    }>,
+    options: {
+      source?: TemporalLink["source"];
+      confirmationStatus?: TemporalLink["confirmationStatus"];
+      modelId?: string;
+      summary?: string;
+    } = {},
+  ): Promise<TemporalLink[]> {
+    const now = this.clock();
+    const prepared: Array<Omit<TemporalLink, "id">> = [];
+
+    for (const draft of drafts) {
+      if (draft.fromId === draft.toId) {
+        throw new RepositoryError(
+          "invalid_reference",
+          "A temporal relation must connect two different moments.",
+          { details: { fromId: draft.fromId } },
+        );
+      }
+      await this.requireTimelineNode(draft.fromId);
+      await this.requireTimelineNode(draft.toId);
+      prepared.push({
+        fromId: draft.fromId,
+        toId: draft.toId,
+        relation: draft.relation,
+        ...(draft.gap !== undefined ? { gap: draft.gap } : {}),
+        ...(draft.note !== undefined ? { note: draft.note } : {}),
+        source: options.source ?? "author",
+        confirmationStatus: options.confirmationStatus ?? "confirmed",
+        ...(options.modelId !== undefined ? { modelId: options.modelId } : {}),
+        createdAt: now,
+      });
+    }
+
+    let stored: TemporalLink[] = [];
+    await this.recordChange(
+      {
+        actor: options.source === "agent" ? "agent" : "human",
+        operation: "add_temporal_links",
+        summary: options.summary ?? `Record ${String(prepared.length)} temporal relation(s)`,
+        ...(options.modelId !== undefined ? { modelId: options.modelId } : {}),
+      },
+      async () => {
+        stored = await this.timeline.appendLinks(prepared);
+        await this.touch();
+      },
+    );
+    return stored;
+  }
+
+  /** Confirm or reject a proposed relation. Only confirmation makes it canon. */
+  async setTemporalLinkStatus(
+    id: string,
+    status: TemporalLink["confirmationStatus"],
+  ): Promise<TemporalLink> {
+    let updated: TemporalLink | null = null;
+    await this.recordChange(
+      {
+        actor: "human",
+        operation: `${status}_temporal_link`,
+        summary: `Mark temporal relation ${id} ${status}`,
+      },
+      async () => {
+        updated = await this.timeline.updateLink(id, { confirmationStatus: status });
+        await this.touch();
+      },
+    );
+    if (updated === null) {
+      throw new RepositoryError("entity_not_found", `No temporal relation with id ${id}.`);
+    }
+    return updated;
+  }
+
+  async deleteTemporalLink(id: string): Promise<void> {
+    await this.recordChange(
+      {
+        actor: "human",
+        operation: "delete_temporal_link",
+        summary: `Delete temporal relation ${id}`,
+      },
+      async () => {
+        if (!(await this.timeline.removeLink(id))) {
+          throw new RepositoryError("entity_not_found", `No temporal relation with id ${id}.`);
+        }
+        await this.touch();
+      },
+    );
+  }
+
+  /**
+   * Declare how long a journey takes.
+   *
+   * Nothing infers these. Until a writer states that Blackthorn to the city is
+   * four hours, no travel contradiction is reportable between them — the story
+   * may be set in any century, on any world.
+   */
+  async addTravelRules(
+    drafts: ReadonlyArray<{
+      fromLocationId: string;
+      toLocationId: string;
+      minimum: StoryDuration;
+      bidirectional?: boolean;
+      note?: string;
+    }>,
+  ): Promise<TravelRule[]> {
+    for (const draft of drafts) {
+      await this.requireEntityExists("location", draft.fromLocationId);
+      await this.requireEntityExists("location", draft.toLocationId);
+    }
+    let stored: TravelRule[] = [];
+    await this.recordChange(
+      {
+        actor: "human",
+        operation: "add_travel_rules",
+        summary: `Declare ${String(drafts.length)} travel time(s)`,
+      },
+      async () => {
+        stored = await this.timeline.appendTravelRules(drafts);
+        await this.touch();
+      },
+    );
+    return stored;
+  }
+
+  async deleteTravelRule(id: string): Promise<void> {
+    await this.recordChange(
+      { actor: "human", operation: "delete_travel_rule", summary: `Delete travel rule ${id}` },
+      async () => {
+        if (!(await this.timeline.removeTravelRule(id))) {
+          throw new RepositoryError("entity_not_found", `No travel rule with id ${id}.`);
+        }
+        await this.touch();
+      },
+    );
+  }
+
+  /** One character's story, in the order they lived it rather than read it. */
+  async getCharacterTimeline(
+    characterId: string,
+    view: TimelineView = {},
+  ): Promise<CharacterTimelineEntry[]> {
+    return (await this.getStoryChronology(view)).getCharacterTimeline(characterId);
+  }
+
+  /** Every event a character takes part in, in chronological order. */
+  async getEventsForCharacter(
+    characterId: string,
+    view: TimelineView = {},
+  ): Promise<TimelineNode[]> {
+    return (await this.getStoryChronology(view)).getEventsForCharacter(characterId);
+  }
+
+  /**
+   * Where a character was at a story moment.
+   *
+   * State is replayed in **chronological** order here, not manuscript order —
+   * which is the only way the answer is right in a story with flashbacks.
+   */
+  async getCharacterLocationAtTime(
+    characterId: string,
+    at: TimelinePoint,
+    view: TimelineView = {},
+  ): Promise<string | undefined> {
+    const [chronology, transitions] = await Promise.all([
+      this.getStoryChronology(view),
+      this.transitions.list(),
+    ]);
+    return chronology.getCharacterLocationAtTime(characterId, at, transitions, view);
+  }
+
+  /** Deterministic chronology checks across the project. */
+  async checkTimeline(view: TimelineView = {}): Promise<TimelineViolation[]> {
+    const [chronology, links, travel] = await Promise.all([
+      this.getStoryChronology(view),
+      this.timeline.listLinks(),
+      this.timeline.listTravelRules(),
+    ]);
+    return checkTimeline({ chronology, links, travel });
+  }
+
+  /** Reject anything that is not a scene or an event. */
+  private async requireTimelineNode(id: string): Promise<void> {
+    const kind = entityKindOf(id);
+    if (kind !== "scene" && kind !== "event") {
+      throw new RepositoryError(
+        "invalid_reference",
+        `"${id}" cannot take part in a temporal relation: only scenes and events sit on the timeline.`,
+        { details: { id } },
+      );
+    }
+    await this.requireEntityExists(kind, id);
+  }
+
+  /** The entity must exist, and be of the kind its ID claims. */
+  private async requireEntityExists(kind: string, id: string): Promise<void> {
+    if (entityKindOf(id) !== kind || (await this.getEntity(id)) === null) {
+      throw new RepositoryError("entity_not_found", `"${id}" is not a ${kind} in this project.`, {
+        details: { id, kind },
+      });
+    }
+  }
+
   // ── Search & retrieval ──────────────────────────────────────────────────────
 
   /** Project-wide lexical full-text search. Deterministic; no LLM. */
@@ -1059,6 +1329,21 @@ export class StoryRepository {
       );
     }
 
+    // Temporal relations are references too: a chronology that orders something
+    // the project no longer has is a broken chronology.
+    const linked = (await this.timeline.listLinks()).filter(
+      (l) => l.fromId === id || l.toId === id,
+    );
+    if (linked.length > 0 && mode === "prevent") {
+      throw new RepositoryError(
+        "has_references",
+        `${id} is referenced by ${String(linked.length)} temporal relation(s) (${linked
+          .map((l) => l.id)
+          .join(", ")}). Delete them first or delete with mode "unlink".`,
+        { details: { temporalLinks: linked.map((l) => l.id) } },
+      );
+    }
+
     if (referrers.length > 0 && mode === "prevent") {
       throw new RepositoryError(
         "has_references",
@@ -1083,6 +1368,7 @@ export class StoryRepository {
         for (const transition of citing) {
           await this.transitions.remove(transition.id);
         }
+        await this.timeline.removeLinksFor(id);
         if (referrers.length > 0) {
           unlinked = await this.graph.unlinkReferences(id);
           for (const otherId of unlinked) {

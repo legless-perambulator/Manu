@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { ContextCompiler, RECIPES } from "./compiler";
 import { CompileError } from "./errors";
-import { fixtureReader, FIXTURE_FILES } from "./fixture";
+import { fixtureReader, FIXTURE_FILES, FIXTURE_SCENES } from "./fixture";
 import { buildTimeline } from "./recipes/state";
+import { buildChronology, temporalCandidates } from "./recipes/temporal";
 import { renderContextPackage } from "./present";
 import { adjacentChapters, adjacentScenes, orderScenes } from "./sequence";
 import { estimateTokens } from "./tokens";
 import { allItems, includedIds, section, type ContextPackage } from "./types";
+import type { Scene } from "@jellytind/domain";
 
 const compiler = () => new ContextCompiler(fixtureReader(), { now: () => "2026-01-01T00:00:00Z" });
 
@@ -425,5 +427,81 @@ describe("relationship state in context", () => {
   it("omits relationships where only one party is in the scene", async () => {
     const pkg = await compiler().compile({ recipe: "scene_inspection", targetId: "SCENE_0001" });
     expect(allItems(pkg).some((i) => i.id.startsWith("REL_0001@"))).toBe(false);
+  });
+});
+
+describe("temporal context", () => {
+  it("tells the model where the scene sits in story time", async () => {
+    const pkg = await compiler().compile({ recipe: "scene_inspection", targetId: "SCENE_0002" });
+    const item = allItems(pkg).find((i) => i.id === "story-time@SCENE_0002");
+
+    expect(item?.provenance.rule).toBe("story_time");
+    expect(item?.text).toContain("when: 2019-03-04T18:00:00Z");
+    // Fourth in story time (after the fire, the flashback and SCENE_0001),
+    // second in the manuscript — the two numbers are the point.
+    expect(item?.text).toContain("chronological position: 4 of 6");
+    expect(item?.text).toContain("manuscript position: 2");
+  });
+
+  it("marks a flashback as presented out of sequence", async () => {
+    const pkg = await compiler().compile({ recipe: "scene_inspection", targetId: "SCENE_0003" });
+    const item = allItems(pkg).find((i) => i.id === "story-time@SCENE_0003");
+
+    expect(item?.text).toContain("out of chronological sequence");
+    expect(item?.text).toContain("Do not assume the preceding chapters");
+  });
+
+  it("carries the events the story world has already reached", async () => {
+    const pkg = await compiler().compile({ recipe: "scene_inspection", targetId: "SCENE_0002" });
+    const item = allItems(pkg).find((i) => i.id === "preceding-events@SCENE_0002");
+
+    expect(item?.provenance.rule).toBe("preceding_event");
+    expect(item?.text).toContain("EVENT_0001 — The fire at the manor");
+    expect(item?.text).toContain("off-page");
+  });
+
+  /**
+   * The failure this section exists to prevent: a flashback sits early in the
+   * story world and late in the book, so its manuscript neighbours are the
+   * future. Nothing chronologically later may reach it.
+   */
+  it("never leaks future timeline events into a flashback's context", async () => {
+    const pkg = await compiler().compile({ recipe: "scene_inspection", targetId: "SCENE_0003" });
+    const temporal = allItems(pkg).filter((i) => i.kind === "timeline");
+
+    // SCENE_0003 happens in 2017; both events happen after it.
+    for (const item of temporal) {
+      expect(item.text).not.toContain("EVENT_0002");
+    }
+    expect(allItems(pkg).some((i) => i.id === "future-events@SCENE_0003")).toBe(false);
+  });
+
+  it("provides forward-looking events only when explicitly asked", async () => {
+    const chronology = await buildChronology(fixtureReader());
+    const scene = FIXTURE_SCENES.find((s) => s.id === "SCENE_0003") as Scene;
+
+    const guarded = temporalCandidates({ chronology, scene });
+    expect(guarded.some((c) => c.id === "future-events@SCENE_0003")).toBe(false);
+
+    const asked = temporalCandidates({ chronology, scene, includeFuture: true });
+    const future = asked.find((c) => c.id === "future-events@SCENE_0003");
+    expect(future?.provenance.rule).toBe("future_event");
+    expect(future?.full).toContain("These have NOT happened yet");
+    expect(future?.full).toContain("EVENT_0002");
+  });
+
+  it("names what is happening elsewhere at the same moment", async () => {
+    const chronology = await buildChronology(fixtureReader());
+    // SCENE_0001 runs 09:00–11:00; nothing else overlaps it.
+    expect(chronology.simultaneousWith("SCENE_0001")).toEqual([]);
+    // The chronology, not the chapter order, is what the compiler reports.
+    expect(chronology.chronologicalOrder().map((n) => n.id)).toEqual([
+      "EVENT_0001",
+      "SCENE_0003",
+      "SCENE_0001",
+      "SCENE_0002",
+      "EVENT_0002",
+      "SCENE_0004",
+    ]);
   });
 });

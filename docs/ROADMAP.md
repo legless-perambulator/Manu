@@ -341,6 +341,41 @@ Relationships stop being labels and become time-aware state.
 
 See [STORY_STATE.md](STORY_STATE.md).
 
+## Phase 13 — The Story Timeline Engine ✅
+
+The manuscript's order and the story world's order become two separate
+sequences over the same material.
+
+- **Story time at six precisions** on scenes and events — an exact instant, a
+  date, a range, a position relative to another node, an ordinal marker like
+  "Day 3, evening", or explicitly unknown. All optional, none privileged: a
+  project that never states a calendar date is not a degraded case.
+- **Temporal relations** (`before`, `after`, `during`, `overlaps`, `same_time`,
+  `approximately_before`) are a complete chronology on their own, so a story with
+  no clock is still fully ordered and fully checkable.
+- **One timeline for scenes and events.** An event may be dramatised in a scene,
+  happen off the page between two, span a range, or predate the book by decades,
+  so it has story time whether or not it has a presentation position.
+- **Order of precedence**: relations, then resolved absolute time, then
+  manuscript position as a tie-break — with undated material staying in its
+  neighbourhood and the rearrangement kept to the minimum the relations demand.
+- **Character timelines**: one life in the order it was lived, the events a
+  character takes part in, and where they were at a story-world instant —
+  answered by replaying state in **chronological** order, which is the only way
+  the answer is right in a story with flashbacks.
+- **Deterministic checks**: relation loops, relations the timestamps refute,
+  over-constrained nodes, bilocation, and impossible travel. **Travel times are
+  declared, never assumed** — the system does not know how long London to
+  Edinburgh takes, and with nothing declared no travel violation is reported.
+- **Context Compiler**: the target's story time, the events the world has
+  already reached, and concurrent material — with chronologically future
+  material excluded unless a caller explicitly asks for it.
+- UI: a Timeline tab with lanes over ranked positions, a story-order/
+  manuscript-order toggle, character/location/plot-thread filtering, flashback
+  marking, and click-to-inspect.
+
+See [TIMELINE.md](TIMELINE.md).
+
 ## V1 (remaining) — Writing IDE
 
 Prove the core paradigm: **AI can operate reliably on a fiction project instead of merely chatting about it.**

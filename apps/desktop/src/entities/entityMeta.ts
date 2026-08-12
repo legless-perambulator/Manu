@@ -88,10 +88,11 @@ export const SCALAR_FIELDS: Record<Kind, readonly ScalarField[]> = {
     { key: "description", label: "Description", multiline: true },
     { key: "scope", label: "Scope" },
   ],
+  // Story time is structured, not free text — it is edited in the Timeline
+  // panel, where its precision can be stated (docs/TIMELINE.md).
   event: [
     { key: "name", label: "Name" },
     { key: "description", label: "Description", multiline: true },
-    { key: "storyTime", label: "Story time" },
   ],
   relationship: [
     { key: "type", label: "Type" },

@@ -7,7 +7,7 @@ north-star spec see [`../MASTER_BUILD.md`](../MASTER_BUILD.md).
 
 ## Status
 
-**Phases 1 & 3–12 implemented.** On the Phase-0 foundation: the persistent Story
+**Phases 1 & 3–13 implemented.** On the Phase-0 foundation: the persistent Story
 Repository, the fiction-domain **entity graph** with referential integrity,
 deterministic **search & retrieval** (`@jellytind/search`), **revision history**
 — journaled change sets, checkpoints, diffs, revert, and a staging transaction —
@@ -21,7 +21,10 @@ staged, reviewable prose edits that only a human decision commits, and **Story
 State V1**: deterministic, time-aware state reconstructable at any scene
 boundary, including a character knowledge and belief graph that keeps objective
 truth, knowledge and belief separate, and dynamic relationships whose type,
-status and optional dimensions evolve scene by scene. The remaining subsystem packages are typed
+status and optional dimensions evolve scene by scene, and the **Story Timeline
+Engine**: a story-world chronology held separate from manuscript presentation
+order, so flashbacks, parallel events and nonlinear structure are first-class
+rather than anomalies. The remaining subsystem packages are typed
 interfaces marked **PLANNED**; features continue as vertical slices (see
 [`ROADMAP.md`](ROADMAP.md)).
 
@@ -138,6 +141,9 @@ root-confined Rust commands (see [`STORY_REPOSITORY.md`](STORY_REPOSITORY.md)).
 - **State is derived, never cached.** Story state is reconstructed by replaying
   scene-anchored transitions, so no component may hold a "current state"
   snapshot. See [`STORY_STATE.md`](STORY_STATE.md).
+- **Chapter order is not chronology.** Presentation order and story-world order
+  are separate sequences over the same material, and nothing may assume they
+  agree. See [`TIMELINE.md`](TIMELINE.md).
 - **AI never writes to the project directly.** Model output is validated, staged
   through a transaction, presented as a diff, and committed only by an explicit
   human decision — as one attributable, revertible change set. See

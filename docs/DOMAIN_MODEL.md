@@ -6,8 +6,10 @@ The fiction domain model is the authoritative representation of story data. UI c
 - **Depends on:** `@jellytind/shared`
 - **Status:** Identity foundation (IDs) **implemented and tested**. The foundational fiction-domain entities are **implemented** (Phase 3): `Project`, `Chapter`, `Scene`, `Character`, `Location`, `StoryObject`, `PlotThread`, `Fact`, `WorldRule`, `StoryEvent`, `Relationship`, plus the `ProjectManifest`. Belief and knowledge semantics are **implemented** (Phase 11): facts carry an
   objective truth value, scenes list the facts they reference, and per-character
-  positions live in the story-state timeline. Numeric relationship state remains
-  **PLANNED**.
+  positions live in the story-state timeline. Story-world time is **implemented**
+  (Phase 13): scenes and events carry an optional `StoryTime` at any precision,
+  and `TemporalRelation`/`TemporalLink`/`TravelRule` give the chronology its
+  vocabulary. Numeric relationship state remains **PLANNED**.
 
 ## Implemented: stable entity IDs
 
@@ -67,9 +69,9 @@ All cross-entity references are by **stable ID**.
 | `PlotThread`   | name, description, status                                  | `introducedSceneId?`, `resolvedSceneId?`, `relatedSceneIds[]` → scene                   |
 | `Fact`         | statement, status, objectiveTruth, source?, notes?         | —                                                                                       |
 | `WorldRule`    | name, description, severity (`hard`/`soft`/`style`), scope | —                                                                                       |
-| `StoryEvent`   | name, description, storyTime?                              | `sceneId?`, `locationId?`, `characterIds[]`                                             |
+| `StoryEvent`   | name, description, storyTime?, duration?                   | `sceneId?`, `locationId?`, `characterIds[]`, `plotThreadIds[]?`                         |
 | `Relationship` | type, status, description (all _starting_ values)          | `characterAId`, `characterBId` (required)                                               |
-| `Scene`        | title, purpose[], status                                   | `chapterId?`, `pov?`, `locationId?`, `characterIds[]`, `plotThreadIds[]`, `objectIds[]` |
+| `Scene`        | title, purpose[], status, storyTime?, duration?            | `chapterId?`, `pov?`, `locationId?`, `characterIds[]`, `plotThreadIds[]`, `objectIds[]` |
 | `Chapter`      | title, order, status                                       | —                                                                                       |
 
 Status vocabularies are exported as constant arrays (`CHARACTER_STATUSES`,
@@ -173,6 +175,16 @@ word_count: 2381
 - **PlotThread** — has a lifecycle: `planned → introduced → active → escalating → dormant → resolved → abandoned`. Tracks appearances. Dormancy can be flagged but is not automatically "bad".
 - **Foreshadowing** — setups and payoffs are _linked_ entities with visibility and reader-interpretation metadata; detect setup-without-payoff and payoff-without-setup. Supports multi-stage foreshadowing.
 - **Object** — important objects are entities tracking ownership, location, condition, appearances, transfers, destruction and knowledge, enabling inventory-continuity checks.
+- **StoryEvent** — a moment in the story world, not in the manuscript. It may be
+  dramatised in a scene, happen off the page, or predate the book by decades, so
+  `sceneId` is optional and story time is not tied to chapter order. See
+  [TIMELINE.md](TIMELINE.md).
+- **StoryTime / TemporalRelation** — where something sits in story-world time, at
+  whatever precision the writer has: an instant, a date, a range, a position
+  relative to another node, an ordinal marker, or explicitly unknown. Real
+  calendar dates are never required — `before`/`after`/`during`/`overlaps`/
+  `same_time` relations are a complete chronology on their own. See
+  [TIMELINE.md](TIMELINE.md).
 - **WorldRule** — structured, queryable hard/soft rules (e.g. `RULE_MAGIC_001: resurrection impossible`) consulted during drafting, continuity, timeline, refactor and simulation.
 - **Fact / Belief / Knowledge** — objective truth (`Fact.objectiveTruth`),
   per-character belief (the knowledge graph in the story-state timeline) and

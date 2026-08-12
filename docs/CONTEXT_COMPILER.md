@@ -4,7 +4,7 @@ The Context Compiler constructs the best possible working context for every AI o
 
 - **Package:** `@jellytind/context-compiler`
 - **Depends on:** `@jellytind/domain`, `@jellytind/search`, `@jellytind/shared`
-- **Status (Phase 8):** **V1 implemented and tested.** The `ContextPackage`, provenance model, token budget with prioritised degradation, three explicit recipes, package rendering and the Inspect Context UI are built. Semantic retrieval, hierarchical summaries and story-state sources are **PLANNED**.
+- **Status (Phase 8, extended through Phase 13):** **V1 implemented and tested.** The `ContextPackage`, provenance model, token budget with prioritised degradation, three explicit recipes, package rendering and the Inspect Context UI are built, plus story state, knowledge, relationship and temporal sources. Semantic retrieval and hierarchical summaries are **PLANNED**.
 
 ## Principle
 
@@ -202,6 +202,24 @@ compiler; these three are chosen because an operation is _wrong_ without them �
 a model that does not know a character is meant to be mistaken will quietly
 correct them. See [STORY_STATE.md](STORY_STATE.md).
 
+## Temporal context
+
+The `storyState` section also says **when** the target happens, because in a
+nonlinear story the manuscript's neighbours are not the story's neighbours:
+
+| Element                                                               | Rule              |
+| --------------------------------------------------------------------- | ----------------- |
+| where the scene sits in story time, and whether it is out of sequence | `story_time`      |
+| events the story world has already reached by then                    | `preceding_event` |
+| material occupying the same story moment                              | `concurrent_node` |
+
+**Chronologically future material is excluded by default.** A flashback sits
+early in the story world and late in the book, so its manuscript neighbours are
+its future; feeding those into its drafting context would quietly write the
+ending into the beginning. Forward-looking events arrive only when a caller
+passes `includeFuture`, and the rendered text then says plainly that they have
+not happened yet. See [TIMELINE.md](TIMELINE.md).
+
 ## Rendering
 
 `renderContextPackage(pkg)` turns a package into the text a model call receives —
@@ -228,10 +246,11 @@ Implemented: entity references · scene/chapter adjacency · plot threads ·
 character participation · locations · world rules · style and voice material ·
 user-pinned context · derived structural summaries · story state at a named
 boundary · character knowledge, false beliefs and information asymmetries ·
-relationship state between the characters present.
+relationship state between the characters present · story time, preceding
+events and concurrent material.
 
-Planned: reader knowledge · timeline proximity · foreshadowing · pacing · scene
-specifications · stored hierarchical summaries · semantic search.
+Planned: reader knowledge · foreshadowing · pacing · scene specifications ·
+stored hierarchical summaries · semantic search.
 
 ## Relationship to other subsystems
 
@@ -251,5 +270,7 @@ specifications · stored hierarchical summaries · semantic search.
 - Every compiled element is attributable, with a reason a user can read.
 - Nothing is silently truncated; every degradation and exclusion is recorded.
 - The task and its target are always present.
+- Chronologically future material never reaches an earlier scene unless the
+  operation explicitly asks for it.
 - Selection is deterministic and reproducible for a given project state.
 - Summaries and derived retrieval never override confirmed canon.

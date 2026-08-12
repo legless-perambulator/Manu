@@ -11,6 +11,7 @@ import type {
   WorldRuleId,
   RelationshipId,
 } from "../ids/ids";
+import type { StoryDuration, StoryTime } from "../story-time";
 
 /**
  * Foundational fiction-domain entities (Phase 3).
@@ -168,16 +169,31 @@ export interface WorldRule {
   readonly scope: string;
 }
 
-/** A timeline-worthy story event. */
+/**
+ * A timeline-worthy story event.
+ *
+ * An event is not tied to the manuscript. It may happen inside a scene, off the
+ * page between two scenes, or decades before the book opens — which is why
+ * `sceneId` is optional and story time is not (docs/TIMELINE.md).
+ */
 export interface StoryEvent {
   readonly id: EventId;
   readonly name: string;
   readonly description: string;
-  /** Free-form story-world time, e.g. "1997", "Day 3, evening". */
-  readonly storyTime?: string;
+  /**
+   * Where this sits in story-world time. Optional at every precision: an exact
+   * instant, a date, a range, a position relative to another node, or a bare
+   * ordinal marker like "Day 3, evening".
+   */
+  readonly storyTime?: StoryTime;
+  /** How long it takes, when it matters. */
+  readonly duration?: StoryDuration;
+  /** The scene that puts it on the page, if any. Off-page events have none. */
   readonly sceneId?: SceneId;
   readonly locationId?: LocationId;
   readonly characterIds: readonly CharacterId[];
+  /** Plot threads this event belongs to, for timeline filtering. */
+  readonly plotThreadIds?: readonly PlotThreadId[];
 }
 
 /**
@@ -220,4 +236,13 @@ export interface Scene {
   /** What the scene is for (goals/beats), as short lines. */
   readonly purpose: readonly string[];
   readonly status: SceneStatus;
+  /**
+   * When this scene happens in the story world — which is **not** where it sits
+   * in the manuscript. A scene presented third may happen first; leaving this
+   * unset simply means the chronology falls back to ordering relations, or to
+   * presentation order if there are none (docs/TIMELINE.md).
+   */
+  readonly storyTime?: StoryTime;
+  /** How much story-world time the scene covers, when it matters. */
+  readonly duration?: StoryDuration;
 }

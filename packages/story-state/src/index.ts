@@ -57,6 +57,29 @@ export type {
   RelationshipState,
 } from "./relationships";
 
+export {
+  StoryChronology,
+  ChronologyError,
+  timelineNodes,
+  overlaps,
+  strictlyBefore,
+} from "./chronology";
+export type {
+  CharacterTimelineEntry,
+  ChronologyOptions,
+  ResolvedInterval,
+  TimelineNode,
+  TimelinePoint,
+} from "./chronology";
+
+export { checkTimeline } from "./timeline-checks";
+export type {
+  TimelineCheckInput,
+  TimelineViolation,
+  TimelineViolationKind,
+  TimelineViolationSeverity,
+} from "./timeline-checks";
+
 export { checkKnowledgeViolations } from "./violations";
 export type {
   CheckInput,

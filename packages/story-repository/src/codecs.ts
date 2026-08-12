@@ -16,6 +16,8 @@ import {
   PLOT_THREAD_STATUSES,
   FACT_STATUSES,
   WORLD_RULE_SEVERITIES,
+  normaliseStoryTime,
+  normaliseDuration,
   type Chapter,
   type Character,
   type Location,
@@ -155,6 +157,8 @@ export function normalizeScene(raw: unknown): Scene | null {
   if (typeof raw !== "object" || raw === null) return null;
   const d = raw as Record<string, unknown>;
   if (!isSceneId(str(d.id))) return null;
+  const sceneTime = normaliseStoryTime(d.storyTime);
+  const sceneDuration = normaliseDuration(d.duration);
   return {
     id: d.id as SceneId,
     title: str(d.title),
@@ -171,6 +175,8 @@ export function normalizeScene(raw: unknown): Scene | null {
     factIds: idArray(d.factIds, isFactId),
     purpose: strArray(d.purpose),
     status: oneOf(d.status, SCENE_STATUSES, "planned"),
+    ...(sceneTime !== undefined ? { storyTime: sceneTime } : {}),
+    ...(sceneDuration !== undefined ? { duration: sceneDuration } : {}),
   };
 }
 
@@ -226,16 +232,22 @@ export function normalizeEvent(raw: unknown): StoryEvent | null {
   if (typeof raw !== "object" || raw === null) return null;
   const d = raw as Record<string, unknown>;
   if (!isEventId(str(d.id))) return null;
+  // `storyTime` used to be a free-form string. It is interpreted rather than
+  // discarded, so existing projects keep their timeline (docs/TIMELINE.md).
+  const storyTime = normaliseStoryTime(d.storyTime);
+  const duration = normaliseDuration(d.duration);
   return {
     id: d.id as StoryEvent["id"],
     name: str(d.name),
     description: str(d.description),
-    ...(optStr(d.storyTime) !== undefined ? { storyTime: optStr(d.storyTime) } : {}),
+    ...(storyTime !== undefined ? { storyTime } : {}),
+    ...(duration !== undefined ? { duration } : {}),
     ...(optId(d.sceneId, isSceneId) !== undefined ? { sceneId: d.sceneId as SceneId } : {}),
     ...(optId(d.locationId, isLocationId) !== undefined
       ? { locationId: d.locationId as LocationId }
       : {}),
     characterIds: idArray(d.characterIds, isCharacterId),
+    plotThreadIds: idArray(d.plotThreadIds, isPlotThreadId),
   };
 }
 

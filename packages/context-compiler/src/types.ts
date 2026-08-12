@@ -33,6 +33,10 @@ export type SelectionRule =
   | "information_asymmetry"
   | "fact_knowledge"
   | "relationship_state"
+  | "story_time"
+  | "preceding_event"
+  | "concurrent_node"
+  | "future_event"
   | "lexical_search"
   | "pinned";
 

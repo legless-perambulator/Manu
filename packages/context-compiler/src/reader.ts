@@ -7,6 +7,8 @@ import type {
   Project,
   Relationship,
   Scene,
+  StoryEvent,
+  TemporalLink,
   WorldRule,
 } from "@jellytind/domain";
 import type { SearchHit, SearchQuery } from "@jellytind/search";
@@ -41,6 +43,15 @@ export interface ProjectReader {
    * (docs/STORY_STATE.md).
    */
   listStateTransitions(): Promise<StateTransition[]>;
+
+  /**
+   * Story-world events and the relations that order them — the material the
+   * chronology is built from. Optional on the port: a project that records no
+   * chronology still compiles, it simply gets no temporal section
+   * (docs/TIMELINE.md).
+   */
+  listEvents?(): Promise<StoryEvent[]>;
+  listTemporalLinks?(): Promise<TemporalLink[]>;
 
   listProjectFiles(prefix?: string): Promise<string[]>;
   readProjectFile(path: string): Promise<string | null>;

@@ -10,6 +10,7 @@ import {
   relationshipCandidates,
   stateCandidates,
 } from "./state";
+import { buildChronology, temporalCandidates } from "./temporal";
 import {
   byId,
   characterCandidate,
@@ -166,6 +167,11 @@ export async function gatherSceneInspection(
   candidates.push(
     ...relationshipCandidates({ timeline, relationships: snap.relationships, scene }),
   );
+
+  // Where the scene sits in story-world time, and what the world had reached by
+  // then. Manuscript adjacency above answers a different question, and in a
+  // nonlinear story the two disagree (docs/TIMELINE.md).
+  candidates.push(...temporalCandidates({ chronology: await buildChronology(reader), scene }));
 
   candidates.push(...worldRuleCandidates(snap.worldRules, scene.id));
 

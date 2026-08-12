@@ -18,3 +18,27 @@ export {
   scenesOfChapter,
 } from "./story-order";
 export type { Neighbours } from "./story-order";
+
+export {
+  STORY_TIME_KINDS,
+  TEMPORAL_RELATIONS,
+  RELATION_VERBS,
+  isTemporalRelation,
+  durationMs,
+  describeDuration,
+  boundsOf,
+  isAnchored,
+  parseInstant,
+  describeStoryTime,
+  normaliseStoryTime,
+  normaliseDuration,
+} from "./story-time";
+export type {
+  StoryTime,
+  StoryTimeKind,
+  StoryDuration,
+  TemporalRelation,
+  TemporalLink,
+  TimeBounds,
+  TravelRule,
+} from "./story-time";

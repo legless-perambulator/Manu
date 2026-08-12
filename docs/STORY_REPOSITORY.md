@@ -236,7 +236,8 @@ MY_NOVEL/
 | Prose                            | `manuscript/**.md`                        | Yes            |
 | Scene structure                  | `scenes/*.yaml`                           | Yes            |
 | Canon story facts, world rules   | `story/`, `world/`, `plot/`               | Yes            |
-| Confirmed story state            | `.writer/state/`                          | Yes            |
+| Confirmed story state            | `.writer/state/transitions.json`          | Yes            |
+| Story chronology, travel times   | `.writer/state/timeline.json`             | Yes            |
 | Revisions, branches, checkpoints | `.writer/revisions/`, `.writer/branches/` | Yes (history)  |
 | Full-text / vector index         | `.writer/index/` + SQLite                 | No (derived)   |
 | Summaries                        | derived store                             | No (derived)   |

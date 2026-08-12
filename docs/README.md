@@ -15,6 +15,7 @@ These documents are **living**: update the relevant document whenever an archite
 | [DOMAIN_MODEL.md](DOMAIN_MODEL.md)         | Core fiction domain entities and their relationships.     |
 | [STORY_REPOSITORY.md](STORY_REPOSITORY.md) | On-disk project structure and persistence contract.       |
 | [STORY_STATE.md](STORY_STATE.md)           | Machine-readable story state, truth/belief/knowledge.     |
+| [TIMELINE.md](TIMELINE.md)                 | Story-world chronology versus manuscript presentation.    |
 | [SEARCH.md](SEARCH.md)                     | Deterministic full-text + structured retrieval.           |
 | [CONTEXT_COMPILER.md](CONTEXT_COMPILER.md) | How working context is constructed for each operation.    |
 | [STORY_COMPILER.md](STORY_COMPILER.md)     | Deterministic + semantic story checks and the build.      |

@@ -14,7 +14,7 @@ This is **not** a chatbot with a writing editor attached. It lets AI agents insp
 
 ## Status
 
-**Phase 12 complete.** Implemented and tested so far:
+**Phase 13 complete.** Implemented and tested so far:
 
 - **Phase 0** — monorepo, tooling, stable branded entity IDs, persistence and
   model-provider boundaries, Tauri + React desktop shell.
@@ -56,6 +56,12 @@ This is **not** a chatbot with a writing editor attached. It lets AI agents insp
   status, optional analytical dimensions and milestones, queryable at any story
   moment, with a chapter-by-chapter timeline view and context that never shows an
   earlier scene a later scene's relationship.
+- **Phase 13** — the Story Timeline Engine: story-world chronology held separate
+  from manuscript order, so flashbacks, parallel events and nonlinear structure
+  are first-class — with optional story time at any precision, ordering
+  relations for stories that carry no calendar, character timelines, historical
+  state queries, contradiction checks that never assume real-world travel, and a
+  visual timeline.
 
 Implementation proceeds as vertical slices — see
 [`docs/ROADMAP.md`](docs/ROADMAP.md) and

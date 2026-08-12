@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { entityKindOf } from "@jellytind/domain";
+import { describeStoryTime, entityKindOf, normaliseStoryTime } from "@jellytind/domain";
 import type { ReferenceEdge, StoryRepository } from "@jellytind/story-repository";
 import {
   KIND_LABEL,
@@ -142,6 +142,13 @@ export function Inspector({
         <span className="inspector__kind">{KIND_LABEL[kind].replace(/s$/, "")}</span>
         <span className="inspector__id">{String(draft.id)}</span>
       </div>
+
+      {(kind === "scene" || kind === "event") && (
+        <p className="hint">
+          Story time: {describeStoryTime(normaliseStoryTime(draft.storyTime))} — edit it in the
+          Timeline panel.
+        </p>
+      )}
 
       {scalarFields.map((f) =>
         f.multiline ? (
