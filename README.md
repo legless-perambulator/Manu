@@ -1,4 +1,4 @@
-# JellyTind
+# Manu
 
 An AI-native fiction development environment — a structured **fiction operating environment** inspired by AI coding IDEs and coding-agent harnesses.
 
