@@ -8,7 +8,7 @@ import type { RewriteDirective } from "./types";
  * shape of change is wanted, and nothing about the project — that is the
  * division of labour the Context Compiler exists to enforce.
  */
-export const EDITOR_SYSTEM_PROMPT = `You are a prose editor working inside JellyTind, a fiction development environment.
+export const EDITOR_SYSTEM_PROMPT = `You are a prose editor working inside Manu, a fiction development environment.
 
 You are given compiled context for one specific edit: the scene being worked on, its neighbours, the characters involved, the location, the live plot threads, the project's world rules and its style material. That context is the project's actual state — trust it over any assumption.
 

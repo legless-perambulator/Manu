@@ -1,6 +1,10 @@
 # Manu
 
-An AI-native fiction development environment — a structured **fiction operating environment** inspired by AI coding IDEs and coding-agent harnesses.
+A writing IDE for fiction — a structured **fiction operating environment**
+inspired by AI coding IDEs and coding-agent harnesses.
+
+> _manus_ → hand → _manuscript_ → _amanuensis_.
+> **You are the author. Manu is the hand.**
 
 This is **not** a chatbot with a writing editor attached. It lets AI agents inspect, understand, modify, validate, debug, refactor and build large fiction projects using persistent project state, specialised tools, structured story entities, context compilation, versioning and deterministic orchestration.
 
@@ -14,7 +18,8 @@ This is **not** a chatbot with a writing editor attached. It lets AI agents insp
 
 ## Status
 
-**Phase 20 complete.** Implemented and tested so far:
+**Phase 20.5 complete** — `0.1.0-alpha`, with a distributable Linux AppImage.
+Implemented and tested so far:
 
 - **Phase 0** — monorepo, tooling, stable branded entity IDs, persistence and
   model-provider boundaries, Tauri + React desktop shell.
@@ -105,6 +110,15 @@ This is **not** a chatbot with a writing editor attached. It lets AI agents insp
   of the project** — then commits one revertible change set only when the
   writer approves. Stable IDs never move, and the whole operation is recorded.
 
+- **Phase 20.5** — the Manu brand and a UX consistency pass: one canonical
+  token system built on the four brand colours, the `manu` wordmark outlined
+  from Martian Grotesk, fifteen panels grouped into four, a command palette and
+  a keyboard layer, the manuscript set as prose rather than as a text field,
+  Paper and Manu Black themes, empty states and microcopy that say what to do
+  next — and the first real desktop package: `Manu-0.1.0-alpha`, standalone,
+  as a Linux AppImage. See [`docs/BRAND.md`](docs/BRAND.md),
+  [`docs/UX.md`](docs/UX.md) and [`docs/BUILDING.md`](docs/BUILDING.md).
+
 Implementation proceeds as vertical slices — see
 [`docs/ROADMAP.md`](docs/ROADMAP.md) and
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
@@ -119,6 +133,7 @@ packages/                domain, persistence, model-router, story-compiler,
                          story-repository, story-state, shared,
                          providers/anthropic
 docs/                    living architecture documentation
+scripts/                 brand-asset and development-fixture generators
 ```
 
 ## Getting started
@@ -134,7 +149,10 @@ pnpm check          # typecheck + lint + format:check + test
 pnpm test           # unit tests (Vitest)
 pnpm dev            # frontend dev server (UI in a browser)
 pnpm dev:desktop    # full desktop app via Tauri (requires a display)
+pnpm dev:fixture    # write a small development project to ./.dev/blackthorn
 ```
+
+To build the distributable AppImage, see [`docs/BUILDING.md`](docs/BUILDING.md).
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full command list and
 the package dependency graph.

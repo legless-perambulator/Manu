@@ -1,8 +1,20 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { EditProposal, EditRequest, ManuscriptEditor } from "@jellytind/editing";
 import type { SecretStore } from "@jellytind/model-router";
 import type { StoryRepository } from "@jellytind/story-repository";
 import { createManuscriptEditor, explainEditError } from "../lib/editing";
+import {
+  PANEL_GROUPS,
+  PANELS,
+  firstPanelOfGroup,
+  panelById,
+  panelsInGroup,
+  type LeftPanelId,
+  type PanelGroupId,
+} from "../lib/panels";
+import type { Theme } from "../lib/theme";
+import { CommandPalette, type Command } from "./CommandPalette";
+import { Wordmark } from "./Wordmark";
 import { ProjectExplorer } from "./ProjectExplorer";
 import { EntitiesPanel } from "./EntitiesPanel";
 import { SearchPanel } from "./SearchPanel";
@@ -25,33 +37,34 @@ import { DebugPanel } from "./DebugPanel";
 import { CausalityPanel } from "./CausalityPanel";
 import { RefactorPanel } from "./RefactorPanel";
 
-type LeftTab =
-  | "files"
-  | "entities"
-  | "search"
-  | "state"
-  | "knowledge"
-  | "relations"
-  | "objects"
-  | "threads"
-  | "timeline"
-  | "build"
-  | "tests"
-  | "debug"
-  | "causality"
-  | "refactor"
-  | "history";
 type RightTab = "inspector" | "agent" | "context";
+
+const RIGHT_TABS: readonly { id: RightTab; label: string; purpose: string }[] = [
+  { id: "inspector", label: "Inspector", purpose: "The record behind the current selection" },
+  { id: "agent", label: "Agent", purpose: "Put an agent to work on the project" },
+  { id: "context", label: "Context", purpose: "Exactly what a model would be given" },
+];
 
 interface WorkspaceProps {
   repo: StoryRepository;
   secrets: SecretStore;
+  theme: Theme;
+  onChangeTheme: (theme: Theme) => void;
   onClose: () => void;
   onOpenSettings: () => void;
 }
 
-export function Workspace({ repo, secrets, onClose, onOpenSettings }: WorkspaceProps) {
-  const [tab, setTab] = useState<LeftTab>("files");
+export function Workspace({
+  repo,
+  secrets,
+  theme,
+  onChangeTheme,
+  onClose,
+  onOpenSettings,
+}: WorkspaceProps) {
+  const [tab, setTab] = useState<LeftPanelId>("files");
+  const [group, setGroup] = useState<PanelGroupId>("project");
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const [rightTab, setRightTab] = useState<RightTab>("inspector");
   const [openPath, setOpenPath] = useState<string | null>(null);
   const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
@@ -65,6 +78,12 @@ export function Workspace({ repo, secrets, onClose, onOpenSettings }: WorkspaceP
 
   const refresh = () => setRefreshToken((n) => n + 1);
   const showActivity = useCallback((line: string | null) => setActivityLine(line), []);
+
+  /** Open a panel and bring its group with it, from wherever the request came. */
+  const openPanel = useCallback((id: LeftPanelId) => {
+    setTab(id);
+    setGroup(panelById(id).group);
+  }, []);
 
   /**
    * Run an AI edit and show the proposal. The editor is built lazily so opening
@@ -108,112 +127,139 @@ export function Workspace({ repo, secrets, onClose, onOpenSettings }: WorkspaceP
   const sceneIdForEditor =
     selectedEntityId?.startsWith("SCENE_") === true ? selectedEntityId : null;
 
+  const commands = useMemo<readonly Command[]>(() => {
+    const panels = PANELS.map<Command>((panel) => ({
+      id: `panel.${panel.id}`,
+      section: "Go to",
+      label: panel.label,
+      hint: panel.purpose,
+      run: () => openPanel(panel.id),
+    }));
+    const inspectors = RIGHT_TABS.map<Command>((entry) => ({
+      id: `right.${entry.id}`,
+      section: "Show",
+      label: entry.label,
+      hint: entry.purpose,
+      run: () => setRightTab(entry.id),
+    }));
+    return [
+      ...panels,
+      ...inspectors,
+      {
+        id: "theme.light",
+        section: "Appearance",
+        label: "Paper",
+        hint: "Light theme",
+        run: () => onChangeTheme("light"),
+      },
+      {
+        id: "theme.dark",
+        section: "Appearance",
+        label: "Manu Black",
+        hint: "Dark theme",
+        run: () => onChangeTheme("dark"),
+      },
+      {
+        id: "theme.system",
+        section: "Appearance",
+        label: "Match the system",
+        hint: "Follow the desktop setting",
+        run: () => onChangeTheme("system"),
+      },
+      {
+        id: "app.settings",
+        section: "Project",
+        label: "Model settings",
+        hint: "Providers, models and API keys",
+        run: onOpenSettings,
+      },
+      {
+        id: "app.close",
+        section: "Project",
+        label: "Close project",
+        hint: "Return to the start screen",
+        run: onClose,
+      },
+    ];
+  }, [onChangeTheme, onClose, onOpenSettings, openPanel]);
+
+  // Keyboard first: the palette reaches everything, and the panels a writer
+  // returns to most have a key of their own.
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      const chord = event.metaKey || event.ctrlKey;
+      if (!chord) return;
+      const key = event.key.toLowerCase();
+      if (key === "k" || (event.shiftKey && key === "p")) {
+        event.preventDefault();
+        setPaletteOpen(true);
+      } else if (key === "b" && !event.shiftKey) {
+        event.preventDefault();
+        openPanel("build");
+      } else if (event.shiftKey && key === "f") {
+        event.preventDefault();
+        openPanel("search");
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [openPanel]);
+
   return (
     <div className="app">
       <header className="titlebar">
-        <span className="brand">JellyTind</span>
-        <span className="subtitle">{repo.project.title}</span>
-        <button className="btn btn--ghost" onClick={onOpenSettings}>
+        <Wordmark className="titlebar__wordmark" height={18} />
+        <span className="titlebar__divider" aria-hidden="true" />
+        <span className="titlebar__project" title={repo.project.title}>
+          {repo.project.title}
+        </span>
+        <span className="titlebar__spacer" />
+        <button
+          className="btn btn--ghost btn--small"
+          onClick={() => setPaletteOpen(true)}
+          title="Command palette"
+        >
+          Commands <kbd className="kbd">⌘K</kbd>
+        </button>
+        <button className="btn btn--ghost btn--small" onClick={onOpenSettings}>
           Model settings
         </button>
-        <button className="btn btn--ghost" onClick={onClose}>
+        <button className="btn btn--ghost btn--small" onClick={onClose}>
           Close project
         </button>
       </header>
 
       <div className="workbench workbench--three">
         <aside className="panel panel--explorer">
-          <div className="tabbar">
-            <button
-              className={`tab${tab === "files" ? " tab--active" : ""}`}
-              onClick={() => setTab("files")}
-            >
-              Files
-            </button>
-            <button
-              className={`tab${tab === "entities" ? " tab--active" : ""}`}
-              onClick={() => setTab("entities")}
-            >
-              Entities
-            </button>
-            <button
-              className={`tab${tab === "search" ? " tab--active" : ""}`}
-              onClick={() => setTab("search")}
-            >
-              Search
-            </button>
-            <button
-              className={`tab${tab === "state" ? " tab--active" : ""}`}
-              onClick={() => setTab("state")}
-            >
-              State
-            </button>
-            <button
-              className={`tab${tab === "knowledge" ? " tab--active" : ""}`}
-              onClick={() => setTab("knowledge")}
-            >
-              Knowledge
-            </button>
-            <button
-              className={`tab${tab === "relations" ? " tab--active" : ""}`}
-              onClick={() => setTab("relations")}
-            >
-              Relations
-            </button>
-            <button
-              className={`tab${tab === "objects" ? " tab--active" : ""}`}
-              onClick={() => setTab("objects")}
-            >
-              Objects
-            </button>
-            <button
-              className={`tab${tab === "threads" ? " tab--active" : ""}`}
-              onClick={() => setTab("threads")}
-            >
-              Threads
-            </button>
-            <button
-              className={`tab${tab === "timeline" ? " tab--active" : ""}`}
-              onClick={() => setTab("timeline")}
-            >
-              Timeline
-            </button>
-            <button
-              className={`tab${tab === "build" ? " tab--active" : ""}`}
-              onClick={() => setTab("build")}
-            >
-              Build
-            </button>
-            <button
-              className={`tab${tab === "tests" ? " tab--active" : ""}`}
-              onClick={() => setTab("tests")}
-            >
-              Tests
-            </button>
-            <button
-              className={`tab${tab === "debug" ? " tab--active" : ""}`}
-              onClick={() => setTab("debug")}
-            >
-              Debug
-            </button>
-            <button
-              className={`tab${tab === "causality" ? " tab--active" : ""}`}
-              onClick={() => setTab("causality")}
-            >
-              Causality
-            </button>
-            <button
-              className={`tab${tab === "refactor" ? " tab--active" : ""}`}
-              onClick={() => setTab("refactor")}
-            >
-              Refactor
-            </button>
-            <button
-              className={`tab${tab === "history" ? " tab--active" : ""}`}
-              onClick={() => setTab("history")}
-            >
-              History
-            </button>
+          <nav className="groupbar" aria-label="Panel groups">
+            {PANEL_GROUPS.map((entry) => (
+              <button
+                key={entry.id}
+                className={`group${group === entry.id ? " group--active" : ""}`}
+                aria-current={group === entry.id ? "page" : undefined}
+                title={entry.purpose}
+                onClick={() => {
+                  setGroup(entry.id);
+                  if (panelById(tab).group !== entry.id) setTab(firstPanelOfGroup(entry.id));
+                }}
+              >
+                {entry.label}
+              </button>
+            ))}
+          </nav>
+          <div className="tabbar" role="tablist" aria-label="Panels">
+            {panelsInGroup(group).map((panel) => (
+              <button
+                key={panel.id}
+                role="tab"
+                aria-selected={tab === panel.id}
+                title={panel.purpose}
+                className={`tab${tab === panel.id ? " tab--active" : ""}`}
+                onClick={() => setTab(panel.id)}
+              >
+                {panel.label}
+              </button>
+            ))}
           </div>
           {tab === "files" && (
             <ProjectExplorer
@@ -404,25 +450,19 @@ export function Workspace({ repo, secrets, onClose, onOpenSettings }: WorkspaceP
         </main>
 
         <aside className="panel panel--inspector">
-          <div className="tabbar">
-            <button
-              className={`tab${rightTab === "inspector" ? " tab--active" : ""}`}
-              onClick={() => setRightTab("inspector")}
-            >
-              Inspector
-            </button>
-            <button
-              className={`tab${rightTab === "agent" ? " tab--active" : ""}`}
-              onClick={() => setRightTab("agent")}
-            >
-              Agent
-            </button>
-            <button
-              className={`tab${rightTab === "context" ? " tab--active" : ""}`}
-              onClick={() => setRightTab("context")}
-            >
-              Context
-            </button>
+          <div className="tabbar" role="tablist" aria-label="Inspectors">
+            {RIGHT_TABS.map((entry) => (
+              <button
+                key={entry.id}
+                role="tab"
+                aria-selected={rightTab === entry.id}
+                title={entry.purpose}
+                className={`tab${rightTab === entry.id ? " tab--active" : ""}`}
+                onClick={() => setRightTab(entry.id)}
+              >
+                {entry.label}
+              </button>
+            ))}
           </div>
           {rightTab === "inspector" && (
             <Inspector
@@ -445,12 +485,31 @@ export function Workspace({ repo, secrets, onClose, onOpenSettings }: WorkspaceP
         </aside>
       </div>
 
-      <footer className="panel panel--activity">
-        <span className="activity__id">
+      <footer className="statusbar">
+        <span className="statusbar__id">
           {repo.project.id} · schema v{repo.project.schemaVersion}
         </span>
-        {activityLine !== null && <span className="activity__line">{activityLine}</span>}
+        {activityLine !== null && (
+          <span className="statusbar__activity" role="status">
+            {activityLine}
+          </span>
+        )}
+        <span className="titlebar__spacer" />
+        <label className="statusbar__theme">
+          <span className="visually-hidden">Appearance</span>
+          <select
+            value={theme}
+            onChange={(event) => onChangeTheme(event.target.value as Theme)}
+            aria-label="Appearance"
+          >
+            <option value="system">System</option>
+            <option value="light">Paper</option>
+            <option value="dark">Manu Black</option>
+          </select>
+        </label>
       </footer>
+
+      {paletteOpen && <CommandPalette commands={commands} onClose={() => setPaletteOpen(false)} />}
     </div>
   );
 }

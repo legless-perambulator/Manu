@@ -33,9 +33,16 @@ export function ProjectExplorer({ repo, activePath, onOpenFile, refreshToken }: 
 
   return (
     <div className="explorer">
+      {/* The project's name is already in the title bar; this row names what
+          the tree is, and offers the one action it has. */}
       <div className="explorer__header">
-        <span>{repo.project.title}</span>
-        <button className="explorer__refresh" title="Refresh" onClick={() => void reload()}>
+        <span>Project files</span>
+        <button
+          className="explorer__refresh"
+          title="Re-read the folder"
+          aria-label="Re-read the folder"
+          onClick={() => void reload()}
+        >
           ⟳
         </button>
       </div>

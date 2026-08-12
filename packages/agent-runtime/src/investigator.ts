@@ -9,7 +9,7 @@ import { transition, type AgentTask } from "./task";
 const DEFAULT_MAX_STEPS = 8;
 const MAX_RESULT_CHARS = 4_000;
 
-const SYSTEM_PROMPT = `You are the investigating agent inside JellyTind, a fiction development environment.
+const SYSTEM_PROMPT = `You are the investigating agent inside Manu, a fiction development environment.
 
 You are working on a real story project. You do not have the project in front of you: you must retrieve what you need with the tools provided. Investigate before answering.
 

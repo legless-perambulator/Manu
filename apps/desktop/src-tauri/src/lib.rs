@@ -16,9 +16,9 @@ pub struct AppInfo {
 #[tauri::command]
 fn app_info() -> AppInfo {
     AppInfo {
-        name: "JellyTind".to_string(),
+        name: "Manu".to_string(),
         version: env!("CARGO_PKG_VERSION").to_string(),
-        tagline: "AI-native fiction development environment".to_string(),
+        tagline: "You are the author. Manu is the hand.".to_string(),
     }
 }
 
@@ -41,5 +41,5 @@ pub fn run() {
             secrets::secret_delete,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running JellyTind desktop application");
+        .expect("error while running the Manu desktop application");
 }

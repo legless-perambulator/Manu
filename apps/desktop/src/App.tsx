@@ -4,17 +4,19 @@ import { StartScreen } from "./components/StartScreen";
 import { Workspace } from "./components/Workspace";
 import { ModelSettings } from "./components/ModelSettings";
 import { createSecretStore } from "./lib/secrets";
+import { useTheme } from "./lib/theme";
 
 /**
- * Phase-6 desktop app: real fiction projects backed by the Story Repository,
- * plus provider-independent model configuration. The app configures a provider
- * and proves it can reach a model through the `LanguageModel` interface; no
- * provider SDK type appears in application code (docs/MODEL_ROUTER.md).
+ * Manu — the application shell. Either a project is open and the workspace is
+ * showing, or it is not and the start screen is. Model configuration is a
+ * modal over whichever of the two is in front, because a writer should never
+ * have to close their book to change a provider.
  */
 export function App() {
   const [repo, setRepo] = useState<StoryRepository | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const secrets = useMemo(() => createSecretStore(), []);
+  const [theme, setTheme] = useTheme();
 
   return (
     <>
@@ -24,6 +26,8 @@ export function App() {
         <Workspace
           repo={repo}
           secrets={secrets}
+          theme={theme}
+          onChangeTheme={setTheme}
           onClose={() => setRepo(null)}
           onOpenSettings={() => setSettingsOpen(true)}
         />

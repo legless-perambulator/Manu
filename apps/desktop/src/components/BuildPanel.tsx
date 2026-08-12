@@ -104,7 +104,15 @@ export function BuildPanel({ repo, refreshToken, onChanged, onSelectEntity, onOp
           <section className="state__section">
             <h3>
               Story build {build.number}
-              <span className={`build__verdict build__verdict--${build.status}`}>
+              <span
+                className={`build__verdict severity severity--${
+                  build.status === "failed"
+                    ? "error"
+                    : build.status === "passed_with_warnings"
+                      ? "warning"
+                      : "passed"
+                } build__verdict--${build.status}`}
+              >
                 {build.status === "failed"
                   ? `${String(build.counts.error)} error(s)`
                   : build.status === "passed_with_warnings"
@@ -129,9 +137,9 @@ export function BuildPanel({ repo, refreshToken, onChanged, onSelectEntity, onOp
             <h3>
               Deterministic story tests
               <span
-                className={`build__verdict build__verdict--${
-                  build.tests.deterministic.failed > 0 ? "failed" : "passed"
-                }`}
+                className={`build__verdict severity severity--${
+                  build.tests.deterministic.failed > 0 ? "error" : "passed"
+                } build__verdict--${build.tests.deterministic.failed > 0 ? "failed" : "passed"}`}
               >
                 {build.tests.deterministic.passed} / {build.tests.deterministic.total} passed
               </span>
@@ -286,7 +294,11 @@ function DiagnosticRow({
   return (
     <li className={`build__item ctx--${diagnostic.severity}`}>
       <div className="build__head">
-        <span className={`build__severity build__severity--${diagnostic.severity}`}>
+        {/* The glyph and the word carry the severity; the colour only
+            reinforces it (docs/BRAND.md). */}
+        <span
+          className={`build__severity severity severity--${diagnostic.severity} build__severity--${diagnostic.severity}`}
+        >
           {diagnostic.severity}
         </span>
         {isNew && <span className="badge">new</span>}

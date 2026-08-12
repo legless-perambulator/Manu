@@ -95,7 +95,13 @@ export function Inspector({
   if (entityId === null || draft === null || kind === null) {
     return (
       <div className="inspector inspector--empty">
-        <p className="placeholder">Select an entity to inspect its structured profile.</p>
+        <div className="empty">
+          <p className="empty__title">Nothing selected</p>
+          <p className="empty__body">
+            Choose a character, scene, object or thread and its record appears here — every field
+            the rest of the project reasons from.
+          </p>
+        </div>
       </div>
     );
   }

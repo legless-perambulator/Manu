@@ -177,7 +177,7 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        dir.push(format!("jellytind-rs-{nanos}"));
+        dir.push(format!("manu-rs-{nanos}"));
         fs::create_dir_all(&dir).unwrap();
         fs::canonicalize(&dir).unwrap()
     }

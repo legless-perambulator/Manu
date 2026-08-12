@@ -42,7 +42,7 @@ const REQUIRED_PERMISSION = "read_canon" as const;
  * exactly the failure this product exists to prevent.
  */
 
-const SYSTEM_PROMPT = `You are the Story Debugger inside JellyTind, a fiction development environment.
+const SYSTEM_PROMPT = `You are the Story Debugger inside Manu, a fiction development environment.
 
 A writer has said something is not working in their story. You are given the deterministic evidence the project retrieved about it: what is recorded, where, and by which system. Your job is to interpret that evidence — not to give general writing advice.
 

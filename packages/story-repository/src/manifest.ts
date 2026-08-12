@@ -59,7 +59,7 @@ export function validateManifest(raw: string | unknown): Result<ProjectManifest,
     return err(
       new RepositoryError(
         "unsupported_schema",
-        `Project schemaVersion ${m.schemaVersion} is newer than this app supports (${SCHEMA_VERSION}). Please update JellyTind.`,
+        `Project schemaVersion ${m.schemaVersion} is newer than this app supports (${SCHEMA_VERSION}). Please update Manu.`,
         { details: { found: m.schemaVersion, supported: SCHEMA_VERSION } },
       ),
     );
