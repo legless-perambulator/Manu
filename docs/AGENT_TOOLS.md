@@ -192,3 +192,21 @@ cannot mistake an unanswered judgement for a satisfied one.
 **No tool writes a test, and none repairs a failing one.** An assertion about
 what a story must be belongs to the person who made it. See
 [STORY_TESTS.md](STORY_TESTS.md).
+
+## Story Debugger tools (Phase 18)
+
+```
+run_story_debug     — investigate a narrative problem; returns scope, evidence and measurements
+list_debug_reports  — what has been investigated before
+get_debug_report    — a stored report, with its diagnosis if one was made
+```
+
+`run_story_debug` returns the **investigation, not a conclusion**: deterministic
+evidence retrieved from the project's own systems, each item with an ID, plus
+what was measured and what was deliberately not inspected. Interpreting that is
+the agent's job — routing it through a second model call would put an opinion
+between the agent and the record.
+
+All three carry `read_canon`. **No tool applies an intervention.** The debugger
+diagnoses; acting on a diagnosis is an editorial decision that stays with a
+human. See [STORY_DEBUGGER.md](STORY_DEBUGGER.md).

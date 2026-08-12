@@ -23,11 +23,16 @@ export type {
   StoryBuildLike,
   StoryTestLike,
   TestRunLike,
+  DebugRequestLike,
+  DebugTraceLike,
+  DebugReportLike,
+  DebugReportSummaryLike,
 } from "./ports";
 
 export { createProjectTools, READ_ONLY_TOOL_NAMES } from "./tools/project-tools";
 export { createBuildTools, BUILD_TOOL_NAMES } from "./tools/build-tools";
 export { createTestTools, TEST_TOOL_NAMES } from "./tools/test-tools";
+export { createDebugTools, DEBUG_TOOL_NAMES } from "./tools/debug-tools";
 export { safeToolPath, safeListPrefix } from "./tools/paths";
 
 export { ToolExecutor } from "./executor";

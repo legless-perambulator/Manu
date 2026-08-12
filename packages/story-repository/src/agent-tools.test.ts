@@ -3,6 +3,7 @@ import { InMemoryProjectStore } from "@jellytind/persistence";
 import {
   createBuildTools,
   createTestTools,
+  createDebugTools,
   createProjectTools,
   createTask,
   READ_ONLY_GRANT,
@@ -73,6 +74,7 @@ function runtimeFor(repo: StoryRepository) {
     ...createProjectTools(access),
     ...createBuildTools(access),
     ...createTestTools(access),
+    ...createDebugTools(access),
   );
   const executor = new ToolExecutor({ registry, grant: READ_ONLY_GRANT, store: repo.agents });
   return { registry, executor };
@@ -352,5 +354,110 @@ describe("story test tools", () => {
     expect(names.some((name) => /add_story_test|write_story_test|fix_story_test/.test(name))).toBe(
       false,
     );
+  });
+});
+
+/**
+ * The debugger tools hand an agent the *investigation*, not a conclusion. An
+ * agent that receives deterministic evidence and reasons about it is doing what
+ * an agent is for; one that receives a pre-written diagnosis is repeating
+ * someone else's opinion.
+ */
+describe("story debugger tools", () => {
+  it("returns evidence and measurements, not a conclusion", async () => {
+    const { repo, mara, together } = await novel();
+    const { executor } = runtimeFor(repo);
+
+    const outcome = await executor.execute("TASK_0001", "run_story_debug", {
+      mode: "character_motivation",
+      problem: "Mara's refusal feels forced.",
+      characterId: mara.id,
+      sceneId: together.id,
+    });
+
+    expect(outcome.ok).toBe(true);
+    const output = outcome.output as {
+      mode: string;
+      scope: { systems: string[]; notInspected: string[] };
+      evidence: Array<{ id: string; system: string; statement: string }>;
+      measurements: unknown[];
+      diagnosis?: unknown;
+    };
+    expect(output.mode).toBe("character_motivation");
+    expect(output.evidence[0]?.id).toBe("E1");
+    expect(output.scope.systems.length).toBeGreaterThan(0);
+    expect(output.scope.notInspected.length).toBeGreaterThan(0);
+    // No diagnosis field at all: interpreting this is the agent's job.
+    expect(output.diagnosis).toBeUndefined();
+  });
+
+  it("maps an agent's sceneId to what each mode means by it", async () => {
+    const { repo, mara, together } = await novel();
+    const { executor } = runtimeFor(repo);
+
+    const outcome = await executor.execute("TASK_0001", "run_story_debug", {
+      mode: "reveal",
+      problem: "The rift does not land.",
+      characterId: mara.id,
+      sceneId: together.id,
+    });
+    expect(outcome.ok).toBe(true);
+    expect((outcome.output as { problem: string }).problem).toBe("The rift does not land.");
+  });
+
+  it("rejects an unknown mode with the modes it does have", async () => {
+    const { repo } = await novel();
+    const { executor } = runtimeFor(repo);
+
+    const outcome = await executor.execute("TASK_0001", "run_story_debug", { mode: "vibes" });
+    expect(outcome.ok).toBe(false);
+    expect(outcome.error).toContain("reveal");
+  });
+
+  it("says what a mode needs when it is not given it", async () => {
+    const { repo, mara } = await novel();
+    const { executor } = runtimeFor(repo);
+
+    const outcome = await executor.execute("TASK_0001", "run_story_debug", {
+      mode: "character_motivation",
+      characterId: mara.id,
+    });
+    expect(outcome.ok).toBe(false);
+    expect(outcome.error).toMatch(/scene/i);
+  });
+
+  it("lists and reads stored reports", async () => {
+    const { repo, mara, together } = await novel();
+    const trace = await repo.traceStoryProblem({
+      mode: "character_motivation",
+      problem: "Forced.",
+      characterId: mara.id,
+      sceneId: together.id,
+    });
+    const saved = await repo.saveDebugReport(trace, { durationMs: 3 });
+    const { executor } = runtimeFor(repo);
+
+    const listed = await executor.execute("TASK_0001", "list_debug_reports", {});
+    expect((listed.output as { reports: unknown[] }).reports).toHaveLength(1);
+
+    const read = await executor.execute("TASK_0001", "get_debug_report", { id: saved.id });
+    expect((read.output as { report: { id: string } }).report.id).toBe(saved.id);
+
+    const missing = await executor.execute("TASK_0001", "get_debug_report", { id: "DEBUG_9999" });
+    expect(missing.ok).toBe(false);
+  });
+
+  it("offers no tool that applies an intervention", async () => {
+    const { repo } = await novel();
+    const { registry } = runtimeFor(repo);
+    const names = registry.list().map((tool) => tool.name);
+
+    expect(names).toContain("run_story_debug");
+    expect(names.some((name) => /apply|rewrite|intervene|fix/.test(name))).toBe(false);
+    expect(
+      registry
+        .list()
+        .every((tool) => tool.permission === "read_canon" || tool.permission === "read_manuscript"),
+    ).toBe(true);
   });
 });

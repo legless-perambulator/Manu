@@ -188,6 +188,18 @@ export interface Character {
   readonly aliases: readonly string[];
   readonly description: string;
   readonly role: string;
+  /**
+   * What this character is trying to do, as short lines — the counterpart of a
+   * scene's `purpose`. Recorded because "her decision feels forced" is a
+   * question about the gap between what someone wants, what they know and what
+   * they do, and two of those three were already recorded
+   * (docs/STORY_DEBUGGER.md).
+   *
+   * Goals are the author's statement of intent, not derived state: a character
+   * whose goals are unrecorded is not a character without goals, and the
+   * debugger says which of the two it is looking at.
+   */
+  readonly goals: readonly string[];
   readonly notes: string;
   readonly status: CharacterStatus;
   readonly filePath: string;

@@ -1,4 +1,4 @@
-import { ManuscriptEditor } from "@jellytind/editing";
+import { DiagnosisAnalyst, ManuscriptEditor } from "@jellytind/editing";
 import type { PermissionGrant } from "@jellytind/agent-runtime";
 import type { SecretStore } from "@jellytind/model-router";
 import type { StoryRepository } from "@jellytind/story-repository";
@@ -42,4 +42,31 @@ export function explainEditError(error: unknown): string {
     return error.message;
   }
   return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * The permission grant story debugging runs under.
+ *
+ * Read-only, and deliberately narrower than the editing grant: the debugger
+ * diagnoses. Nothing it produces can reach the manuscript, so no mistake in
+ * this layer can turn an investigation into an edit
+ * (docs/STORY_DEBUGGER.md).
+ */
+export const STORY_DEBUG_GRANT: PermissionGrant = {
+  permissions: ["read_manuscript", "read_canon"],
+  allowedTools: ["story_debug"],
+};
+
+/**
+ * Build a {@link DiagnosisAnalyst} for the open project.
+ *
+ * Only needed to *interpret* a trace — `repo.traceStoryProblem` needs no model
+ * at all, which is why the Debug panel works before one is configured.
+ */
+export async function createDiagnosisAnalyst(
+  repo: StoryRepository,
+  secrets: SecretStore,
+): Promise<DiagnosisAnalyst> {
+  const model = await createConfiguredModel(loadModelSettings(), secrets);
+  return new DiagnosisAnalyst({ repo, model, grant: STORY_DEBUG_GRANT });
 }

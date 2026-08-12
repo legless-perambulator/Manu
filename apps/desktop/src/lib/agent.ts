@@ -1,6 +1,7 @@
 import {
   createBuildTools,
   createTestTools,
+  createDebugTools,
   createProjectTools,
   createTask,
   InvestigationAgent,
@@ -50,6 +51,7 @@ export async function startInvestigation(
     ...createProjectTools(access),
     ...createBuildTools(access),
     ...createTestTools(access),
+    ...createDebugTools(access),
   );
 
   // Phase 7 is read-only: the grant carries no write permission at all, so no

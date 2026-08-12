@@ -1649,3 +1649,22 @@ code {
   color: var(--text);
   letter-spacing: 0;
 }
+
+/* Story Debugger — the three kinds of claim, told apart at a glance */
+.debug__badge--fact {
+  background: rgba(122, 200, 160, 0.16);
+  color: #8fd7b3;
+}
+.debug__badge--judgement {
+  background: rgba(255, 195, 106, 0.16);
+  color: #ffc36a;
+}
+.debug__badge--suggestion {
+  background: rgba(140, 170, 255, 0.16);
+  color: #a9bcff;
+}
+.debug__diagnosis {
+  padding: 8px 10px;
+  border-left: 2px solid #ffc36a;
+  background: rgba(255, 195, 106, 0.06);
+}

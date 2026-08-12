@@ -67,6 +67,73 @@ export interface StoryBuildLike {
     readonly evidence: string;
   }>;
 }
+
+/**
+ * The debugger's request and result shapes, structurally.
+ *
+ * `@jellytind/story-debugger` is a sibling, not a dependency. The request is
+ * left loose because the modes and their fields belong to that package; the
+ * tool validates what it can and lets the debugger reject the rest with a
+ * message written for the person who asked.
+ */
+export interface DebugRequestLike {
+  readonly mode: string;
+  readonly problem?: string;
+  readonly [field: string]: unknown;
+}
+
+export interface DebugTraceLike {
+  readonly mode: string;
+  readonly problem: string;
+  readonly scope: {
+    readonly summary: string;
+    readonly systems: readonly string[];
+    readonly notInspected: readonly string[];
+    readonly sceneIds: readonly string[];
+    readonly entityIds: readonly string[];
+  };
+  readonly evidence: ReadonlyArray<{
+    readonly id: string;
+    readonly system: string;
+    readonly statement: string;
+    readonly detail?: string;
+    readonly sceneId?: string;
+    readonly entities: readonly string[];
+  }>;
+  readonly measurements: ReadonlyArray<{
+    readonly label: string;
+    readonly value: number;
+    readonly unit: string;
+    readonly basis: string;
+  }>;
+}
+
+export interface DebugReportSummaryLike {
+  readonly id: string;
+  readonly mode: string;
+  readonly problem: string;
+  readonly createdAt: string;
+  readonly evidenceCount: number;
+  readonly diagnosed: boolean;
+}
+
+export interface DebugReportLike extends DebugTraceLike {
+  readonly id: string;
+  readonly createdAt: string;
+  readonly diagnosis?: {
+    readonly statement: string;
+    readonly confidence: string;
+    readonly uncertainty: readonly string[];
+    readonly basis: readonly string[];
+    readonly unsupported: readonly string[];
+  };
+  readonly interventions: ReadonlyArray<{
+    readonly kind: string;
+    readonly summary: string;
+    readonly rationale: string;
+  }>;
+}
+
 import type { AgentTask } from "./task";
 
 /**
@@ -111,6 +178,17 @@ export interface ProjectAccess {
   /** The writer's own assertions, and running them. */
   listStoryTests?(): Promise<StoryTestLike[]>;
   runStoryTests?(): Promise<TestRunLike>;
+
+  /**
+   * The Story Debugger's deterministic trace, and the reports it has produced.
+   *
+   * Only the trace is exposed. Interpreting evidence is what an agent is *for*
+   * — routing it through a second model call would put an opinion between the
+   * agent and the record (docs/STORY_DEBUGGER.md).
+   */
+  traceStoryProblem?(request: DebugRequestLike): Promise<DebugTraceLike>;
+  listDebugReports?(limit?: number): Promise<DebugReportSummaryLike[]>;
+  getDebugReport?(id: string): Promise<DebugReportLike | null>;
 
   getScenesByCharacter(id: CharacterId): Promise<Scene[]>;
   getScenesByLocation(id: LocationId): Promise<Scene[]>;

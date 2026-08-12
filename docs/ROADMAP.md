@@ -8,7 +8,9 @@ Versioned delivery plan. Implementation proceeds **vertically**: finish a cohere
 (search & retrieval), 5 (revision history, checkpoints & diffs), 6
 (provider-independent model layer), 7 (agent runtime & read-only tool system), 8
 (Context Compiler V1), 9 (controlled AI manuscript editing), 10 (Story State V1)
-11 (knowledge & belief graph) and 12 (dynamic relationship state) complete.** AI can inspect a project through
+11 (knowledge & belief graph), 12 (dynamic relationship state), 13 (Story
+Timeline Engine), 14 (object continuity), 15 (narrative threads), 16 (Story
+Compiler V1), 17 (Story Tests) and 18 (Story Debugger V1) complete.** AI can inspect a project through
 typed tools, receive explicit attributed context — including who is where, who
 knows what, and who believes something false at a named scene boundary — and
 propose targeted prose edits and state changes that a human reviews before
@@ -518,6 +520,45 @@ a point in the story, and the project holds them to it.
 
 See [STORY_TESTS.md](STORY_TESTS.md).
 
+## Phase 18 — Story Debugger V1 ✅
+
+Investigate before editing: a structured diagnostic workflow that answers _why
+doesn't Marcus's betrayal land?_ with what the project records rather than with
+generic writing advice.
+
+- **The workflow is explicit**: problem → identify scope → retrieve evidence →
+  trace the story systems → analyse → diagnose → present evidence → suggest
+  interventions. Nothing rewrites manuscript content.
+- **The first four steps are deterministic and model-free.** A project with no
+  model configured still produces a real report — which is what makes the
+  model's contribution visibly an addition to the evidence rather than the
+  substance of it.
+- **Four modes.** Reveal (setups, signals, thread lifecycle, who already knew,
+  relationship state), character motivation (goals, knowledge entering the
+  scene, prior behaviour, relationships), pacing (chapter and scene lengths,
+  purposes, thread activity, distribution), continuity (start from a build
+  diagnostic and trace each named entity back through the system that owns it).
+- **Three kinds of claim, separated by the types**: deterministic evidence,
+  measurements that are counted rather than graded, and a model diagnosis
+  labelled as judgement with its confidence and its uncertainty. A report can
+  exist with evidence and no diagnosis; it cannot exist with a diagnosis and no
+  evidence.
+- **The model must cite.** Evidence carries stable IDs, and a citation that
+  resolves to nothing is reported as unsupported rather than quietly dropped.
+- **The report says what it did not inspect**, and why — a silent omission
+  would make it untrustworthy in exactly the cases that matter.
+- **`Character.goals`** added to the domain: motivation is a question about the
+  gap between what someone wants, what they know and what they do, and two of
+  those three were already recorded. Unrecorded goals are reported as
+  unrecorded, never as an absence of motive.
+- **`/debug betrayal Marcus`**, resolved against the project's own entities,
+  with unmatched words reported rather than ignored; natural language goes
+  through the agent to the same structured request.
+- **Agent tools** `run_story_debug`, `list_debug_reports`, `get_debug_report` —
+  the investigation, not a conclusion. No tool applies an intervention.
+
+See [STORY_DEBUGGER.md](STORY_DEBUGGER.md).
+
 ## V1 (remaining) — Writing IDE
 
 Prove the core paradigm: **AI can operate reliably on a fiction project instead of merely chatting about it.**
@@ -539,7 +580,7 @@ The application begins understanding the structure of the story.
 - character knowledge · relationships · object continuity
 - plot-thread lifecycle · world rules
 - Story Compiler (deterministic + semantic checks) · dependency/causality graph
-- Story Refactor V1 · Story Debugger V1
+- Story Refactor V1 · **Story Debugger V1 ✅**
 
 ## V3 — Agent System
 

@@ -68,6 +68,9 @@ importers:
       '@jellytind/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@jellytind/story-debugger':
+        specifier: workspace:*
+        version: link:../../packages/story-debugger
       '@jellytind/story-repository':
         specifier: workspace:*
         version: link:../../packages/story-repository
@@ -168,6 +171,9 @@ importers:
       '@jellytind/shared':
         specifier: workspace:*
         version: link:../shared
+      '@jellytind/story-debugger':
+        specifier: workspace:*
+        version: link:../story-debugger
       '@jellytind/story-repository':
         specifier: workspace:*
         version: link:../story-repository
@@ -222,6 +228,24 @@ importers:
         specifier: workspace:*
         version: link:../story-state
 
+  packages/story-debugger:
+    dependencies:
+      '@jellytind/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@jellytind/search':
+        specifier: workspace:*
+        version: link:../search
+      '@jellytind/shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@jellytind/story-compiler':
+        specifier: workspace:*
+        version: link:../story-compiler
+      '@jellytind/story-state':
+        specifier: workspace:*
+        version: link:../story-state
+
   packages/story-repository:
     dependencies:
       '@jellytind/agent-runtime':
@@ -242,6 +266,9 @@ importers:
       '@jellytind/story-compiler':
         specifier: workspace:*
         version: link:../story-compiler
+      '@jellytind/story-debugger':
+        specifier: workspace:*
+        version: link:../story-debugger
       '@jellytind/story-state':
         specifier: workspace:*
         version: link:../story-state

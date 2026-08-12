@@ -7,7 +7,7 @@ north-star spec see [`../MASTER_BUILD.md`](../MASTER_BUILD.md).
 
 ## Status
 
-**Phases 1 & 3–16 implemented.** On the Phase-0 foundation: the persistent Story
+**Phases 1 & 3–18 implemented.** On the Phase-0 foundation: the persistent Story
 Repository, the fiction-domain **entity graph** with referential integrity,
 deterministic **search & retrieval** (`@jellytind/search`), **revision history**
 — journaled change sets, checkpoints, diffs, revert, and a staging transaction —
@@ -32,9 +32,12 @@ time-aware state, first-class setups and payoffs, dormancy measured rather than
 judged, and a structural guard keeping authorial intent out of reader-facing
 context. On top of all of it sits **Story Compiler V1**: one command that asks
 every recorded subsystem whether the story holds together and answers with
-deterministic, navigable diagnostics — and **Story Tests**, the writer's own
+deterministic, navigable diagnostics — **Story Tests**, the writer's own
 assertions about what must be true where, run by every build and reported
-separately from the system's checks. The remaining subsystem packages are typed
+separately from the system's checks — and the **Story Debugger**, which
+investigates _why_ something is not working before anything is rewritten,
+keeping deterministic evidence, model judgement and suggestion visibly apart.
+The remaining subsystem packages are typed
 interfaces marked **PLANNED**; features continue as vertical slices (see
 [`ROADMAP.md`](ROADMAP.md)).
 
@@ -58,6 +61,7 @@ A pnpm-workspaces monorepo. Applications live in `apps/`, libraries in
 │   ├── model-router/            @jellytind/model-router  — LanguageModel interface, registry, secrets, routing
 │   ├── context-compiler/        @jellytind/context-compiler — task-specific context assembly
 │   ├── story-compiler/          @jellytind/story-compiler — the Story Build: rules, diagnostics
+│   ├── story-debugger/          @jellytind/story-debugger — deterministic investigation of narrative problems
 │   ├── agent-runtime/           @jellytind/agent-runtime — typed tools, permissions, tasks, agents
 │   ├── editing/                 @jellytind/editing       — controlled AI manuscript editing
 │   ├── search/                  @jellytind/search        — lexical search (semantic PLANNED)
@@ -83,7 +87,7 @@ Each layer may depend only on layers below it. The package graph enforces this.
 ├───────────────────────────────────────────────────────────────┤
 │ story-repository   agent-runtime   model-router (+ providers/*) │
 ├───────────────────────────────────────────────────────────────┤
-│ story-state       story-compiler                                │
+│ story-state    story-compiler    story-debugger                 │
 ├───────────────────────────────────────────────────────────────┤
 │ domain            persistence            search                 │
 ├───────────────────────────────────────────────────────────────┤
@@ -93,21 +97,22 @@ Each layer may depend only on layers below it. The package graph enforces this.
 
 ### Dependency edges (current)
 
-| Package              | Depends on                                                                                                                                                                   |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `shared`             | —                                                                                                                                                                            |
-| `domain`             | `shared`                                                                                                                                                                     |
-| `persistence`        | `shared`, `domain`                                                                                                                                                           |
-| `story-repository`   | `shared`, `domain`, `persistence`, `search`, `agent-runtime`, `story-state`, `story-compiler`                                                                                |
-| `model-router`       | `shared`                                                                                                                                                                     |
-| `provider-anthropic` | `shared`, `model-router`                                                                                                                                                     |
-| `search`             | `shared`, `domain`                                                                                                                                                           |
-| `story-compiler`     | `shared`, `domain`, `story-state`                                                                                                                                            |
-| `story-state`        | `shared`, `domain`                                                                                                                                                           |
-| `context-compiler`   | `shared`, `domain`, `search`, `story-state`                                                                                                                                  |
-| `agent-runtime`      | `shared`, `domain`, `model-router`, `persistence`, `search`                                                                                                                  |
-| `editing`            | `shared`, `domain`, `story-repository`, `context-compiler`, `model-router`, `agent-runtime`, `story-state`                                                                   |
-| `apps/desktop`       | `domain`, `persistence`, `story-repository`, `story-state`, `story-compiler`, `model-router`, `provider-anthropic`, `agent-runtime`, `context-compiler`, `editing`, `shared` |
+| Package              | Depends on                                                                                                                                                                                     |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `shared`             | —                                                                                                                                                                                              |
+| `domain`             | `shared`                                                                                                                                                                                       |
+| `persistence`        | `shared`, `domain`                                                                                                                                                                             |
+| `story-repository`   | `shared`, `domain`, `persistence`, `search`, `agent-runtime`, `story-state`, `story-compiler`, `story-debugger`                                                                                |
+| `model-router`       | `shared`                                                                                                                                                                                       |
+| `provider-anthropic` | `shared`, `model-router`                                                                                                                                                                       |
+| `search`             | `shared`, `domain`                                                                                                                                                                             |
+| `story-compiler`     | `shared`, `domain`, `story-state`                                                                                                                                                              |
+| `story-debugger`     | `shared`, `domain`, `search`, `story-state`, `story-compiler`                                                                                                                                  |
+| `story-state`        | `shared`, `domain`                                                                                                                                                                             |
+| `context-compiler`   | `shared`, `domain`, `search`, `story-state`                                                                                                                                                    |
+| `agent-runtime`      | `shared`, `domain`, `model-router`, `persistence`, `search`                                                                                                                                    |
+| `editing`            | `shared`, `domain`, `story-repository`, `context-compiler`, `model-router`, `agent-runtime`, `story-state`, `story-debugger`                                                                   |
+| `apps/desktop`       | `domain`, `persistence`, `story-repository`, `story-state`, `story-compiler`, `story-debugger`, `model-router`, `provider-anthropic`, `agent-runtime`, `context-compiler`, `editing`, `shared` |
 
 There are no cycles. `shared` is a sink; the UI is a source.
 
@@ -119,6 +124,14 @@ story-test engine lives there too, for the same reason: it decides assertions
 against reconstructed state and knows nothing about where a project is stored
 ([`STORY_TESTS.md`](STORY_TESTS.md)). See
 [`STORY_COMPILER.md`](STORY_COMPILER.md).
+
+`story-debugger` sits on that same layer, and the split inside the Story
+Debugger follows from it: the deterministic investigation — scope, evidence,
+measurements — depends on no model and therefore lives below the repository,
+while the model's _interpretation_ of that evidence lives in `editing`, beside
+the manuscript editor, under the same propose-and-review posture. That is what
+lets a project with no model configured still produce a real debug report
+([`STORY_DEBUGGER.md`](STORY_DEBUGGER.md)).
 
 `agent-runtime` sits _beside_ `story-repository`, not above it: it depends on
 domain, persistence, search and the model router, and it declares **ports**

@@ -107,12 +107,26 @@ import {
   type StoryBuild,
   type TestRunSummary,
 } from "@jellytind/story-compiler";
+import {
+  parseDebugCommand,
+  traceProblem,
+  tracedEntities,
+  type DebugReport,
+  type DebugReportSummary,
+  type DebugRequest,
+  type DebugRequestInput,
+  type DebugTrace,
+  type Diagnosis,
+  type Intervention,
+  type ParsedCommand,
+} from "@jellytind/story-debugger";
 import { RepositoryError } from "./errors";
 import { RepositoryAgentStore } from "./agent-store";
 import { TransitionStore } from "./state-store";
 import { TimelineStore } from "./timeline-store";
 import { BuildStore } from "./build-store";
 import { TestStore } from "./test-store";
+import { DebugStore } from "./debug-store";
 import { ProjectSearch } from "./project-search";
 import {
   scenesByCharacter,
@@ -235,6 +249,7 @@ export class StoryRepository {
   private readonly timeline: TimelineStore;
   private readonly builds: BuildStore;
   private readonly tests: TestStore;
+  private readonly debugReports: DebugStore;
   private manifest: ProjectManifest;
   private ids: SequentialIdGenerator;
 
@@ -263,6 +278,9 @@ export class StoryRepository {
     // Journaled: a story test is the writer's stated intention, and as authored
     // as any other piece of canon.
     this.tests = new TestStore(this.store);
+    // Not journaled, for the same reason as builds: investigating a problem is
+    // not a change to the story.
+    this.debugReports = new DebugStore(rawStore);
   }
 
   // ── Lifecycle ────────────────────────────────────────────────────────────
@@ -493,6 +511,7 @@ export class StoryRepository {
     aliases?: readonly string[];
     description?: string;
     role?: string;
+    goals?: readonly string[];
     notes?: string;
     status?: CharacterStatus;
   }): Promise<Character> {
@@ -503,6 +522,7 @@ export class StoryRepository {
       aliases: input.aliases ?? [],
       description: input.description ?? "",
       role: input.role ?? "",
+      goals: input.goals ?? [],
       notes: input.notes ?? "",
       status: input.status ?? "active",
       filePath: characterFilePath(id),
@@ -1309,6 +1329,65 @@ export class StoryRepository {
     const previous =
       previousSummary === undefined ? undefined : await this.builds.get(previousSummary.id);
     return compareBuilds(previous ?? undefined, build);
+  }
+
+  // ── Story Debugger ──────────────────────────────────────────────────────────
+
+  /**
+   * Investigate a narrative problem: scope, evidence, and traces through the
+   * systems that own the data.
+   *
+   * Deterministic and model-free. The interpretation of what comes back is a
+   * separate, clearly-labelled step (`DiagnosisAnalyst` in `@jellytind/editing`),
+   * which is why a project with no model configured can still debug
+   * (docs/STORY_DEBUGGER.md).
+   */
+  traceStoryProblem(request: DebugRequestInput | DebugRequest): Promise<DebugTrace> {
+    return traceProblem(request, this);
+  }
+
+  /** Parse a `/debug …` line against this project's entities. */
+  async parseDebugCommand(line: string): Promise<ParsedCommand> {
+    return parseDebugCommand(line, await this.listEntitySummaries());
+  }
+
+  /**
+   * Turn a trace into a stored report.
+   *
+   * The diagnosis and interventions are passed in rather than produced here:
+   * this layer knows nothing about models, and a report without them is a
+   * complete report.
+   */
+  async saveDebugReport(
+    trace: DebugTrace,
+    extras: {
+      durationMs: number;
+      diagnosis?: Diagnosis;
+      interventions?: readonly Intervention[];
+      modelId?: string;
+    },
+  ): Promise<DebugReport> {
+    const report: DebugReport = {
+      ...trace,
+      id: await this.debugReports.nextId(),
+      createdAt: this.clock(),
+      durationMs: extras.durationMs,
+      interventions: extras.interventions ?? [],
+      entities: tracedEntities(trace.evidence, trace.scope),
+      ...(extras.diagnosis !== undefined ? { diagnosis: extras.diagnosis } : {}),
+      ...(extras.modelId !== undefined ? { modelId: extras.modelId } : {}),
+    };
+    await this.debugReports.save(report);
+    return report;
+  }
+
+  /** Debug report summaries, newest first. */
+  listDebugReports(limit?: number): Promise<DebugReportSummary[]> {
+    return this.debugReports.list(limit);
+  }
+
+  getDebugReport(id: string): Promise<DebugReport | null> {
+    return this.debugReports.get(id);
   }
 
   // ── Plot threads, setups and payoffs ────────────────────────────────────────

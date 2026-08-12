@@ -28,7 +28,7 @@ These documents are **living**: update the relevant document whenever an archite
 | [AI_EDITING.md](AI_EDITING.md)               | Controlled AI manuscript editing: propose, review, apply. |
 | [VERSIONING.md](VERSIONING.md)               | Revisions, diffs, checkpoints, branches, audit trail.     |
 | [STORY_REFACTOR.md](STORY_REFACTOR.md)       | Blast-radius analysis and structural story change.        |
-| [STORY_DEBUGGER.md](STORY_DEBUGGER.md)       | Diagnostic mode that investigates before editing.         |
+| [STORY_DEBUGGER.md](STORY_DEBUGGER.md)       | Diagnostic workflow that investigates before editing.     |
 | [SIMULATIONS.md](SIMULATIONS.md)             | Reader and character simulation systems.                  |
 | [SECURITY_PRIVACY.md](SECURITY_PRIVACY.md)   | Local-first ownership, data handling, privacy posture.    |
 | [UX.md](UX.md)                               | Interface principles and the IDE layout.                  |

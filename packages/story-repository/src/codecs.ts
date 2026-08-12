@@ -88,6 +88,7 @@ export const characterCodec: MarkdownCodec<Character> = {
     role: c.role,
     status: c.status,
     description: c.description,
+    goals: c.goals,
     notes: c.notes,
   }),
   toBody: (c) => `# ${c.name}\n`,
@@ -100,6 +101,9 @@ export const characterCodec: MarkdownCodec<Character> = {
       aliases: strArray(d.aliases),
       description: str(d.description),
       role: str(d.role),
+      // Absent in projects written before goals existed. An empty list is the
+      // honest reading: nothing was recorded, which is not the same as none.
+      goals: strArray(d.goals),
       notes: str(d.notes),
       status: oneOf(d.status, CHARACTER_STATUSES, "active"),
       filePath: characterFilePath(id),

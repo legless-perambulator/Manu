@@ -32,3 +32,6 @@ export type {
 
 export { StateExtractor } from "./state-extractor";
 export type { ProposedTransition, StateExtractorOptions, StateProposal } from "./state-extractor";
+
+export { DiagnosisAnalyst, renderTraceForModel } from "./diagnosis-analyst";
+export type { DiagnosisAnalystOptions } from "./diagnosis-analyst";

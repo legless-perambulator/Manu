@@ -14,7 +14,7 @@ This is **not** a chatbot with a writing editor attached. It lets AI agents insp
 
 ## Status
 
-**Phase 17 complete.** Implemented and tested so far:
+**Phase 18 complete.** Implemented and tested so far:
 
 - **Phase 0** — monorepo, tooling, stable branded entity IDs, persistence and
   model-provider boundaries, Tauri + React desktop shell.
@@ -83,6 +83,13 @@ This is **not** a chatbot with a writing editor attached. It lets AI agents insp
   structured form rather than code, failing with expected state, actual state,
   the scene and the evidence. Semantic assertions are recorded in a separate
   type and reported as not evaluated, never as passing.
+- **Phase 18** — Story Debugger V1: investigate before editing. _Why doesn't
+  Marcus's betrayal land?_ becomes a structured investigation — what was
+  planted, when the signals start, who already knew, how the relationship stood
+  — answered from what the project records rather than with generic advice. The
+  evidence half runs with no model at all; a model's reading is labelled as
+  judgement, must cite the evidence it rests on, and proposes interventions
+  nothing applies.
 
 Implementation proceeds as vertical slices — see
 [`docs/ROADMAP.md`](docs/ROADMAP.md) and
@@ -93,9 +100,9 @@ Implementation proceeds as vertical slices — see
 ```
 apps/desktop/            Tauri + React desktop shell
 packages/                domain, persistence, model-router, story-compiler,
-                         agent-runtime, context-compiler, editing, search,
-                         story-repository, story-state, shared,
-                         providers/anthropic
+                         story-debugger, agent-runtime, context-compiler,
+                         editing, search, story-repository, story-state,
+                         shared, providers/anthropic
 docs/                    living architecture documentation
 ```
 

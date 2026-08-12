@@ -73,3 +73,4 @@ export { TransitionStore } from "./state-store";
 export { TimelineStore } from "./timeline-store";
 export { BuildStore } from "./build-store";
 export { TestStore } from "./test-store";
+export { DebugStore } from "./debug-store";

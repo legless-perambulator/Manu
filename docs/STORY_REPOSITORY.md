@@ -240,6 +240,7 @@ MY_NOVEL/
 | Story chronology, travel times   | `.writer/state/timeline.json`             | Yes            |
 | Story tests                      | `.writer/tests/story_tests.json`          | Yes (canon)    |
 | Story builds                     | `.writer/builds/`                         | No (derived)   |
+| Debug reports                    | `.writer/debug/`                          | No (derived)   |
 | Revisions, branches, checkpoints | `.writer/revisions/`, `.writer/branches/` | Yes (history)  |
 | Full-text / vector index         | `.writer/index/` + SQLite                 | No (derived)   |
 | Summaries                        | derived store                             | No (derived)   |

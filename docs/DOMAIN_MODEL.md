@@ -12,8 +12,11 @@ The fiction domain model is the authoritative representation of story data. UI c
   vocabulary. Object continuity is **implemented** (Phase 14): object statuses
   and visibility are first-class, and nested locations answer containment
   questions in one place. Narrative promises are **implemented** (Phase 15): the
-  `Setup` entity, thread interactions and subtlety are first-class. Numeric
-  relationship state remains **PLANNED**.
+  `Setup` entity, thread interactions and subtlety are first-class. Character
+  intent is **implemented** (Phase 18): `Character.goals` records what someone
+  is trying to do, the counterpart of a scene's `purpose`, so the debugger can
+  ask whether a decision serves it ([STORY_DEBUGGER.md](STORY_DEBUGGER.md)).
+  Numeric relationship state remains **PLANNED**.
 
 ## Implemented: stable entity IDs
 
@@ -67,7 +70,7 @@ All cross-entity references are by **stable ID**.
 
 | Entity         | Key fields                                                                          | References (by ID)                                                                      |
 | -------------- | ----------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `Character`    | name, aliases, description, role, notes, status                                     | —                                                                                       |
+| `Character`    | name, aliases, description, role, goals, notes, status                              | —                                                                                       |
 | `Location`     | name, aliases, description, notes                                                   | `parentLocationId?` → location (nesting; containment-aware)                             |
 | `StoryObject`  | name, aliases, description, status (`exists`/`lost`/`destroyed`/`hidden`/`unknown`) | —                                                                                       |
 | `PlotThread`   | name, description, status                                                           | `introducedSceneId?`, `resolvedSceneId?`, `relatedSceneIds[]` → scene                   |

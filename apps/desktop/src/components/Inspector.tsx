@@ -205,6 +205,26 @@ export function Inspector({
         </label>
       )}
 
+      {kind === "character" && (
+        <label className="field">
+          <span>Goals (one per line)</span>
+          <textarea
+            rows={3}
+            placeholder="What they are trying to do"
+            value={(Array.isArray(draft.goals) ? (draft.goals as string[]) : []).join("\n")}
+            onChange={(e) =>
+              setField(
+                "goals",
+                e.target.value
+                  .split("\n")
+                  .map((s) => s.trim())
+                  .filter((s) => s.length > 0),
+              )
+            }
+          />
+        </label>
+      )}
+
       {kind === "scene" && onSceneEdit !== undefined && (
         <div className="inspector__ai">
           <span className="review__label">AI operations</span>
