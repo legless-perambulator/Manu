@@ -12,6 +12,27 @@ import type {
 } from "@jellytind/domain";
 import type { SearchHit, SearchQuery } from "@jellytind/search";
 import type { AgentActivityEvent } from "./activity";
+
+/**
+ * The shape of a build this package needs.
+ *
+ * Declared structurally rather than imported: `@jellytind/story-compiler` is a
+ * sibling, not a dependency, and the runtime only ever reads these fields.
+ */
+export interface StoryBuildLike {
+  readonly id: string;
+  readonly status: string;
+  readonly counts: Readonly<Record<string, number>>;
+  readonly diagnostics: ReadonlyArray<{
+    readonly id: string;
+    readonly ruleId: string;
+    readonly severity: string;
+    readonly message: string;
+    readonly entities: readonly string[];
+    readonly sceneId?: string;
+    readonly evidence: string;
+  }>;
+}
 import type { AgentTask } from "./task";
 
 /**
@@ -39,6 +60,19 @@ export interface ProjectAccess {
   listLocations(): Promise<Location[]>;
   listPlotThreads(): Promise<PlotThread[]>;
   listRelationships(): Promise<Relationship[]>;
+
+  /**
+   * The Story Build, when the project supports it.
+   *
+   * Optional on the port so the runtime never assumes a compiler is present: a
+   * fixture project in a test satisfies `ProjectAccess` without one, and the
+   * build tools simply are not registered (docs/STORY_COMPILER.md).
+   */
+  buildStory?(options?: {
+    config?: { options?: { dormantAfterScenes?: number } };
+  }): Promise<StoryBuildLike>;
+  getBuild?(id: string): Promise<StoryBuildLike | null>;
+  getLatestBuild?(): Promise<StoryBuildLike | null>;
 
   getScenesByCharacter(id: CharacterId): Promise<Scene[]>;
   getScenesByLocation(id: LocationId): Promise<Scene[]>;

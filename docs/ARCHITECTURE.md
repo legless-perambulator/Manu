@@ -7,7 +7,7 @@ north-star spec see [`../MASTER_BUILD.md`](../MASTER_BUILD.md).
 
 ## Status
 
-**Phases 1 & 3–15 implemented.** On the Phase-0 foundation: the persistent Story
+**Phases 1 & 3–16 implemented.** On the Phase-0 foundation: the persistent Story
 Repository, the fiction-domain **entity graph** with referential integrity,
 deterministic **search & retrieval** (`@jellytind/search`), **revision history**
 — journaled change sets, checkpoints, diffs, revert, and a staging transaction —
@@ -30,7 +30,9 @@ locations that understand containment, and deterministic physical-continuity
 checks, and the **narrative-thread engine**: plot-thread lifecycle as
 time-aware state, first-class setups and payoffs, dormancy measured rather than
 judged, and a structural guard keeping authorial intent out of reader-facing
-context. The remaining subsystem packages are typed
+context. On top of all of it sits **Story Compiler V1**: one command that asks
+every recorded subsystem whether the story holds together and answers with
+deterministic, navigable diagnostics. The remaining subsystem packages are typed
 interfaces marked **PLANNED**; features continue as vertical slices (see
 [`ROADMAP.md`](ROADMAP.md)).
 
@@ -53,7 +55,7 @@ A pnpm-workspaces monorepo. Applications live in `apps/`, libraries in
 │   ├── story-state/             @jellytind/story-state   — time-aware story state
 │   ├── model-router/            @jellytind/model-router  — LanguageModel interface, registry, secrets, routing
 │   ├── context-compiler/        @jellytind/context-compiler — task-specific context assembly
-│   ├── story-compiler/          @jellytind/story-compiler — deterministic/semantic checks
+│   ├── story-compiler/          @jellytind/story-compiler — the Story Build: rules, diagnostics
 │   ├── agent-runtime/           @jellytind/agent-runtime — typed tools, permissions, tasks, agents
 │   ├── editing/                 @jellytind/editing       — controlled AI manuscript editing
 │   ├── search/                  @jellytind/search        — lexical search (semantic PLANNED)
@@ -74,12 +76,12 @@ Each layer may depend only on layers below it. The package graph enforces this.
 │   renderer imports domain + shared; Rust host owns FS/window    │
 ├───────────────────────────────────────────────────────────────┤
 │ Application services: editing (orchestration: PLANNED)          │
-├───────────────┬───────────────────────────────────────────────┤
-│ context-      │ story-compiler                                  │
-│ compiler      │                                                 │
-├───────────────┴───────────────────────────────────────────────┤
+├───────────────────────────────────────────────────────────────┤
+│ context-compiler                                                │
+├───────────────────────────────────────────────────────────────┤
 │ story-repository   agent-runtime   model-router (+ providers/*) │
-│ story-state                                                     │
+├───────────────────────────────────────────────────────────────┤
+│ story-state       story-compiler                                │
 ├───────────────────────────────────────────────────────────────┤
 │ domain            persistence            search                 │
 ├───────────────────────────────────────────────────────────────┤
@@ -89,23 +91,29 @@ Each layer may depend only on layers below it. The package graph enforces this.
 
 ### Dependency edges (current)
 
-| Package              | Depends on                                                                                                                                                 |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `shared`             | —                                                                                                                                                          |
-| `domain`             | `shared`                                                                                                                                                   |
-| `persistence`        | `shared`, `domain`                                                                                                                                         |
-| `story-repository`   | `shared`, `domain`, `persistence`, `search`, `agent-runtime`, `story-state`                                                                                |
-| `model-router`       | `shared`                                                                                                                                                   |
-| `provider-anthropic` | `shared`, `model-router`                                                                                                                                   |
-| `search`             | `shared`, `domain`                                                                                                                                         |
-| `story-compiler`     | `shared`, `domain`                                                                                                                                         |
-| `story-state`        | `shared`, `domain`                                                                                                                                         |
-| `context-compiler`   | `shared`, `domain`, `search`, `story-state`                                                                                                                |
-| `agent-runtime`      | `shared`, `domain`, `model-router`, `persistence`, `search`                                                                                                |
-| `editing`            | `shared`, `domain`, `story-repository`, `context-compiler`, `model-router`, `agent-runtime`, `story-state`                                                 |
-| `apps/desktop`       | `domain`, `persistence`, `story-repository`, `story-state`, `model-router`, `provider-anthropic`, `agent-runtime`, `context-compiler`, `editing`, `shared` |
+| Package              | Depends on                                                                                                                                                                   |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `shared`             | —                                                                                                                                                                            |
+| `domain`             | `shared`                                                                                                                                                                     |
+| `persistence`        | `shared`, `domain`                                                                                                                                                           |
+| `story-repository`   | `shared`, `domain`, `persistence`, `search`, `agent-runtime`, `story-state`, `story-compiler`                                                                                |
+| `model-router`       | `shared`                                                                                                                                                                     |
+| `provider-anthropic` | `shared`, `model-router`                                                                                                                                                     |
+| `search`             | `shared`, `domain`                                                                                                                                                           |
+| `story-compiler`     | `shared`, `domain`, `story-state`                                                                                                                                            |
+| `story-state`        | `shared`, `domain`                                                                                                                                                           |
+| `context-compiler`   | `shared`, `domain`, `search`, `story-state`                                                                                                                                  |
+| `agent-runtime`      | `shared`, `domain`, `model-router`, `persistence`, `search`                                                                                                                  |
+| `editing`            | `shared`, `domain`, `story-repository`, `context-compiler`, `model-router`, `agent-runtime`, `story-state`                                                                   |
+| `apps/desktop`       | `domain`, `persistence`, `story-repository`, `story-state`, `story-compiler`, `model-router`, `provider-anthropic`, `agent-runtime`, `context-compiler`, `editing`, `shared` |
 
 There are no cycles. `shared` is a sink; the UI is a source.
+
+`story-compiler` sits _below_ `story-repository`, not above it. The compiler
+runs rules over a `BuildContext` that the repository assembles and hands to it,
+so the compiler depends on nothing that owns a project — which is also why a
+rule can be tested against a hand-built context with no filesystem at all. See
+[`STORY_COMPILER.md`](STORY_COMPILER.md).
 
 `agent-runtime` sits _beside_ `story-repository`, not above it: it depends on
 domain, persistence, search and the model router, and it declares **ports**
@@ -153,6 +161,10 @@ root-confined Rust commands (see [`STORY_REPOSITORY.md`](STORY_REPOSITORY.md)).
 - **Silence is not a claim.** A check reports a contradiction only between two
   things the project actually recorded; unrecorded state is never inferred and
   never contradicts. See [`OBJECTS_LOCATIONS.md`](OBJECTS_LOCATIONS.md).
+- **The compiler consumes, it does not duplicate.** Continuity logic lives in
+  the subsystem that owns the data; a Story Compiler rule runs that check and
+  presents it. A second implementation is a second thing to drift.
+  See [`STORY_COMPILER.md`](STORY_COMPILER.md).
 - **Measurement is not judgement.** Deterministic checks report what is
   structurally wrong; they never grade craft. Whether a dormancy hurts the
   pacing or a setup is too obvious is model work, and the code says so rather

@@ -14,7 +14,7 @@ This is **not** a chatbot with a writing editor attached. It lets AI agents insp
 
 ## Status
 
-**Phase 15 complete.** Implemented and tested so far:
+**Phase 16 complete.** Implemented and tested so far:
 
 - **Phase 0** — monorepo, tooling, stable branded entity IDs, persistence and
   model-provider boundaries, Tauri + React desktop shell.
@@ -72,6 +72,11 @@ This is **not** a chatbot with a writing editor attached. It lets AI agents insp
   dormancy measured rather than judged, first-class foreshadowing with the
   promises it makes and keeps, and context that never hands a scene what only
   the author knows.
+- **Phase 16** — Story Compiler V1: press Build Story and get deterministic
+  continuity diagnostics assembled from every recorded system — with evidence, a
+  suggested action, click-through navigation, build history and a diff against
+  the last build. The compiler consumes the existing checks rather than
+  reimplementing them, and says plainly what it did not check.
 
 Implementation proceeds as vertical slices — see
 [`docs/ROADMAP.md`](docs/ROADMAP.md) and

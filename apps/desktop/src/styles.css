@@ -1537,3 +1537,93 @@ code {
   background: transparent;
   border: 1px solid var(--accent);
 }
+
+/* ── Story build ─────────────────────────────────────────── */
+.build__verdict {
+  margin-left: 8px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+.build__verdict--passed {
+  border-color: var(--ok);
+  color: var(--ok);
+}
+.build__verdict--passed_with_warnings {
+  border-color: #ffc36a;
+  color: #ffc36a;
+}
+.build__verdict--failed {
+  border-color: #ff9a9a;
+  color: #ff9a9a;
+}
+.build__passed {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.build__tick {
+  color: var(--ok);
+}
+.build__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.build__item {
+  border: 1px solid var(--border);
+  border-left-width: 3px;
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: var(--panel-alt);
+}
+.build__head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.build__severity {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.build__severity--error {
+  color: #ff9a9a;
+}
+.build__severity--warning {
+  color: #ffc36a;
+}
+.build__severity--info {
+  color: var(--muted);
+}
+.build__message {
+  font-size: 13px;
+  margin-bottom: 2px;
+}
+.build__action {
+  font-size: 12px;
+  color: var(--accent);
+  margin-top: 4px;
+}
+.build__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+.build__resolved {
+  color: var(--ok);
+  text-decoration: line-through;
+  opacity: 0.75;
+}

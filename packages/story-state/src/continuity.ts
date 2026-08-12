@@ -39,7 +39,9 @@ export type ContinuityViolationKind =
   /** A character is put in two places that cannot both be true. */
   | "conflicting_character_location"
   /** The location tree is malformed: a cycle, a self-parent, a missing parent. */
-  | "invalid_nested_location";
+  | "invalid_nested_location"
+  /** A character appears in a scene after the story recorded them dead. */
+  | "dead_character_appears";
 
 /**
  * How confident the finding is.
@@ -80,6 +82,7 @@ export function checkContinuity(input: ContinuityCheckInput): ContinuityViolatio
     ...checkLocationTree(locations),
     ...checkObjects(input, locations),
     ...checkCharacterLocations(input, locations),
+    ...checkTheDead(input),
   ];
 }
 
@@ -329,6 +332,46 @@ function checkCharacterLocations(
         characterId,
         locationIds: [before.locationId, scene.locationId as string],
         message: `${characterId} appears in ${sceneId} at ${String(scene.locationId)}, but was last recorded at ${before.locationId}, and nothing moves them.`,
+      });
+    }
+  }
+
+  return out;
+}
+
+/**
+ * Characters on the page after the story has killed them.
+ *
+ * The one continuity error every reader catches and no writer means to make.
+ * A scene that explicitly changes the character's status is the writer handling
+ * it — a resurrection, a faked death, a body double — and is not a finding.
+ */
+function checkTheDead(input: ContinuityCheckInput): ContinuityViolation[] {
+  const { timeline } = input;
+  const view = input.view ?? {};
+  const out: ContinuityViolation[] = [];
+  const bySceneId = new Map(input.scenes.map((s) => [s.id as string, s]));
+
+  for (const sceneId of timeline.sceneOrder) {
+    const scene = bySceneId.get(sceneId);
+    if (scene === undefined) continue;
+    const restated = new Set(
+      timeline
+        .transitionsAtScene(sceneId)
+        .filter((t) => t.kind === "character_status" && t.confirmationStatus !== "rejected")
+        .map((t) => t.subjectId),
+    );
+
+    for (const characterId of castOf(scene)) {
+      if (restated.has(characterId)) continue;
+      const before = timeline.characterStateAt(characterId, { sceneId, position: "before" }, view);
+      if (before.status !== "deceased") continue;
+      out.push({
+        kind: "dead_character_appears",
+        severity: "error",
+        sceneId,
+        characterId,
+        message: `${characterId} is recorded as deceased before ${sceneId}, but appears in it.`,
       });
     }
   }

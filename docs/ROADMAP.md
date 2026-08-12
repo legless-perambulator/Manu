@@ -442,6 +442,49 @@ from prose.
 
 See [NARRATIVE_THREADS.md](NARRATIVE_THREADS.md).
 
+## Phase 16 — Story Compiler V1 ✅
+
+The milestone every recorded system was building towards: one command that asks
+whether the story holds together.
+
+- **`buildStory()` and a Build Story control**, producing deterministic,
+  navigable diagnostics from structured state — no model involved.
+- **The compiler consumes, it does not duplicate.** Almost every rule is a thin
+  adapter over the check that already owns that knowledge: the entity graph,
+  `checkContinuity`, `checkKnowledgeViolations`, `checkTimeline`,
+  `checkNarrative`. A second implementation of continuity would be a second
+  thing to drift.
+- **Ten rules** across referential integrity, character continuity, knowledge,
+  objects, timeline, plot threads, setups and project rules — plus a new
+  dead-character check added to `checkContinuity`, beside its siblings rather
+  than inside the compiler.
+- **Diagnostics** with rule, severity, entities, scene, chapter, required
+  evidence and a suggested action, identified by a fingerprint derived from what
+  a finding is _about_ rather than how it is worded.
+- **A modular rule registry**: rules are values, so the set extends by
+  concatenation — by later phases now, and by plugins eventually.
+- **Configuration**: rules and whole categories can be disabled, and a rule's
+  severity overridden.
+- **Skipped is never passed.** A disabled rule, a rule outside an incremental
+  run, or a rule that threw is reported distinctly — and hard world rules the
+  compiler cannot evaluate say so, rather than letting a green build imply they
+  were enforced.
+- **Build history and comparison**: numbered builds persisted under
+  `.writer/builds/`, compared into new, resolved and persistent diagnostics. A
+  build is derived analysis, so it is not a change set.
+- **Incremental seam**: every rule declares what it reads, and `only` runs just
+  the rules a change could affect. Real and tested; not yet driven from change
+  sets.
+- **Agent tools** `run_story_build` and `get_build_diagnostics`, read-and-run,
+  with no auto-fix tool.
+- UI: a Story Build view with passing checks, grouped findings, clickable
+  navigation to scene and entity, and the diff against the previous build.
+
+Nothing is faked: checks that cannot yet be made reliable — POV rules, voice
+convergence, most world rules, Story Tests — are absent and documented as such.
+
+See [STORY_COMPILER.md](STORY_COMPILER.md).
+
 ## V1 (remaining) — Writing IDE
 
 Prove the core paradigm: **AI can operate reliably on a fiction project instead of merely chatting about it.**

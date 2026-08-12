@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { InMemoryProjectStore } from "@jellytind/persistence";
 import {
+  createBuildTools,
   createProjectTools,
   createTask,
   READ_ONLY_GRANT,
@@ -67,7 +68,10 @@ async function novel() {
 function runtimeFor(repo: StoryRepository) {
   // The repository satisfies the port structurally — no adapter needed.
   const access: ProjectAccess = repo;
-  const registry = new ToolRegistry().register(...createProjectTools(access));
+  const registry = new ToolRegistry().register(
+    ...createProjectTools(access),
+    ...createBuildTools(access),
+  );
   const executor = new ToolExecutor({ registry, grant: READ_ONLY_GRANT, store: repo.agents });
   return { registry, executor };
 }
@@ -201,5 +205,62 @@ describe("agent task and activity persistence", () => {
     await executor.execute(id, "list_project_files", {});
 
     expect((await repo.listChangeSets()).length).toBe(before);
+  });
+});
+
+/**
+ * The build tools close the loop: an agent asked whether a project is
+ * consistent answers from deterministic diagnostics rather than from its own
+ * reading of the prose.
+ */
+describe("story build tools", () => {
+  it("runs a build and reads its diagnostics back", async () => {
+    const { repo } = await novel();
+    const { executor } = runtimeFor(repo);
+
+    const run = await executor.execute("TASK_0001", "run_story_build", {});
+    expect(run.ok).toBe(true);
+    const build = (run.output as { build: { id: string; status: string } }).build;
+    expect(build.id).toBe("BUILD_0001");
+
+    const read = await executor.execute("TASK_0001", "get_build_diagnostics", {});
+    expect(read.ok).toBe(true);
+    expect((read.output as { buildId: string }).buildId).toBe(build.id);
+  });
+
+  it("filters diagnostics by severity", async () => {
+    const { repo } = await novel();
+    const { executor } = runtimeFor(repo);
+    await executor.execute("TASK_0001", "run_story_build", {});
+
+    const outcome = await executor.execute("TASK_0001", "get_build_diagnostics", {
+      severity: "error",
+    });
+    const diagnostics = (outcome.output as { diagnostics: unknown[] }).diagnostics;
+    expect(Array.isArray(diagnostics)).toBe(true);
+  });
+
+  it("says so plainly when no build has been run", async () => {
+    const { repo } = await novel();
+    const { executor } = runtimeFor(repo);
+
+    const outcome = await executor.execute("TASK_0001", "get_build_diagnostics", {});
+    expect(outcome.ok).toBe(false);
+    expect(outcome.error).toContain("no builds yet");
+  });
+
+  /** Running a build must never look like an edit. */
+  it("offers no tool that applies a fix", async () => {
+    const { repo } = await novel();
+    const { registry } = runtimeFor(repo);
+    const names = registry.list().map((tool) => tool.name);
+    expect(names).toContain("run_story_build");
+    expect(names.some((name) => /fix|repair|apply/.test(name))).toBe(false);
+    // And nothing the agent can call carries a write permission.
+    expect(
+      registry
+        .list()
+        .every((tool) => tool.permission === "read_canon" || tool.permission === "read_manuscript"),
+    ).toBe(true);
   });
 });

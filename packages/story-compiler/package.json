@@ -12,6 +12,7 @@
   "sideEffects": false,
   "dependencies": {
     "@jellytind/domain": "workspace:*",
-    "@jellytind/shared": "workspace:*"
+    "@jellytind/shared": "workspace:*",
+    "@jellytind/story-state": "workspace:*"
   }
 }

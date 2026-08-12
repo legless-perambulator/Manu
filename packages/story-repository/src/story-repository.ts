@@ -87,10 +87,22 @@ import {
   type TimelineViolation,
   type TransitionDraft,
 } from "@jellytind/story-state";
+import {
+  buildStory,
+  compareBuilds,
+  CORE_RULES,
+  type BuildComparison,
+  type BuildConfig,
+  type BuildContext,
+  type BuildInputKind,
+  type BuildSummary,
+  type StoryBuild,
+} from "@jellytind/story-compiler";
 import { RepositoryError } from "./errors";
 import { RepositoryAgentStore } from "./agent-store";
 import { TransitionStore } from "./state-store";
 import { TimelineStore } from "./timeline-store";
+import { BuildStore } from "./build-store";
 import { ProjectSearch } from "./project-search";
 import {
   scenesByCharacter,
@@ -205,6 +217,7 @@ export class StoryRepository {
   private readonly agentStore: RepositoryAgentStore;
   private readonly transitions: TransitionStore;
   private readonly timeline: TimelineStore;
+  private readonly builds: BuildStore;
   private manifest: ProjectManifest;
   private ids: SequentialIdGenerator;
 
@@ -227,6 +240,9 @@ export class StoryRepository {
     this.transitions = new TransitionStore(this.store);
     // Likewise chronology: "this happens before that" is an authored claim.
     this.timeline = new TimelineStore(this.store);
+    // Not journaled: a build is derived analysis, and running one changes
+    // nothing about the story.
+    this.builds = new BuildStore(rawStore);
   }
 
   // ── Lifecycle ────────────────────────────────────────────────────────────
@@ -1021,6 +1037,133 @@ export class StoryRepository {
       scenes.filter((s) => s.chapterId === chapterId).map((s) => s.id as string),
       view,
     );
+  }
+
+  // ── The Story Build ─────────────────────────────────────────────────────────
+
+  /**
+   * Everything the compiler's rules read, gathered once.
+   *
+   * The repository assembles this because it is the only thing that owns all of
+   * it; the compiler stays below it in the layering and depends on nothing here
+   * (docs/STORY_COMPILER.md).
+   */
+  async getBuildContext(): Promise<Omit<BuildContext, "config">> {
+    const [
+      scenes,
+      chapters,
+      characters,
+      locations,
+      objects,
+      threads,
+      facts,
+      worldRules,
+      events,
+      setups,
+      transitions,
+      temporalLinks,
+      travelRules,
+      integrity,
+      metrics,
+    ] = await Promise.all([
+      this.listScenes(),
+      this.listChapters(),
+      this.listCharacters(),
+      this.listLocations(),
+      this.listObjects(),
+      this.listPlotThreads(),
+      this.listFacts(),
+      this.listWorldRules(),
+      this.listEvents(),
+      this.listSetups(),
+      this.transitions.list(),
+      this.timeline.listLinks(),
+      this.timeline.listTravelRules(),
+      this.checkIntegrity(),
+      this.getManuscriptMetrics(),
+    ]);
+
+    return {
+      scenes,
+      chapters,
+      characters,
+      locations,
+      objects,
+      threads,
+      facts,
+      worldRules,
+      events,
+      setups,
+      transitions,
+      temporalLinks,
+      travelRules,
+      timeline: new StoryTimeline(
+        orderScenes(scenes, chapters).map((s) => s.id as string),
+        transitions,
+      ),
+      chronology: new StoryChronology(timelineNodes({ scenes, chapters, events }), temporalLinks),
+      metrics,
+      danglingReferences: integrity.dangling.map((edge) => ({
+        fromId: edge.fromId,
+        fromKind: edge.fromKind,
+        field: edge.field,
+        toId: edge.toId,
+      })),
+    };
+  }
+
+  /**
+   * Build the story: run every enabled rule over the project's structured state
+   * and record the result.
+   *
+   * The build is deterministic and involves no model. Its findings come from the
+   * subsystems that already own them — the entity graph, the timeline, the
+   * chronology, the narrative checks — so there is one implementation of
+   * continuity in this codebase, not two.
+   */
+  async buildStory(
+    options: { config?: BuildConfig; only?: readonly BuildInputKind[]; persist?: boolean } = {},
+  ): Promise<StoryBuild> {
+    const [context, number] = await Promise.all([this.getBuildContext(), this.builds.nextNumber()]);
+
+    const build = await buildStory(CORE_RULES, context, {
+      number,
+      now: this.clock,
+      ...(options.config !== undefined ? { config: options.config } : {}),
+      ...(options.only !== undefined ? { only: options.only } : {}),
+    });
+
+    return options.persist === false ? build : this.builds.append(build);
+  }
+
+  /** Build summaries, newest first. */
+  listBuilds(limit?: number): Promise<BuildSummary[]> {
+    return this.builds.list(limit);
+  }
+
+  getBuild(id: string): Promise<StoryBuild | null> {
+    return this.builds.get(id);
+  }
+
+  getLatestBuild(): Promise<StoryBuild | null> {
+    return this.builds.latest();
+  }
+
+  /**
+   * What changed between a build and the one before it — new, resolved and
+   * persistent diagnostics.
+   */
+  async compareToPreviousBuild(buildId: string): Promise<BuildComparison> {
+    const build = await this.builds.get(buildId);
+    if (build === null) {
+      throw new RepositoryError("entity_not_found", `No build with id ${buildId}.`);
+    }
+    const history = await this.builds.list();
+    const at = history.findIndex((b) => b.id === buildId);
+    const previousSummary = at === -1 ? undefined : history[at + 1];
+    const previous =
+      previousSummary === undefined ? undefined : await this.builds.get(previousSummary.id);
+    return compareBuilds(previous ?? undefined, build);
   }
 
   // ── Plot threads, setups and payoffs ────────────────────────────────────────

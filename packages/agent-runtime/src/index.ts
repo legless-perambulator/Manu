@@ -17,9 +17,10 @@ export type { AgentTask, TaskStatus, ApprovalPolicy, CreateTaskInput } from "./t
 export { summarizeArguments, summarizeResult, describeActivity } from "./activity";
 export type { AgentActivityEvent, ActivityStatus } from "./activity";
 
-export type { ProjectAccess, AgentStore } from "./ports";
+export type { ProjectAccess, AgentStore, StoryBuildLike } from "./ports";
 
 export { createProjectTools, READ_ONLY_TOOL_NAMES } from "./tools/project-tools";
+export { createBuildTools, BUILD_TOOL_NAMES } from "./tools/build-tools";
 export { safeToolPath, safeListPrefix } from "./tools/paths";
 
 export { ToolExecutor } from "./executor";

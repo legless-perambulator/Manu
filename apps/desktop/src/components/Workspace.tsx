@@ -19,6 +19,7 @@ import { RelationshipPanel } from "./RelationshipPanel";
 import { TimelinePanel } from "./TimelinePanel";
 import { ObjectPanel } from "./ObjectPanel";
 import { ThreadPanel } from "./ThreadPanel";
+import { BuildPanel } from "./BuildPanel";
 
 type LeftTab =
   | "files"
@@ -30,6 +31,7 @@ type LeftTab =
   | "objects"
   | "threads"
   | "timeline"
+  | "build"
   | "history";
 type RightTab = "inspector" | "agent" | "context";
 
@@ -78,6 +80,21 @@ export function Workspace({ repo, secrets, onClose, onOpenSettings }: WorkspaceP
       }
     },
     [editor, repo, secrets],
+  );
+
+  /**
+   * Navigate to a scene: select it for the inspector and open the prose it
+   * lives in, so a diagnostic leads to the words rather than to a record.
+   */
+  const openScene = useCallback(
+    async (sceneId: string) => {
+      setSelectedEntityId(sceneId);
+      setRightTab("inspector");
+      const scene = (await repo.listScenes()).find((s) => s.id === sceneId);
+      const chapter = (await repo.listChapters()).find((c) => c.id === scene?.chapterId);
+      if (chapter !== undefined) setOpenPath(chapter.filePath);
+    },
+    [repo],
   );
 
   const sceneIdForEditor =
@@ -152,6 +169,12 @@ export function Workspace({ repo, secrets, onClose, onOpenSettings }: WorkspaceP
               onClick={() => setTab("timeline")}
             >
               Timeline
+            </button>
+            <button
+              className={`tab${tab === "build" ? " tab--active" : ""}`}
+              onClick={() => setTab("build")}
+            >
+              Build
             </button>
             <button
               className={`tab${tab === "history" ? " tab--active" : ""}`}
@@ -231,6 +254,20 @@ export function Workspace({ repo, secrets, onClose, onOpenSettings }: WorkspaceP
               onSelectEntity={(id) => {
                 setSelectedEntityId(id);
                 setRightTab("inspector");
+              }}
+            />
+          )}
+          {tab === "build" && (
+            <BuildPanel
+              repo={repo}
+              refreshToken={refreshToken}
+              onChanged={refresh}
+              onSelectEntity={(id) => {
+                setSelectedEntityId(id);
+                setRightTab("inspector");
+              }}
+              onOpenScene={(sceneId) => {
+                void openScene(sceneId);
               }}
             />
           )}

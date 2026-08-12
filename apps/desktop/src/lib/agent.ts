@@ -1,9 +1,10 @@
 import {
+  createBuildTools,
   createProjectTools,
   createTask,
   InvestigationAgent,
   READ_ONLY_GRANT,
-  READ_ONLY_TOOL_NAMES,
+  INVESTIGATOR_AGENT,
   ToolExecutor,
   ToolRegistry,
   type AgentActivityEvent,
@@ -44,7 +45,10 @@ export async function startInvestigation(
 
   // The repository satisfies the runtime's read port directly.
   const access: ProjectAccess = repo;
-  const registry = new ToolRegistry().register(...createProjectTools(access));
+  const registry = new ToolRegistry().register(
+    ...createProjectTools(access),
+    ...createBuildTools(access),
+  );
 
   // Phase 7 is read-only: the grant carries no write permission at all, so no
   // configuration mistake here can turn an investigation into an edit.
@@ -57,7 +61,7 @@ export async function startInvestigation(
     id: await repo.agents.nextTaskId(),
     goal: question,
     now: new Date().toISOString(),
-    allowedTools: READ_ONLY_TOOL_NAMES,
+    allowedTools: INVESTIGATOR_AGENT.permittedTools,
     approvalPolicy: "approve_every_edit",
   });
   await repo.agents.saveTask(task);

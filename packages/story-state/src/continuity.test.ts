@@ -621,6 +621,48 @@ describe("conflicting character location", () => {
   });
 });
 
+describe("dead characters appearing alive", () => {
+  it("catches a character on the page after the story killed them", () => {
+    const scenes = [
+      scene("SCENE_0001", { characterIds: [ELIAS] }),
+      scene("SCENE_0003", { characterIds: [ELIAS, MARA] }),
+    ];
+    const found = check(scenes, [t("SCENE_0001", "character_status", ELIAS, "deceased")]);
+    const violation = found.find((v) => v.kind === "dead_character_appears");
+    expect(violation?.severity).toBe("error");
+    expect(violation?.sceneId).toBe("SCENE_0003");
+    expect(violation?.characterId).toBe(ELIAS);
+  });
+
+  it("does not object in the scene where they die", () => {
+    const scenes = [scene("SCENE_0001", { characterIds: [ELIAS] })];
+    const found = check(scenes, [t("SCENE_0001", "character_status", ELIAS, "deceased")]);
+    expect(kinds(found)).not.toContain("dead_character_appears");
+  });
+
+  /** A faked death, a resurrection, a body double: the writer is handling it. */
+  it("accepts a scene that explicitly restates their status", () => {
+    const scenes = [
+      scene("SCENE_0001", { characterIds: [ELIAS] }),
+      scene("SCENE_0003", { characterIds: [ELIAS] }),
+    ];
+    const found = check(scenes, [
+      t("SCENE_0001", "character_status", ELIAS, "deceased"),
+      t("SCENE_0003", "character_status", ELIAS, "active"),
+    ]);
+    expect(kinds(found)).not.toContain("dead_character_appears");
+  });
+
+  it("says nothing about a character merely inactive", () => {
+    const scenes = [
+      scene("SCENE_0001", { characterIds: [ELIAS] }),
+      scene("SCENE_0003", { characterIds: [ELIAS] }),
+    ];
+    const found = check(scenes, [t("SCENE_0001", "character_status", ELIAS, "inactive")]);
+    expect(kinds(found)).not.toContain("dead_character_appears");
+  });
+});
+
 // ── Canon boundary ───────────────────────────────────────────────────────────
 
 describe("proposed state", () => {

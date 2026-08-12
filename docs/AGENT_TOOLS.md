@@ -157,3 +157,19 @@ The tool surface is designed to grow into a plugin/MCP-style ecosystem so
 third-party writing tools can be added without modifying core (see
 [ROADMAP.md](ROADMAP.md) V6). New tools must conform to the same typed-schema,
 permission and audit contract.
+
+## Story Build tools (Phase 16)
+
+```
+run_story_build        — run the deterministic build; returns status, counts, diagnostics
+get_build_diagnostics  — read a past build, filtered by severity or rule
+```
+
+Both carry `read_canon` and are read-and-run: a build is derived analysis and
+changes nothing about the story. They are registered only when the project
+supports building, so a fixture satisfying `ProjectAccess` without a compiler
+simply does not offer them.
+
+**There is deliberately no tool that applies a fix.** A diagnostic is a finding
+about the writer's story, and acting on one is an editorial decision that stays
+with a human. See [STORY_COMPILER.md](STORY_COMPILER.md).

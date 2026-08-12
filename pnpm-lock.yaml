@@ -218,6 +218,9 @@ importers:
       '@jellytind/shared':
         specifier: workspace:*
         version: link:../shared
+      '@jellytind/story-state':
+        specifier: workspace:*
+        version: link:../story-state
 
   packages/story-repository:
     dependencies:
@@ -236,6 +239,9 @@ importers:
       '@jellytind/shared':
         specifier: workspace:*
         version: link:../shared
+      '@jellytind/story-compiler':
+        specifier: workspace:*
+        version: link:../story-compiler
       '@jellytind/story-state':
         specifier: workspace:*
         version: link:../story-state
