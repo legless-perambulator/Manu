@@ -91,6 +91,25 @@ export {
 } from "./objects";
 export type { ObjectChange, ObjectChangeKind, ObjectTransfer } from "./objects";
 
+export {
+  OPEN_STATUSES,
+  RUNNING_STATUSES,
+  INTERACTION_VERBS,
+  isOpen,
+  isRunning,
+  describeDormancy,
+} from "./threads";
+export type { ThreadDormancy, ThreadState, ThreadStep } from "./threads";
+export type { ManuscriptMetrics } from "./timeline";
+
+export { checkNarrative, setupsForScene, openSetupsBefore } from "./narrative-checks";
+export type {
+  NarrativeCheckInput,
+  NarrativeFinding,
+  NarrativeFindingKind,
+  NarrativeSeverity,
+} from "./narrative-checks";
+
 export { checkContinuity } from "./continuity";
 export type {
   ContinuityCheckInput,

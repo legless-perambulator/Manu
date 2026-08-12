@@ -11,7 +11,9 @@ The fiction domain model is the authoritative representation of story data. UI c
   and `TemporalRelation`/`TemporalLink`/`TravelRule` give the chronology its
   vocabulary. Object continuity is **implemented** (Phase 14): object statuses
   and visibility are first-class, and nested locations answer containment
-  questions in one place. Numeric relationship state remains **PLANNED**.
+  questions in one place. Narrative promises are **implemented** (Phase 15): the
+  `Setup` entity, thread interactions and subtlety are first-class. Numeric
+  relationship state remains **PLANNED**.
 
 ## Implemented: stable entity IDs
 
@@ -174,7 +176,11 @@ word_count: 2381
   optional analytical dimensions and milestone events evolve through
   scene-anchored transitions, so any story moment can be reconstructed. Use for
   analysis, not to mechanically dictate prose. See [STORY_STATE.md](STORY_STATE.md).
-- **PlotThread** — has a lifecycle: `planned → introduced → active → escalating → dormant → resolved → abandoned`. Tracks appearances. Dormancy can be flagged but is not automatically "bad".
+- **PlotThread** — has a lifecycle: `planned → introduced → active → escalating → dormant → resolved → abandoned`, moved by scene-anchored transitions so any point in the book can be reconstructed. How a scene touches a thread is one of six interactions. Dormancy is measured, never graded. See [NARRATIVE_THREADS.md](NARRATIVE_THREADS.md).
+- **Setup** — a promise the story makes and the moment it keeps it, recorded
+  because nothing in the prose links the two scenes. Carries foreshadowing
+  metadata including `trueMeaning`, which is author-only. See
+  [NARRATIVE_THREADS.md](NARRATIVE_THREADS.md).
 - **Foreshadowing** — setups and payoffs are _linked_ entities with visibility and reader-interpretation metadata; detect setup-without-payoff and payoff-without-setup. Supports multi-stage foreshadowing.
 - **Object** — important objects are entities; ownership, holder, location,
   condition, status and visibility are **time-aware state** rather than fields on

@@ -26,6 +26,7 @@ export type ObjectId = Brand<string, "ObjectId">;
 export type EventId = Brand<string, "EventId">;
 export type WorldRuleId = Brand<string, "WorldRuleId">;
 export type RelationshipId = Brand<string, "RelationshipId">;
+export type SetupId = Brand<string, "SetupId">;
 
 /**
  * Any identifier for an entity *within* a project. A project's own ID
@@ -42,7 +43,8 @@ export type EntityId =
   | ObjectId
   | EventId
   | WorldRuleId
-  | RelationshipId;
+  | RelationshipId
+  | SetupId;
 
 /** Any identifier this system mints, including the project container. */
 export type AnyId = StoryProjectId | EntityId;
@@ -60,6 +62,7 @@ export interface IdTypeByKind {
   event: EventId;
   world_rule: WorldRuleId;
   relationship: RelationshipId;
+  setup: SetupId;
 }
 
 export type IdFor<K extends EntityKind> = IdTypeByKind[K];
@@ -149,6 +152,7 @@ export const isObjectId = makeKindGuard("object");
 export const isEventId = makeKindGuard("event");
 export const isWorldRuleId = makeKindGuard("world_rule");
 export const isRelationshipId = makeKindGuard("relationship");
+export const isSetupId = makeKindGuard("setup");
 
 /**
  * Mint a project ID. The suffix is opaque and does not derive from the project

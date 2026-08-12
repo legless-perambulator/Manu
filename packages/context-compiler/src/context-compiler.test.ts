@@ -64,7 +64,12 @@ describe("scene_inspection recipe", () => {
     // POV first, then remaining participants — never the whole cast.
     expect(ids(pkg, "characters")).toEqual(["CHAR_0001", "CHAR_0002"]);
     expect(ids(pkg, "locations")).toEqual(["LOC_0001"]);
-    expect(ids(pkg, "plotThreads")).toEqual(["THREAD_0001", "THREAD_0002"]);
+    // Both threads the scene carries, plus the promises outstanding around them.
+    expect(ids(pkg, "plotThreads")).toEqual([
+      "THREAD_0001",
+      "THREAD_0002",
+      "open-setups@SCENE_0002",
+    ]);
     expect(ids(pkg, "worldRules")).toEqual(["RULE_0001", "RULE_0002"]);
 
     // Nothing unrelated leaks in.
@@ -83,7 +88,9 @@ describe("scene_inspection recipe", () => {
     expect(reasonFor(pkg, "SCENE_0001")).toBe("the scene immediately before SCENE_0002");
     expect(reasonFor(pkg, "SCENE_0003")).toBe("the scene immediately after SCENE_0002");
     expect(reasonFor(pkg, "LOC_0001")).toBe("setting of SCENE_0002");
-    expect(reasonFor(pkg, "THREAD_0001")).toBe("plot thread carried by SCENE_0002");
+    expect(reasonFor(pkg, "THREAD_0001")).toBe(
+      "plot thread carried by SCENE_0002, as it stands entering the scene",
+    );
     expect(reasonFor(pkg, "manuscript/CHAPTER_0001.md")).toBe(
       "prose of CHAPTER_0001, the chapter containing SCENE_0002",
     );
@@ -558,5 +565,68 @@ describe("object and location state in context", () => {
         locations: FIXTURE_LOCATIONS,
       }),
     ).toEqual([]);
+  });
+});
+
+describe("plot threads and promises in context", () => {
+  it("carries a thread's reconstructed lifecycle, not its starting status", async () => {
+    const pkg = await compiler().compile({ recipe: "scene_inspection", targetId: "SCENE_0002" });
+    const item = allItems(pkg).find((i) => i.id === "THREAD_0002");
+
+    expect(item?.provenance.rule).toBe("active_thread");
+    expect(item?.text).toContain("THREAD_0002 — The sealed vault");
+    expect(item?.text).toContain("status entering SCENE_0002:");
+  });
+
+  it("names the promises the reader is still holding", async () => {
+    const pkg = await compiler().compile({ recipe: "scene_inspection", targetId: "SCENE_0002" });
+    const item = allItems(pkg).find((i) => i.id === "open-setups@SCENE_0002");
+
+    expect(item?.provenance.rule).toBe("open_setup");
+    expect(item?.text).toContain("SETUP_0001: Brass key visible in father's drawer.");
+    expect(item?.text).toContain("The reader is holding them");
+    // What has been planted is something the reader has seen: not a spoiler.
+    expect(item?.revealsFuture).toBeUndefined();
+  });
+
+  it("does not offer a promise before it has been planted", async () => {
+    // Both fixture setups are planted in SCENE_0001, so nothing is outstanding
+    // entering it.
+    const pkg = await compiler().compile({ recipe: "scene_inspection", targetId: "SCENE_0001" });
+    expect(allItems(pkg).some((i) => i.id === "open-setups@SCENE_0001")).toBe(false);
+  });
+
+  it("tells a drafting operation what the scene is meant to pay off", async () => {
+    const pkg = await compiler().compile({ recipe: "scene_inspection", targetId: "SCENE_0004" });
+    const item = allItems(pkg).find((i) => i.id === "payoffs@SCENE_0004");
+
+    expect(item?.provenance.rule).toBe("scene_payoff");
+    expect(item?.text).toContain("pays off as: The key opens the cellar archive.");
+    expect(item?.text).toContain("what it actually means:");
+  });
+
+  /**
+   * The structural guard the phase asks for: everything a first-time reader
+   * could not know is flagged, so a Reader Simulation can drop it by filtering
+   * rather than by remembering to.
+   */
+  it("marks author-only material so reader-facing operations can exclude it", async () => {
+    const planted = await compiler().compile({
+      recipe: "scene_inspection",
+      targetId: "SCENE_0001",
+    });
+    const intent = allItems(planted).find((i) => i.id === "plantings@SCENE_0001");
+    expect(intent?.revealsFuture).toBe(true);
+    expect(intent?.text).toContain("Author-only");
+    expect(intent?.text).toContain("It is the only key to the vault");
+
+    const paid = await compiler().compile({ recipe: "scene_inspection", targetId: "SCENE_0004" });
+    expect(allItems(paid).find((i) => i.id === "payoffs@SCENE_0004")?.revealsFuture).toBe(true);
+
+    // Everything a reader could have seen is left unflagged, so filtering on the
+    // flag removes exactly the hidden material and nothing else.
+    const readerSafe = allItems(planted).filter((i) => i.revealsFuture !== true);
+    expect(readerSafe.some((i) => i.text.includes("only key to the vault"))).toBe(false);
+    expect(readerSafe.length).toBeGreaterThan(0);
   });
 });

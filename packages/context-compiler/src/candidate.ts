@@ -20,6 +20,17 @@ export interface Candidate {
   readonly summary?: string;
   /** Included regardless of budget (the task and its target). */
   readonly required?: boolean;
+  /**
+   * Marks material a first-time reader could not know: what a setup really
+   * means, where a promise will be kept, what a thread is heading for.
+   *
+   * A structural flag rather than a naming convention, because the guarantee
+   * matters: Reader Simulation exists to model what a reader believes at a point
+   * in the book, and handing it authorial intent would make its answers
+   * worthless. Any reader-facing recipe filters on this
+   * (docs/NARRATIVE_THREADS.md).
+   */
+  readonly revealsFuture?: boolean;
 }
 
 /**

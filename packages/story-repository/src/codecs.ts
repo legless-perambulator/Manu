@@ -9,6 +9,7 @@ import {
   isWorldRuleId,
   isEventId,
   isRelationshipId,
+  isSetupId,
   CHAPTER_STATUSES,
   SCENE_STATUSES,
   CHARACTER_STATUSES,
@@ -16,6 +17,7 @@ import {
   PLOT_THREAD_STATUSES,
   FACT_STATUSES,
   WORLD_RULE_SEVERITIES,
+  SUBTLETIES,
   normaliseStoryTime,
   normaliseDuration,
   LEGACY_OBJECT_STATUSES,
@@ -29,6 +31,8 @@ import {
   type WorldRule,
   type StoryEvent,
   type Relationship,
+  type Setup,
+  type FactId,
   type CharacterId,
   type LocationId,
   type SceneId,
@@ -251,6 +255,34 @@ export function normalizeEvent(raw: unknown): StoryEvent | null {
       : {}),
     characterIds: idArray(d.characterIds, isCharacterId),
     plotThreadIds: idArray(d.plotThreadIds, isPlotThreadId),
+  };
+}
+
+export function normalizeSetup(raw: unknown): Setup | null {
+  if (typeof raw !== "object" || raw === null) return null;
+  const d = raw as Record<string, unknown>;
+  if (!isSetupId(str(d.id))) return null;
+  return {
+    id: d.id as Setup["id"],
+    description: str(d.description),
+    setupSceneIds: idArray(d.setupSceneIds, isSceneId),
+    payoffSceneIds: idArray(d.payoffSceneIds, isSceneId),
+    ...(optStr(d.payoffDescription) !== undefined
+      ? { payoffDescription: optStr(d.payoffDescription) }
+      : {}),
+    subtlety: oneOf(d.subtlety, SUBTLETIES, "subtle"),
+    ...(optStr(d.intendedInterpretation) !== undefined
+      ? { intendedInterpretation: optStr(d.intendedInterpretation) }
+      : {}),
+    ...(optStr(d.trueMeaning) !== undefined ? { trueMeaning: optStr(d.trueMeaning) } : {}),
+    ...(optId(d.targetThreadId, isPlotThreadId) !== undefined
+      ? { targetThreadId: d.targetThreadId as PlotThreadId }
+      : {}),
+    ...(optId(d.targetRevealId, isFactId) !== undefined
+      ? { targetRevealId: d.targetRevealId as FactId }
+      : {}),
+    ...(d.abandoned === true ? { abandoned: true } : {}),
+    ...(optStr(d.notes) !== undefined ? { notes: optStr(d.notes) } : {}),
   };
 }
 

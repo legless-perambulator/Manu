@@ -10,6 +10,7 @@ import type {
   EventId,
   WorldRuleId,
   RelationshipId,
+  SetupId,
 } from "../ids/ids";
 import type { StoryDuration, StoryTime } from "../story-time";
 
@@ -106,6 +107,53 @@ export const PLOT_THREAD_STATUSES: readonly PlotThreadStatus[] = [
   "resolved",
   "abandoned",
 ];
+
+/**
+ * How a scene touches a plot thread.
+ *
+ * A thread is not simply "in" a scene: being introduced, pushed forward,
+ * complicated, merely mentioned, raised in stakes and resolved are six different
+ * events, and the difference is what makes a thread's shape legible without
+ * re-reading (docs/NARRATIVE_THREADS.md).
+ */
+export type ThreadInteraction =
+  "introduces" | "advances" | "complicates" | "references" | "escalates" | "resolves";
+
+export const THREAD_INTERACTIONS: readonly ThreadInteraction[] = [
+  "introduces",
+  "advances",
+  "complicates",
+  "references",
+  "escalates",
+  "resolves",
+];
+
+/**
+ * The lifecycle state an interaction implies, when it implies one.
+ *
+ * A passing `references` is deliberately absent: mentioning a thread is not
+ * progress on it, and treating it as progress would hide exactly the dormancy a
+ * writer wants to see. Recording an explicit status always overrides this.
+ */
+export const STATUS_IMPLIED_BY_INTERACTION: Readonly<
+  Partial<Record<ThreadInteraction, PlotThreadStatus>>
+> = {
+  introduces: "introduced",
+  advances: "active",
+  complicates: "active",
+  escalates: "escalating",
+  resolves: "resolved",
+};
+
+/**
+ * How visible a piece of foreshadowing is meant to be on a first reading.
+ *
+ * Authorial intent, not measurement. Whether a setup *reads* as too obvious is a
+ * semantic judgement that belongs to a model; this is the writer stating what
+ * they were aiming for, which is a different and checkable thing.
+ */
+export type Subtlety = "blatant" | "overt" | "subtle" | "buried";
+export const SUBTLETIES: readonly Subtlety[] = ["blatant", "overt", "subtle", "buried"];
 
 export type FactStatus = "canonical" | "provisional" | "retconned";
 export const FACT_STATUSES: readonly FactStatus[] = ["canonical", "provisional", "retconned"];
@@ -248,6 +296,46 @@ export interface Relationship {
   /** Starting free-form status, e.g. "warm", "strained". Optional to record. */
   readonly status: string;
   readonly description: string;
+}
+
+/**
+ * A promise the story makes and the moment it keeps it.
+ *
+ * First-class because a setup is a *relationship between scenes*, not a property
+ * of either one. The brass key in the drawer in chapter 4 and the cellar door in
+ * chapter 27 are connected by authorial intent and nothing else — nothing in the
+ * prose links them, which is exactly why the link has to be recorded
+ * (MASTER_BUILD.md §3; docs/NARRATIVE_THREADS.md).
+ *
+ * All three cardinalities are expressible with arrays: one setup to one payoff,
+ * several plantings paid off at once, or one planting paid off repeatedly.
+ */
+export interface Setup {
+  readonly id: SetupId;
+  /** What is planted, in the author's words. */
+  readonly description: string;
+  /** Where it is planted. More than one when the same promise is repeated. */
+  readonly setupSceneIds: readonly SceneId[];
+  /** Where it is kept. Empty while the promise is still outstanding. */
+  readonly payoffSceneIds: readonly SceneId[];
+  /** What the payoff delivers, in the author's words. */
+  readonly payoffDescription?: string;
+  /** How visible it is meant to be on a first reading. */
+  readonly subtlety: Subtlety;
+  /** What a first-time reader is meant to take it for. */
+  readonly intendedInterpretation?: string;
+  /**
+   * What it actually means — **author-only**. This is the one field that must
+   * never reach a reader-facing context (docs/NARRATIVE_THREADS.md).
+   */
+  readonly trueMeaning?: string;
+  /** The thread this setup serves, when it serves one. */
+  readonly targetThreadId?: PlotThreadId;
+  /** The proposition it ultimately reveals, when there is one. */
+  readonly targetRevealId?: FactId;
+  /** Deliberately dropped: recorded so a check does not keep asking about it. */
+  readonly abandoned?: boolean;
+  readonly notes?: string;
 }
 
 /** A scene: the structural unit that links story-world entities together. */

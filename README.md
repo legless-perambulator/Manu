@@ -14,7 +14,7 @@ This is **not** a chatbot with a writing editor attached. It lets AI agents insp
 
 ## Status
 
-**Phase 14 complete.** Implemented and tested so far:
+**Phase 15 complete.** Implemented and tested so far:
 
 - **Phase 0** — monorepo, tooling, stable branded entity IDs, persistence and
   model-provider boundaries, Tauri + React desktop shell.
@@ -67,6 +67,11 @@ This is **not** a chatbot with a writing editor attached. It lets AI agents insp
   locations that know the Hidden Vault is inside Blackthorn Manor; and six
   deterministic checks that find the revolver left in a flat and fired at the
   manor without a model re-reading a word.
+- **Phase 15** — plot threads, setups and payoffs: thread lifecycle
+  reconstructed at any point in the book, six ways a scene can touch a thread,
+  dormancy measured rather than judged, first-class foreshadowing with the
+  promises it makes and keeps, and context that never hands a scene what only
+  the author knows.
 
 Implementation proceeds as vertical slices — see
 [`docs/ROADMAP.md`](docs/ROADMAP.md) and

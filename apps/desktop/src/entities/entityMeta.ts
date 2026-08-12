@@ -22,6 +22,7 @@ export const KIND_LABEL: Record<Kind, string> = {
   world_rule: "World Rules",
   event: "Events",
   relationship: "Relationships",
+  setup: "Setups & Payoffs",
 };
 
 /** Order the entity panel presents kinds in. */
@@ -35,6 +36,7 @@ export const KIND_ORDER: Kind[] = [
   "world_rule",
   "event",
   "relationship",
+  "setup",
   "chapter",
 ];
 
@@ -97,6 +99,14 @@ export const SCALAR_FIELDS: Record<Kind, readonly ScalarField[]> = {
   relationship: [
     { key: "type", label: "Type" },
     { key: "description", label: "Description", multiline: true },
+  ],
+  // `trueMeaning` is author-only and deliberately edited in the Threads panel,
+  // where the surrounding text says so (docs/NARRATIVE_THREADS.md).
+  setup: [
+    { key: "description", label: "What is planted", multiline: true },
+    { key: "payoffDescription", label: "What it pays off", multiline: true },
+    { key: "intendedInterpretation", label: "Intended reading" },
+    { key: "notes", label: "Notes", multiline: true },
   ],
 };
 

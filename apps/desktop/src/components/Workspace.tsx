@@ -18,6 +18,7 @@ import { KnowledgePanel } from "./KnowledgePanel";
 import { RelationshipPanel } from "./RelationshipPanel";
 import { TimelinePanel } from "./TimelinePanel";
 import { ObjectPanel } from "./ObjectPanel";
+import { ThreadPanel } from "./ThreadPanel";
 
 type LeftTab =
   | "files"
@@ -27,6 +28,7 @@ type LeftTab =
   | "knowledge"
   | "relations"
   | "objects"
+  | "threads"
   | "timeline"
   | "history";
 type RightTab = "inspector" | "agent" | "context";
@@ -140,6 +142,12 @@ export function Workspace({ repo, secrets, onClose, onOpenSettings }: WorkspaceP
               Objects
             </button>
             <button
+              className={`tab${tab === "threads" ? " tab--active" : ""}`}
+              onClick={() => setTab("threads")}
+            >
+              Threads
+            </button>
+            <button
               className={`tab${tab === "timeline" ? " tab--active" : ""}`}
               onClick={() => setTab("timeline")}
             >
@@ -195,6 +203,17 @@ export function Workspace({ repo, secrets, onClose, onOpenSettings }: WorkspaceP
           )}
           {tab === "objects" && (
             <ObjectPanel
+              repo={repo}
+              refreshToken={refreshToken}
+              onChanged={refresh}
+              onSelectEntity={(id) => {
+                setSelectedEntityId(id);
+                setRightTab("inspector");
+              }}
+            />
+          )}
+          {tab === "threads" && (
+            <ThreadPanel
               repo={repo}
               refreshToken={refreshToken}
               onChanged={refresh}

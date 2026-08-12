@@ -64,6 +64,7 @@ export const PATHS = {
   worldRules: "story/world_rules.json",
   events: "plot/events.json",
   relationships: "story/relationships.json",
+  setups: "plot/setups.json",
 } as const;
 
 export function chapterFilePath(id: ChapterId): string {

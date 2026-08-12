@@ -12,11 +12,11 @@ import {
   stateCandidates,
 } from "./state";
 import { buildChronology, temporalCandidates } from "./temporal";
+import { readNarrative, threadCandidates } from "./threads";
 import {
   byId,
   characterCandidate,
   locationCandidate,
-  plotThreadCandidate,
   proseCandidate,
   provenance,
   readSnapshot,
@@ -137,18 +137,6 @@ export async function gatherSceneInspection(
     }
   }
 
-  for (const id of scene.plotThreadIds) {
-    const thread = byId(snap.plotThreads, id);
-    if (thread === undefined) continue;
-    candidates.push(
-      plotThreadCandidate(
-        thread,
-        PRIORITY.threads,
-        provenance("linked_plot_thread", `plot thread carried by ${scene.id}`, [scene.id]),
-      ),
-    );
-  }
-
   // Story state as it stands entering the scene — the answer to "who is where
   // and who knows what" without re-reading the manuscript.
   const timeline = await buildTimeline(reader);
@@ -174,6 +162,17 @@ export async function gatherSceneInspection(
   // then. Manuscript adjacency above answers a different question, and in a
   // nonlinear story the two disagree (docs/TIMELINE.md).
   candidates.push(...temporalCandidates({ chronology: await buildChronology(reader), scene }));
+
+  // The threads this scene carries and the promises outstanding around it.
+  const narrative = await readNarrative(reader);
+  candidates.push(
+    ...threadCandidates({
+      timeline,
+      scene,
+      threads: narrative.threads,
+      setups: narrative.setups,
+    }),
+  );
 
   candidates.push(...worldRuleCandidates(snap.worldRules, scene.id));
 

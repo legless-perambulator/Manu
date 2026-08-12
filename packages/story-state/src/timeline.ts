@@ -1,4 +1,11 @@
-import type { CharacterStatus, ObjectStatus, ObjectVisibility } from "@jellytind/domain";
+import {
+  STATUS_IMPLIED_BY_INTERACTION,
+  type CharacterStatus,
+  type ObjectStatus,
+  type ObjectVisibility,
+  type PlotThreadStatus,
+  type ThreadInteraction,
+} from "@jellytind/domain";
 import { AppError } from "@jellytind/shared";
 import { holdsAsTrue, type AcquisitionStep, type KnowledgeRecord } from "./knowledge";
 import {
@@ -17,6 +24,7 @@ import type {
   RelationshipEventRecord,
   RelationshipState,
 } from "./relationships";
+import type { ThreadDormancy, ThreadState, ThreadStep } from "./threads";
 import { foldKnowledge, normaliseObjectStatus, normaliseTransition } from "./normalise";
 import type {
   CharacterState,
@@ -37,6 +45,18 @@ export class TimelineError extends AppError {
 
 /** A character with no recorded status transition is assumed alive and present. */
 const DEFAULT_STATUS: CharacterStatus = "active";
+
+/**
+ * Manuscript shape, for measures this package cannot derive on its own.
+ *
+ * Scene order is enough for "how many scenes ago"; chapters and word counts come
+ * from the project, so the caller supplies them. Optional throughout: a metric
+ * that cannot be computed is reported as absent rather than guessed.
+ */
+export interface ManuscriptMetrics {
+  readonly chapterBySceneId?: ReadonlyMap<string, string>;
+  readonly wordsBySceneId?: ReadonlyMap<string, number>;
+}
 
 /**
  * Time-aware story state.
@@ -763,6 +783,200 @@ export class StoryTimeline {
           .map((t) => t.subjectId),
       ),
     ].sort();
+  }
+
+  // ── Plot threads ─────────────────────────────────────────────────────────
+
+  /** Thread IDs with any recorded lifecycle change or appearance. */
+  knownThreadIds(view: TimelineView = {}): string[] {
+    return [
+      ...new Set(
+        this.visible(view)
+          .filter((t) => t.kind === "thread_status" || t.kind === "thread_appearance")
+          .map((t) => t.subjectId),
+      ),
+    ].sort();
+  }
+
+  /**
+   * A thread's state at a boundary.
+   *
+   * The entity supplies identity and the *starting* status; everything that
+   * moves is replayed. An appearance implies a status where the interaction has
+   * an obvious meaning — `escalates` means escalating — but an explicit
+   * `thread_status` always wins, because a writer overriding the obvious reading
+   * is exactly the case worth honouring.
+   */
+  threadStateAt(
+    identity: {
+      id: string;
+      name?: string;
+      status?: PlotThreadStatus;
+      introducedSceneId?: string;
+      resolvedSceneId?: string;
+    },
+    asOf: StateBoundary,
+    view: TimelineView = {},
+  ): ThreadState {
+    let status: PlotThreadStatus = identity.status ?? "planned";
+    let introducedSceneId = identity.introducedSceneId;
+    let resolvedSceneId = identity.resolvedSceneId;
+    let lastInteraction: ThreadInteraction | undefined;
+    const appearances: string[] = [];
+
+    for (const t of this.inEffect(asOf, view)) {
+      if (t.subjectId !== identity.id) continue;
+      if (t.kind === "thread_status") {
+        status = t.value as PlotThreadStatus;
+        if (status === "resolved") resolvedSceneId ??= t.sceneId;
+        if (status === "introduced") introducedSceneId ??= t.sceneId;
+      } else if (t.kind === "thread_appearance") {
+        const interaction = t.value as ThreadInteraction;
+        lastInteraction = interaction;
+        if (!appearances.includes(t.sceneId)) appearances.push(t.sceneId);
+        const implied = STATUS_IMPLIED_BY_INTERACTION[interaction];
+        if (implied !== undefined) status = implied;
+        if (interaction === "introduces") introducedSceneId ??= t.sceneId;
+        if (interaction === "resolves") resolvedSceneId ??= t.sceneId;
+      }
+    }
+
+    return {
+      threadId: identity.id,
+      name: identity.name ?? identity.id,
+      status,
+      ...(introducedSceneId !== undefined ? { introducedSceneId } : {}),
+      ...(resolvedSceneId !== undefined ? { resolvedSceneId } : {}),
+      appearanceSceneIds: appearances,
+      ...(lastInteraction !== undefined ? { lastInteraction } : {}),
+      asOf,
+    };
+  }
+
+  /**
+   * Every recorded step in a thread's life, in story order, each carrying the
+   * status it left behind — the data behind a lifecycle a writer can read.
+   */
+  threadHistory(
+    threadId: string,
+    startingStatus: PlotThreadStatus = "planned",
+    view: TimelineView = {},
+  ): ThreadStep[] {
+    let status = startingStatus;
+    const out: ThreadStep[] = [];
+
+    for (const t of this.visible(view)) {
+      if (t.subjectId !== threadId) continue;
+      const previousStatus = status;
+
+      if (t.kind === "thread_status") {
+        status = t.value as PlotThreadStatus;
+        out.push({
+          threadId,
+          sceneId: t.sceneId,
+          status,
+          ...(status === previousStatus ? {} : { previousStatus }),
+          statusSource: status === previousStatus ? "unchanged" : "explicit",
+          ...(t.note !== undefined ? { reason: t.note } : {}),
+        });
+      } else if (t.kind === "thread_appearance") {
+        const interaction = t.value as ThreadInteraction;
+        const implied = STATUS_IMPLIED_BY_INTERACTION[interaction];
+        if (implied !== undefined) status = implied;
+        out.push({
+          threadId,
+          sceneId: t.sceneId,
+          interaction,
+          status,
+          ...(status === previousStatus ? {} : { previousStatus }),
+          statusSource:
+            status === previousStatus
+              ? "unchanged"
+              : implied === undefined
+                ? "explicit"
+                : "implied",
+          ...(t.note !== undefined ? { reason: t.note } : {}),
+        });
+      }
+    }
+    return out;
+  }
+
+  /** Every scene that touched a thread, in story order. */
+  threadAppearances(threadId: string, view: TimelineView = {}): string[] {
+    const seen: string[] = [];
+    for (const t of this.visible(view)) {
+      if (t.subjectId !== threadId || t.kind !== "thread_appearance") continue;
+      if (!seen.includes(t.sceneId)) seen.push(t.sceneId);
+    }
+    return seen;
+  }
+
+  /**
+   * How long a thread has been off the page at a boundary.
+   *
+   * Every figure is a measurement. Nothing here decides whether a gap is too
+   * long — that judgement belongs to the writer, and a system that made it for
+   * them would be wrong about half the books ever written.
+   *
+   * Word distance needs the manuscript, which this package cannot read, so
+   * counts are supplied by the caller (`@jellytind/story-repository` derives them
+   * from chapter prose). Without them the other measures still work.
+   */
+  threadDormancy(
+    threadId: string,
+    asOf: StateBoundary,
+    metrics: ManuscriptMetrics = {},
+    view: TimelineView = {},
+  ): ThreadDormancy {
+    const here = this.positionOf(asOf.sceneId);
+    const limit = asOf.position === "after" ? here : here - 1;
+
+    let lastSceneId: string | undefined;
+    let lastInteraction: ThreadInteraction | undefined;
+    for (const t of this.visible(view)) {
+      if (t.subjectId !== threadId || t.kind !== "thread_appearance") continue;
+      const at = this.order.get(t.sceneId);
+      if (at === undefined || at > limit) continue;
+      lastSceneId = t.sceneId;
+      lastInteraction = t.value as ThreadInteraction;
+    }
+
+    if (lastSceneId === undefined) {
+      return { threadId, neverAppeared: true, asOf };
+    }
+
+    const from = this.positionOf(lastSceneId);
+    const between = this.sceneOrder.slice(from + 1, limit + 1);
+
+    const chapters = metrics.chapterBySceneId;
+    const chaptersSince =
+      chapters === undefined
+        ? undefined
+        : new Set(
+            [lastSceneId, ...between]
+              .map((id) => chapters.get(id))
+              .filter((id): id is string => id !== undefined),
+          ).size - 1;
+
+    const words = metrics.wordsBySceneId;
+    const wordsSince =
+      words === undefined
+        ? undefined
+        : between.reduce((total, id) => total + (words.get(id) ?? 0), 0);
+
+    return {
+      threadId,
+      lastAppearanceSceneId: lastSceneId,
+      ...(lastInteraction !== undefined ? { lastInteraction } : {}),
+      scenesSinceAppearance: between.length,
+      ...(chaptersSince !== undefined && chaptersSince >= 0
+        ? { chaptersSinceAppearance: chaptersSince }
+        : {}),
+      ...(wordsSince !== undefined ? { wordsSinceAppearance: wordsSince } : {}),
+      neverAppeared: false,
+      asOf,
+    };
   }
 
   // ── Whole world ──────────────────────────────────────────────────────────

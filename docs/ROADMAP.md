@@ -410,6 +410,38 @@ Physical things become traceable, and physical contradictions become arithmetic.
 
 See [OBJECTS_LOCATIONS.md](OBJECTS_LOCATIONS.md).
 
+## Phase 15 — Plot threads, setups and payoffs ✅
+
+The system understands narrative promises explicitly instead of inferring them
+from prose.
+
+- **Thread lifecycle as time-aware state**: the seven statuses move through
+  scene-anchored transitions, so a thread's status at any point in the book is
+  reconstructed rather than stored as "current".
+- **Six interactions** — introduces, advances, complicates, references,
+  escalates, resolves — most of which imply a status, so a writer records one
+  thing rather than two. `references` implies nothing: a passing mention is not
+  progress, and treating it as progress would hide the dormancy worth seeing.
+- **Dormancy measured, never graded**: last appearance, scenes, chapters and
+  words since. `dormantAfterScenes` has no default — the right number for a
+  thriller is wrong for a family saga, so the system reports a gap only when a
+  writer names a threshold.
+- **First-class setups and payoffs** with all three cardinalities, plus
+  foreshadowing metadata: subtlety, intended interpretation, true meaning,
+  target thread and target reveal.
+- **Six deterministic checks** — setup without payoff, payoff before setup,
+  unresolved setup, dangling reference, abandoned thread, dormant thread — with
+  only structural contradictions treated as errors, because an unfinished book
+  is meant to be full of open promises.
+- **Context Compiler**: threads at their entry state, promises outstanding, and
+  payoffs landing in the scene — with author-only material flagged
+  `revealsFuture` so Reader Simulation can exclude it structurally rather than
+  by remembering to.
+- UI: a Threads tab showing a thread's lifecycle chapter by chapter, its
+  dormancy, its promises, and the findings that name it.
+
+See [NARRATIVE_THREADS.md](NARRATIVE_THREADS.md).
+
 ## V1 (remaining) — Writing IDE
 
 Prove the core paradigm: **AI can operate reliably on a fiction project instead of merely chatting about it.**

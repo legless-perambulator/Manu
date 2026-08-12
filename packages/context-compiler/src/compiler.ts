@@ -327,6 +327,9 @@ function toItem(
     rendering,
     estimatedTokens,
     ...(fullTokens !== undefined ? { fullTokens } : {}),
+    // Carried through so a reader-facing operation can filter on it without
+    // re-deriving which recipe produced the element.
+    ...(candidate.revealsFuture === true ? { revealsFuture: true } : {}),
   };
 }
 

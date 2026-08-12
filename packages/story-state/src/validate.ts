@@ -1,4 +1,11 @@
-import { entityKindOf, OBJECT_STATUSES, OBJECT_VISIBILITIES } from "@jellytind/domain";
+import {
+  entityKindOf,
+  OBJECT_STATUSES,
+  OBJECT_VISIBILITIES,
+  PLOT_THREAD_STATUSES,
+  THREAD_INTERACTIONS,
+  type ThreadInteraction,
+} from "@jellytind/domain";
 import { AppError } from "@jellytind/shared";
 import {
   ACQUISITION_SOURCES,
@@ -16,6 +23,7 @@ import {
   type RelationshipDimension,
 } from "./relationships";
 import { normaliseObjectStatus } from "./normalise";
+import { INTERACTION_VERBS } from "./threads";
 import {
   LEGACY_TRANSITION_KINDS,
   LOCATION_CHANGE_KINDS,
@@ -47,6 +55,8 @@ const SHAPE: Readonly<Record<TransitionKind, { subject: string; value: string | 
   relationship_status: { subject: "relationship", value: null },
   relationship_dimension: { subject: "relationship", value: null },
   relationship_event: { subject: "relationship", value: null },
+  thread_status: { subject: "plot_thread", value: null },
+  thread_appearance: { subject: "plot_thread", value: null },
 };
 
 const STATUSES = new Set(["active", "inactive", "deceased", "unknown"]);
@@ -246,6 +256,20 @@ export function validateTransition(draft: TransitionDraft): TransitionDraft {
     });
   }
 
+  if (draft.kind === "thread_status" && !PLOT_THREAD_STATUSES.includes(draft.value as never)) {
+    throw new TransitionError(
+      `"${draft.value}" is not a plot thread status (${PLOT_THREAD_STATUSES.join(", ")}).`,
+      { value: draft.value },
+    );
+  }
+
+  if (draft.kind === "thread_appearance" && !THREAD_INTERACTIONS.includes(draft.value as never)) {
+    throw new TransitionError(
+      `"${draft.value}" is not a thread interaction (${THREAD_INTERACTIONS.join(", ")}).`,
+      { value: draft.value },
+    );
+  }
+
   if (draft.kind === "relationship_event" && !isRelationshipEventKind(draft.value)) {
     throw new TransitionError(
       `"${draft.value}" is not a relationship event (${RELATIONSHIP_EVENT_KINDS.join(", ")}).`,
@@ -329,5 +353,9 @@ export function describeTransition(
       return `${t.subjectId} ${String(t.dimension)} → ${t.level ?? String(t.magnitude ?? "")}`;
     case "relationship_event":
       return `${t.subjectId}: ${t.value.replace(/_/g, " ")}`;
+    case "thread_status":
+      return `${t.subjectId} becomes ${t.value}`;
+    case "thread_appearance":
+      return `${t.subjectId} is ${INTERACTION_VERBS[t.value as ThreadInteraction] ?? t.value}`;
   }
 }

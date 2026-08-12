@@ -37,6 +37,10 @@ export type SelectionRule =
   | "preceding_event"
   | "concurrent_node"
   | "future_event"
+  | "active_thread"
+  | "open_setup"
+  | "scene_payoff"
+  | "authorial_intent"
   | "lexical_search"
   | "pinned";
 
@@ -105,6 +109,12 @@ export interface ContextItem {
   readonly estimatedTokens: number;
   /** Tokens the full rendering would have cost, when downgraded. */
   readonly fullTokens?: number;
+  /**
+   * Material a first-time reader could not know — authorial intent, planned
+   * payoffs, where a thread is going. Reader-facing operations must exclude it
+   * (docs/NARRATIVE_THREADS.md).
+   */
+  readonly revealsFuture?: boolean;
 }
 
 export interface ContextSection {

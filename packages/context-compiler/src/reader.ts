@@ -7,6 +7,7 @@ import type {
   Project,
   Relationship,
   Scene,
+  Setup,
   StoryEvent,
   TemporalLink,
   WorldRule,
@@ -51,6 +52,8 @@ export interface ProjectReader {
    * (docs/TIMELINE.md).
    */
   listEvents?(): Promise<StoryEvent[]>;
+  /** Registered setups and payoffs. Optional: a project may record none. */
+  listSetups?(): Promise<Setup[]>;
   listTemporalLinks?(): Promise<TemporalLink[]>;
 
   listProjectFiles(prefix?: string): Promise<string[]>;

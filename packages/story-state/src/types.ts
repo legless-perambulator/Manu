@@ -52,7 +52,11 @@ export type TransitionKind =
   /** One analytical dimension moves. `dimension` names it; `level`/`magnitude` carry it. */
   | "relationship_dimension"
   /** A relationship milestone. `value` is a {@link RelationshipEventKind}. */
-  | "relationship_event";
+  | "relationship_event"
+  /** A plot thread's lifecycle changes. `value` is a {@link PlotThreadStatus}. */
+  | "thread_status"
+  /** A scene touches a thread. `value` is a {@link ThreadInteraction}. */
+  | "thread_appearance";
 
 export const TRANSITION_KINDS: readonly TransitionKind[] = [
   "character_location",
@@ -69,6 +73,8 @@ export const TRANSITION_KINDS: readonly TransitionKind[] = [
   "relationship_status",
   "relationship_dimension",
   "relationship_event",
+  "thread_status",
+  "thread_appearance",
 ];
 
 /**

@@ -7,6 +7,7 @@ import type {
   Project,
   Relationship,
   Scene,
+  Setup,
   StoryEvent,
   TemporalLink,
   WorldRule,
@@ -263,6 +264,35 @@ export const FIXTURE_RELATIONSHIPS = [
   },
 ] as unknown as Relationship[];
 
+/**
+ * One promise planted in SCENE_0001 and kept in SCENE_0004, and one still
+ * outstanding — so both the "reader is holding this" and the "this lands here"
+ * cases are exercised, including the author-only material that must never reach
+ * a reader-facing context.
+ */
+export const FIXTURE_SETUPS = [
+  {
+    id: "SETUP_0001",
+    description: "Brass key visible in father's drawer.",
+    setupSceneIds: ["SCENE_0001"],
+    payoffSceneIds: ["SCENE_0004"],
+    payoffDescription: "The key opens the cellar archive.",
+    subtlety: "subtle",
+    intendedInterpretation: "A keepsake nobody has thrown away.",
+    trueMeaning: "It is the only key to the vault, and Mara already knows it.",
+    targetThreadId: "THREAD_0002",
+    targetRevealId: "FACT_0001",
+  },
+  {
+    id: "SETUP_0002",
+    description: "A photograph is missing from the hall.",
+    setupSceneIds: ["SCENE_0001"],
+    payoffSceneIds: [],
+    subtlety: "overt",
+    targetThreadId: "THREAD_0001",
+  },
+] as unknown as Setup[];
+
 export const FIXTURE_FACTS = [
   {
     id: "FACT_0001",
@@ -400,6 +430,7 @@ export function fixtureReader(overrides: Partial<ProjectReader> = {}): ProjectRe
     listStateTransitions: () => Promise.resolve([...FIXTURE_TRANSITIONS]),
     listRelationships: () => Promise.resolve([...FIXTURE_RELATIONSHIPS]),
     listEvents: () => Promise.resolve([...FIXTURE_EVENTS]),
+    listSetups: () => Promise.resolve([...FIXTURE_SETUPS]),
     listTemporalLinks: () => Promise.resolve([...FIXTURE_TEMPORAL_LINKS]),
     listProjectFiles: (prefix) =>
       Promise.resolve(

@@ -17,6 +17,8 @@ import {
   type WorldRule,
   type StoryEvent,
   type Relationship,
+  type Setup,
+  type Subtlety,
   type ChapterStatus,
   type SceneStatus,
   type CharacterStatus,
@@ -50,7 +52,12 @@ import type { AgentStore } from "@jellytind/agent-runtime";
 import {
   checkContinuity,
   checkKnowledgeViolations,
+  checkNarrative,
   checkTimeline,
+  isOpen,
+  isRunning,
+  openSetupsBefore,
+  setupsForScene,
   factKnowledgeGraph,
   falseBeliefsAt,
   StoryChronology,
@@ -65,6 +72,11 @@ import {
   type ObjectState,
   type ObjectTransfer,
   type KnowledgeViolation,
+  type ManuscriptMetrics,
+  type NarrativeFinding,
+  type ThreadDormancy,
+  type ThreadState,
+  type ThreadStep,
   type RelationshipChange,
   type RelationshipState,
   type StateBoundary,
@@ -171,6 +183,13 @@ function citesEntity(t: StateTransition, id: string): boolean {
 }
 
 const nowIso = (): string => new Date().toISOString();
+
+/** Words in a chapter file, front matter excluded. */
+function countWords(raw: string): number {
+  const body = raw.replace(/^---\n[\s\S]*?\n---\n?/, "");
+  const words = body.trim().match(/\S+/g);
+  return words === null ? 0 : words.length;
+}
 
 /**
  * The Story Repository service: the authoritative gateway to a fiction project.
@@ -632,6 +651,52 @@ export class StoryRepository {
     return rel;
   }
 
+  /**
+   * Register a promise the story makes.
+   *
+   * A setup connects scenes that nothing in the prose connects, so it is
+   * recorded rather than inferred. All three cardinalities work: one planting to
+   * one payoff, several plantings to one, or one planting paid off repeatedly
+   * (docs/NARRATIVE_THREADS.md).
+   */
+  async addSetup(input: {
+    description: string;
+    setupSceneIds?: readonly SceneId[];
+    payoffSceneIds?: readonly SceneId[];
+    payoffDescription?: string;
+    subtlety?: Subtlety;
+    intendedInterpretation?: string;
+    /** Author-only. Never reaches a reader-facing context. */
+    trueMeaning?: string;
+    targetThreadId?: PlotThreadId;
+    targetRevealId?: FactId;
+    notes?: string;
+  }): Promise<Setup> {
+    const id = this.ids.next("setup");
+    const setup: Setup = {
+      id,
+      description: input.description,
+      setupSceneIds: input.setupSceneIds ?? [],
+      payoffSceneIds: input.payoffSceneIds ?? [],
+      ...(input.payoffDescription !== undefined
+        ? { payoffDescription: input.payoffDescription }
+        : {}),
+      subtlety: input.subtlety ?? "subtle",
+      ...(input.intendedInterpretation !== undefined
+        ? { intendedInterpretation: input.intendedInterpretation }
+        : {}),
+      ...(input.trueMeaning !== undefined ? { trueMeaning: input.trueMeaning } : {}),
+      ...(input.targetThreadId !== undefined ? { targetThreadId: input.targetThreadId } : {}),
+      ...(input.targetRevealId !== undefined ? { targetRevealId: input.targetRevealId } : {}),
+      ...(input.notes !== undefined ? { notes: input.notes } : {}),
+    };
+    await this.persistEntity("setup", setup, setup.description, undefined, {
+      operation: "add_setup",
+      change: "created",
+    });
+    return setup;
+  }
+
   // ── Entity reads ───────────────────────────────────────────────────────────
 
   listChapters = (): Promise<Chapter[]> => this.listOf<Chapter>("chapter");
@@ -644,6 +709,7 @@ export class StoryRepository {
   listWorldRules = (): Promise<WorldRule[]> => this.listOf<WorldRule>("world_rule");
   listEvents = (): Promise<StoryEvent[]> => this.listOf<StoryEvent>("event");
   listRelationships = (): Promise<Relationship[]> => this.listOf<Relationship>("relationship");
+  listSetups = (): Promise<Setup[]> => this.listOf<Setup>("setup");
 
   private async listOf<T>(kind: GraphKind): Promise<T[]> {
     return (await this.graph.store(kind).list()) as unknown as T[];
@@ -955,6 +1021,184 @@ export class StoryRepository {
       scenes.filter((s) => s.chapterId === chapterId).map((s) => s.id as string),
       view,
     );
+  }
+
+  // ── Plot threads, setups and payoffs ────────────────────────────────────────
+
+  /**
+   * Manuscript shape for dormancy measurement.
+   *
+   * Words live in chapter files, not scene files, so a chapter's count is
+   * attributed to its **first** scene and the rest of its scenes get zero. Every
+   * total across a span is therefore exact, while no per-scene number is
+   * invented — a distinction that matters, because a fabricated word count would
+   * look exactly like a real one (docs/NARRATIVE_THREADS.md).
+   */
+  async getManuscriptMetrics(): Promise<ManuscriptMetrics> {
+    const [scenes, chapters] = await Promise.all([this.listScenes(), this.listChapters()]);
+    const ordered = orderScenes(scenes, chapters);
+
+    const chapterBySceneId = new Map<string, string>();
+    for (const scene of ordered) {
+      if (scene.chapterId !== undefined) {
+        chapterBySceneId.set(scene.id as string, scene.chapterId as string);
+      }
+    }
+
+    const wordsBySceneId = new Map<string, number>(ordered.map((s) => [s.id as string, 0]));
+    for (const chapter of chapters) {
+      const first = ordered.find((s) => s.chapterId === chapter.id);
+      if (first === undefined) continue;
+      const raw = await this.readProjectFile(chapter.filePath);
+      wordsBySceneId.set(first.id as string, countWords(raw ?? ""));
+    }
+
+    return { chapterBySceneId, wordsBySceneId };
+  }
+
+  /** A thread's state at a boundary, reconstructed from its lifecycle. */
+  async getThreadState(
+    threadId: string,
+    asOf: StateBoundary,
+    view: TimelineView = {},
+  ): Promise<ThreadState> {
+    const [timeline, threads] = await Promise.all([
+      this.getStoryTimeline(),
+      this.listPlotThreads(),
+    ]);
+    const thread = threads.find((t) => t.id === threadId);
+    if (thread === undefined) {
+      throw new RepositoryError("entity_not_found", `No plot thread with id ${threadId}.`);
+    }
+    return timeline.threadStateAt(
+      { id: threadId, name: thread.name, status: thread.status },
+      asOf,
+      view,
+    );
+  }
+
+  /** Every recorded step in a thread's life, in story order. */
+  async getThreadHistory(threadId: string, view: TimelineView = {}): Promise<ThreadStep[]> {
+    const [timeline, threads] = await Promise.all([
+      this.getStoryTimeline(),
+      this.listPlotThreads(),
+    ]);
+    const thread = threads.find((t) => t.id === threadId);
+    return timeline.threadHistory(threadId, thread?.status ?? "planned", view);
+  }
+
+  /** How long a thread has been off the page. Measurements, never a verdict. */
+  async getThreadDormancy(
+    threadId: string,
+    asOf: StateBoundary,
+    view: TimelineView = {},
+  ): Promise<ThreadDormancy> {
+    const [timeline, metrics] = await Promise.all([
+      this.getStoryTimeline(),
+      this.getManuscriptMetrics(),
+    ]);
+    return timeline.threadDormancy(threadId, asOf, metrics, view);
+  }
+
+  /** Threads carrying the story forward at a scene — introduced, active or escalating. */
+  async getActiveThreadsAtScene(sceneId: string, view: TimelineView = {}): Promise<ThreadState[]> {
+    return (await this.threadStatesAt(sceneId, view)).filter((s) => isRunning(s.status));
+  }
+
+  /** Threads the story still owes but is not currently working on. */
+  async getDormantThreadsAtScene(sceneId: string, view: TimelineView = {}): Promise<ThreadState[]> {
+    return (await this.threadStatesAt(sceneId, view)).filter((s) => s.status === "dormant");
+  }
+
+  /**
+   * Threads first introduced within a set of chapters.
+   *
+   * Acts are not entities yet, so an act is named by the chapters that make it
+   * up. When acts become first-class this keeps the same shape.
+   */
+  async getThreadsIntroducedInAct(
+    chapterIds: readonly string[],
+    view: TimelineView = {},
+  ): Promise<ThreadState[]> {
+    const [scenes, states] = await Promise.all([
+      this.listScenes(),
+      this.threadStatesAt(undefined, view),
+    ]);
+    const inAct = new Set(
+      scenes
+        .filter((s) => s.chapterId !== undefined && chapterIds.includes(s.chapterId as string))
+        .map((s) => s.id as string),
+    );
+    return states.filter(
+      (state) => state.introducedSceneId !== undefined && inAct.has(state.introducedSceneId),
+    );
+  }
+
+  /** Threads the story has not finished with — including ones never introduced. */
+  async getUnresolvedThreads(view: TimelineView = {}): Promise<ThreadState[]> {
+    return (await this.threadStatesAt(undefined, view)).filter((s) => isOpen(s.status));
+  }
+
+  /** Every thread's state at a scene, or at the end of the book when unspecified. */
+  private async threadStatesAt(
+    sceneId: string | undefined,
+    view: TimelineView,
+  ): Promise<ThreadState[]> {
+    const [timeline, threads] = await Promise.all([
+      this.getStoryTimeline(),
+      this.listPlotThreads(),
+    ]);
+    const boundary = sceneId ?? timeline.sceneOrder.at(-1);
+    if (boundary === undefined) return [];
+    const asOf = { sceneId: boundary, position: "after" } as const;
+    return threads.map((thread) =>
+      timeline.threadStateAt(
+        { id: thread.id as string, name: thread.name, status: thread.status },
+        asOf,
+        view,
+      ),
+    );
+  }
+
+  /** Setups a scene plants, and setups it keeps. */
+  async getSetupsForScene(sceneId: string): Promise<{ planted: Setup[]; paidOff: Setup[] }> {
+    return setupsForScene(await this.listSetups(), sceneId);
+  }
+
+  /** Promises made before a scene and not yet kept — what the reader is holding. */
+  async getOpenSetupsBeforeScene(sceneId: string): Promise<Setup[]> {
+    const [setups, timeline] = await Promise.all([this.listSetups(), this.getStoryTimeline()]);
+    return openSetupsBefore(setups, timeline, sceneId);
+  }
+
+  /**
+   * Deterministic checks on the project's narrative promises.
+   *
+   * `dormantAfterScenes` is deliberately not defaulted: the right number for a
+   * thriller is wrong for a family saga, so dormancy is reported only when a
+   * caller names a threshold.
+   */
+  async checkNarrative(
+    options: { dormantAfterScenes?: number; view?: TimelineView } = {},
+  ): Promise<NarrativeFinding[]> {
+    const [timeline, scenes, threads, setups, metrics] = await Promise.all([
+      this.getStoryTimeline(),
+      this.listScenes(),
+      this.listPlotThreads(),
+      this.listSetups(),
+      this.getManuscriptMetrics(),
+    ]);
+    return checkNarrative({
+      timeline,
+      scenes,
+      threads,
+      setups,
+      metrics,
+      ...(options.dormantAfterScenes !== undefined
+        ? { dormantAfterScenes: options.dormantAfterScenes }
+        : {}),
+      ...(options.view !== undefined ? { view: options.view } : {}),
+    });
   }
 
   // ── Object continuity ───────────────────────────────────────────────────────

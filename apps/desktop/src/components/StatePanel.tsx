@@ -35,6 +35,8 @@ const KIND_LABELS: Record<TransitionKind, string> = {
   relationship_status: "relationship status becomes",
   relationship_dimension: "relationship dimension moves",
   relationship_event: "relationship milestone",
+  thread_status: "thread lifecycle becomes",
+  thread_appearance: "scene touches thread",
 };
 
 /**

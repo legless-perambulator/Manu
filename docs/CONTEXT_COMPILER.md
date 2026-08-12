@@ -248,7 +248,9 @@ user-pinned context · derived structural summaries · story state at a named
 boundary · character knowledge, false beliefs and information asymmetries ·
 relationship state between the characters present · story time, preceding
 events and concurrent material · object state for the objects a scene uses,
-with locations spelled out through their containment path.
+with locations spelled out through their containment path · plot-thread
+lifecycle at the scene's entry boundary, promises outstanding, and payoffs
+landing in it.
 
 Planned: reader knowledge · foreshadowing · pacing · scene specifications ·
 stored hierarchical summaries · semantic search.
@@ -273,5 +275,8 @@ stored hierarchical summaries · semantic search.
 - The task and its target are always present.
 - Chronologically future material never reaches an earlier scene unless the
   operation explicitly asks for it.
+- Anything a first-time reader could not know is flagged `revealsFuture`, so a
+  reader-facing operation can exclude it by filtering rather than by remembering
+  to. See [NARRATIVE_THREADS.md](NARRATIVE_THREADS.md).
 - Selection is deterministic and reproducible for a given project state.
 - Summaries and derived retrieval never override confirmed canon.
