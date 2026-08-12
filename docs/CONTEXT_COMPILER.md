@@ -227,7 +227,8 @@ did the AI actually see?".
 Implemented: entity references · scene/chapter adjacency · plot threads ·
 character participation · locations · world rules · style and voice material ·
 user-pinned context · derived structural summaries · story state at a named
-boundary · character knowledge, false beliefs and information asymmetries.
+boundary · character knowledge, false beliefs and information asymmetries ·
+relationship state between the characters present.
 
 Planned: reader knowledge · timeline proximity · foreshadowing · pacing · scene
 specifications · stored hierarchical summaries · semantic search.

@@ -1,6 +1,13 @@
 import type { CharacterStatus } from "@jellytind/domain";
 import { AppError } from "@jellytind/shared";
 import { holdsAsTrue, type AcquisitionStep, type KnowledgeRecord } from "./knowledge";
+import type {
+  DimensionValue,
+  RelationshipChange,
+  RelationshipDimension,
+  RelationshipEventRecord,
+  RelationshipState,
+} from "./relationships";
 import { foldKnowledge, normaliseTransition } from "./normalise";
 import type {
   CharacterState,
@@ -365,6 +372,194 @@ export class StoryTimeline {
 
   establishedFactsBeforeScene(sceneId: string, view: TimelineView = {}): string[] {
     return this.establishedFactsAt({ sceneId, position: "before" }, view);
+  }
+
+  // ── Relationships ────────────────────────────────────────────────────────
+
+  /**
+   * A relationship as it stood at a boundary.
+   *
+   * The identity — who the pair are — comes from the entity and never changes.
+   * Everything mutable is replayed from transitions up to that point, so asking
+   * about Chapter 3 gives Chapter 3's answer even after Chapter 20 has been
+   * written. That is the whole point: **future state must never leak backwards**.
+   */
+  relationshipStateAt(
+    identity: {
+      id: string;
+      characterAId: string;
+      characterBId: string;
+      type: string;
+      status?: string;
+      description?: string;
+    },
+    asOf: StateBoundary,
+    view: TimelineView = {},
+  ): RelationshipState {
+    let type = identity.type;
+    let status = identity.status ?? "";
+    const dimensions: Partial<Record<RelationshipDimension, DimensionValue>> = {};
+    const events: RelationshipEventRecord[] = [];
+
+    for (const t of this.inEffect(asOf, view)) {
+      if (t.subjectId !== identity.id) continue;
+      switch (t.kind) {
+        case "relationship_type":
+          type = t.value;
+          break;
+        case "relationship_status":
+          status = t.value;
+          break;
+        case "relationship_dimension": {
+          if (t.dimension === undefined) break;
+          const previous = dimensions[t.dimension];
+          dimensions[t.dimension] = {
+            dimension: t.dimension,
+            ...(t.magnitude !== undefined ? { magnitude: t.magnitude } : {}),
+            ...(t.level !== undefined ? { level: t.level } : {}),
+            ...(t.note !== undefined ? { reason: t.note } : {}),
+            changedAtSceneId: t.sceneId,
+            ...(previous !== undefined
+              ? {
+                  previous: {
+                    ...(previous.magnitude !== undefined ? { magnitude: previous.magnitude } : {}),
+                    ...(previous.level !== undefined ? { level: previous.level } : {}),
+                  },
+                }
+              : {}),
+          };
+          break;
+        }
+        case "relationship_event":
+          events.push({
+            kind: t.value as RelationshipEventRecord["kind"],
+            sceneId: t.sceneId,
+            ...(t.note !== undefined ? { reason: t.note } : {}),
+          });
+          break;
+        default:
+          break;
+      }
+    }
+
+    return {
+      relationshipId: identity.id,
+      characterAId: identity.characterAId,
+      characterBId: identity.characterBId,
+      type,
+      status,
+      description: identity.description ?? "",
+      dimensions,
+      events,
+      asOf,
+    };
+  }
+
+  relationshipBeforeScene(
+    identity: Parameters<StoryTimeline["relationshipStateAt"]>[0],
+    sceneId: string,
+    view: TimelineView = {},
+  ): RelationshipState {
+    return this.relationshipStateAt(identity, { sceneId, position: "before" }, view);
+  }
+
+  relationshipAfterScene(
+    identity: Parameters<StoryTimeline["relationshipStateAt"]>[0],
+    sceneId: string,
+    view: TimelineView = {},
+  ): RelationshipState {
+    return this.relationshipStateAt(identity, { sceneId, position: "after" }, view);
+  }
+
+  /** Every recorded change to one relationship, in story order. */
+  relationshipHistory(relationshipId: string, view: TimelineView = {}): RelationshipChange[] {
+    const running = new Map<string, string>();
+    const out: RelationshipChange[] = [];
+
+    for (const t of this.visible(view)) {
+      if (t.subjectId !== relationshipId) continue;
+      const change = this.asRelationshipChange(t, running);
+      if (change !== null) out.push(change);
+    }
+    return out;
+  }
+
+  /** Relationship changes recorded across a set of scenes — e.g. one chapter. */
+  relationshipChangesInScenes(
+    sceneIds: readonly string[],
+    view: TimelineView = {},
+  ): RelationshipChange[] {
+    const wanted = new Set(sceneIds);
+    const running = new Map<string, string>();
+    const out: RelationshipChange[] = [];
+
+    for (const t of this.visible(view)) {
+      const change = this.asRelationshipChange(t, running);
+      if (change !== null && wanted.has(t.sceneId)) out.push(change);
+    }
+    return out;
+  }
+
+  /**
+   * Turn a transition into a change record, threading the running value so the
+   * history reads `0.48 → 0.31` rather than only the destination. Returns null
+   * for transitions that are not relationship changes.
+   */
+  private asRelationshipChange(
+    t: StateTransition,
+    running: Map<string, string>,
+  ): RelationshipChange | null {
+    const base = {
+      relationshipId: t.subjectId,
+      sceneId: t.sceneId,
+      ...(t.note !== undefined ? { reason: t.note } : {}),
+    };
+
+    const track = (key: string, to: string): { from?: string; to: string } => {
+      const from = running.get(key);
+      running.set(key, to);
+      return { ...(from !== undefined ? { from } : {}), to };
+    };
+
+    switch (t.kind) {
+      case "relationship_type":
+        return { ...base, kind: "type", label: "type", ...track(`${t.subjectId}:type`, t.value) };
+      case "relationship_status":
+        return {
+          ...base,
+          kind: "status",
+          label: "status",
+          ...track(`${t.subjectId}:status`, t.value),
+        };
+      case "relationship_dimension": {
+        if (t.dimension === undefined) return null;
+        const to =
+          t.level !== undefined && t.magnitude !== undefined
+            ? `${t.level} (${String(t.magnitude)})`
+            : (t.level ?? String(t.magnitude ?? ""));
+        return {
+          ...base,
+          kind: "dimension",
+          label: t.dimension,
+          ...track(`${t.subjectId}:${t.dimension}`, to),
+        };
+      }
+      case "relationship_event":
+        return { ...base, kind: "event", label: t.value, to: t.value };
+      default:
+        return null;
+    }
+  }
+
+  /** Relationship IDs that have any recorded change. */
+  knownRelationshipIds(view: TimelineView = {}): string[] {
+    return [
+      ...new Set(
+        this.visible(view)
+          .filter((t) => t.kind.startsWith("relationship_"))
+          .map((t) => t.subjectId),
+      ),
+    ].sort();
   }
 
   // ── Whole world ──────────────────────────────────────────────────────────

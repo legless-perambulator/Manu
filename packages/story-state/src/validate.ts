@@ -8,6 +8,14 @@ import {
   type KnowledgeState,
 } from "./knowledge";
 import {
+  isQualitativeLevel,
+  isRelationshipDimension,
+  isRelationshipEventKind,
+  RELATIONSHIP_EVENT_KINDS,
+  type QualitativeLevel,
+  type RelationshipDimension,
+} from "./relationships";
+import {
   LEGACY_TRANSITION_KINDS,
   TRANSITION_KINDS,
   type StateTransition,
@@ -28,6 +36,10 @@ const SHAPE: Readonly<Record<TransitionKind, { subject: string; value: string | 
   object_location: { subject: "object", value: "location" },
   fact_established: { subject: "fact", value: null },
   knowledge_changed: { subject: "character", value: "fact" },
+  relationship_type: { subject: "relationship", value: null },
+  relationship_status: { subject: "relationship", value: null },
+  relationship_dimension: { subject: "relationship", value: null },
+  relationship_event: { subject: "relationship", value: null },
 };
 
 const STATUSES = new Set(["active", "inactive", "deceased", "unknown"]);
@@ -45,6 +57,10 @@ export interface TransitionDraft {
   readonly sourceEntityId?: string;
   /** @deprecated Use `sourceType`. */
   readonly howLearned?: StateTransition["howLearned"];
+  /** For `relationship_dimension`. */
+  readonly dimension?: RelationshipDimension;
+  readonly level?: QualitativeLevel;
+  readonly magnitude?: number;
   readonly note?: string;
 }
 
@@ -145,6 +161,54 @@ export function validateTransition(draft: TransitionDraft): TransitionDraft {
     });
   }
 
+  if (draft.kind === "relationship_dimension") {
+    if (!isRelationshipDimension(draft.dimension)) {
+      throw new TransitionError(`"${String(draft.dimension)}" is not a relationship dimension.`, {
+        dimension: draft.dimension,
+      });
+    }
+    // Dimensions are optional for a project, but a recorded change must say
+    // something: a qualitative level, a magnitude, or both.
+    if (draft.level === undefined && draft.magnitude === undefined) {
+      throw new TransitionError(
+        "A relationship dimension change needs a level, a magnitude, or both.",
+        { dimension: draft.dimension },
+      );
+    }
+    if (draft.level !== undefined && !isQualitativeLevel(draft.level)) {
+      throw new TransitionError(`"${String(draft.level)}" is not a qualitative level.`, {
+        level: draft.level,
+      });
+    }
+    if (draft.magnitude !== undefined && (draft.magnitude < 0 || draft.magnitude > 1)) {
+      throw new TransitionError("A relationship magnitude must be between 0 and 1.", {
+        magnitude: draft.magnitude,
+      });
+    }
+  } else if (
+    draft.dimension !== undefined ||
+    draft.level !== undefined ||
+    draft.magnitude !== undefined
+  ) {
+    throw new TransitionError(`"${draft.kind}" does not take relationship dimension fields.`, {
+      kind: draft.kind,
+    });
+  }
+
+  if (draft.kind === "relationship_event" && !isRelationshipEventKind(draft.value)) {
+    throw new TransitionError(
+      `"${draft.value}" is not a relationship event (${RELATIONSHIP_EVENT_KINDS.join(", ")}).`,
+      { value: draft.value },
+    );
+  }
+
+  if (
+    (draft.kind === "relationship_type" || draft.kind === "relationship_status") &&
+    draft.value.trim() === ""
+  ) {
+    throw new TransitionError(`"${draft.kind}" needs a non-empty value.`, { kind: draft.kind });
+  }
+
   return draft;
 }
 
@@ -158,7 +222,10 @@ const STATE_VERBS: Readonly<Record<KnowledgeState, string>> = {
 
 /** A one-line description of a transition, for logs and the inspector. */
 export function describeTransition(
-  t: Pick<StateTransition, "kind" | "subjectId" | "value" | "knowledgeState">,
+  t: Pick<
+    StateTransition,
+    "kind" | "subjectId" | "value" | "knowledgeState" | "dimension" | "level" | "magnitude"
+  >,
 ): string {
   switch (t.kind) {
     case "character_location":
@@ -175,5 +242,13 @@ export function describeTransition(
       return `${t.value} becomes true`;
     case "knowledge_changed":
       return `${t.subjectId} ${STATE_VERBS[t.knowledgeState ?? "known"]} ${t.value}`;
+    case "relationship_type":
+      return `${t.subjectId} becomes ${t.value}`;
+    case "relationship_status":
+      return `${t.subjectId} is ${t.value}`;
+    case "relationship_dimension":
+      return `${t.subjectId} ${String(t.dimension)} → ${t.level ?? String(t.magnitude ?? "")}`;
+    case "relationship_event":
+      return `${t.subjectId}: ${t.value.replace(/_/g, " ")}`;
   }
 }

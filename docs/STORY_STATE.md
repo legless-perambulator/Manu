@@ -4,7 +4,7 @@ Explicit, machine-readable story state so the LLM does not have to reconstruct e
 
 - **Package:** `@jellytind/story-state` (timeline + validation), persisted by `@jellytind/story-repository`
 - **Depends on:** `@jellytind/domain`, `@jellytind/shared`
-- **Status (Phase 10 V1, extended in Phase 11):** **Implemented and tested.** Character location, alive/dead status, object ownership and location, canonical facts, and a full **knowledge and belief graph** — states, acquisition sources, false beliefs, transfer chains and deterministic violation checks — all reconstructable at any scene boundary, with manual editing, AI extraction and Context Compiler integration. Physical condition, emotional variables, relationship dynamics, goals and reader knowledge are **PLANNED**.
+- **Status (Phase 10 V1, extended in Phase 11):** **Implemented and tested.** Character location, alive/dead status, object ownership and location, canonical facts, a full **knowledge and belief graph** — states, acquisition sources, false beliefs, transfer chains and deterministic violation checks — and **dynamic relationship state** with optional analytical dimensions, all reconstructable at any scene boundary, with manual editing, AI extraction and Context Compiler integration. Physical condition, goals and reader knowledge are **PLANNED**.
 
 ## State is transitions, not a snapshot
 
@@ -25,14 +25,18 @@ transition corrects every later answer at once, because nothing is cached.
 
 ## The V1 dimensions
 
-| Transition kind      | Subject   | Value                                                                         |
-| -------------------- | --------- | ----------------------------------------------------------------------------- |
-| `character_location` | character | location                                                                      |
-| `character_status`   | character | `active` / `inactive` / `deceased` / `unknown`                                |
-| `object_owner`       | object    | character (or empty for unowned)                                              |
-| `object_location`    | object    | location                                                                      |
-| `fact_established`   | fact      | the fact — when it becomes true in the world                                  |
-| `knowledge_changed`  | character | fact, with `knowledgeState`, `sourceType`, `sourceEntityId?` and `certainty?` |
+| Transition kind          | Subject      | Value                                                                         |
+| ------------------------ | ------------ | ----------------------------------------------------------------------------- |
+| `character_location`     | character    | location                                                                      |
+| `character_status`       | character    | `active` / `inactive` / `deceased` / `unknown`                                |
+| `object_owner`           | object       | character (or empty for unowned)                                              |
+| `object_location`        | object       | location                                                                      |
+| `fact_established`       | fact         | the fact — when it becomes true in the world                                  |
+| `knowledge_changed`      | character    | fact, with `knowledgeState`, `sourceType`, `sourceEntityId?` and `certainty?` |
+| `relationship_type`      | relationship | the new type — rival, ally, mentor                                            |
+| `relationship_status`    | relationship | the new free-form status — "strained", "estranged"                            |
+| `relationship_dimension` | relationship | one `dimension` moving to a `level` and/or `magnitude`                        |
+| `relationship_event`     | relationship | a milestone — betrayal, alliance, reconciliation                              |
 
 Each dimension is objective enough to be recorded without interpretation, which
 is what keeps the layer deterministic. Emotional variables and relationship
@@ -131,6 +135,86 @@ author can see what the model tried to claim. Extraction requires the
 `edit_story_state` permission and runs as a persisted `AgentTask`, like every
 other AI operation.
 
+## Dynamic relationships
+
+"Elias and Mara are allies" is not an answer. The question is what their
+relationship **was at the point in the story being worked on** — so relationships
+get the same treatment as location and knowledge.
+
+### Identity survives change
+
+The `Relationship` entity holds identity — `REL_0012` is Elias↔Mara for the whole
+book — plus the _starting_ type, status and description. Everything that changes
+lives in transitions. However often the pair go from allies to adversaries,
+nothing keys off "the ally relationship"; it keys off the ID.
+
+### Descriptive state comes first
+
+`type`, `status` and `description` are the substance, and they are free text: a
+writer who never touches a number has fully working relationships.
+
+### Optional analytical dimensions
+
+Ten are available — trust, affection, fear, resentment, loyalty, dependency,
+suspicion, attraction, respect, power — and **every one is optional**. They exist
+so a writer can ask whether a collapse of trust was earned, not to make anyone
+quantify a friendship.
+
+Each dimension change may carry a **qualitative level**
+(`none · very_low · low · moderate · high · very_high`), a **0–1 magnitude**, or
+both, plus the reason it moved:
+
+```
+SCENE_0042  REL_ELIAS_MARA
+  trust:      0.48 → 0.31   moderate → low
+  suspicion:  —    → 0.51   moderate
+  reason: Mara lies about the vault.
+```
+
+Both forms are first class, and the system never invents the one it was not
+given: `qualitativeOf(0.31)` describes a magnitude as `low`, but a recorded
+`low` stays `low` — analysis knows only the band. **Numeric values are analytical
+aids, not objective literary truth**, and the code says so where it is defined.
+
+### Milestones
+
+`first_meeting · alliance · betrayal · confession · reconciliation ·
+falling_out · estrangement · rescue · debt_incurred · oath_sworn · oath_broken ·
+rivalry_begins · kiss · breakup · death_of_one`
+
+Deliberately not romance-shaped: a thriller's oaths and debts matter as much as a
+romance's kisses.
+
+### Queries
+
+```ts
+repo.getRelationshipBeforeScene(REL_0012, SCENE_0042);
+repo.getRelationshipAfterScene(REL_0012, SCENE_0042);
+repo.getRelationshipHistory(REL_0012);
+repo.getRelationshipsForCharacter(CHAR_ELIAS, boundary);
+repo.getRelationshipChangesInChapter(CHAPTER_0012);
+```
+
+A history entry reads as a movement, not a destination — `trust: high (0.72) →
+low (0.31)` — because the running value is threaded through the replay.
+
+### The timeline view
+
+The desktop **Relations** tab shows the arc grouped by chapter, the way a writer
+reads their own book:
+
+```
+ELIAS → MARA
+  Openings      SCENE_0001  first meeting
+                SCENE_0001  trust — → moderate (0.48)
+  The Rift      SCENE_0012  trust  high (0.72) → low (0.31)
+                            Mara lies about the vault.
+                SCENE_0012  status close → suspicious
+  Aftermath     SCENE_0023  type   → enemies
+```
+
+Plain on purpose: correct time-aware data matters more than visual polish here.
+
 ## Context Compiler integration
 
 Compiled context gains a **`storyState`** section. Scene recipes include the
@@ -162,6 +246,16 @@ without it:
 
 Everything else is left out. Dumping every fact for every character would defeat
 the purpose of having a compiler.
+
+### Relationships at the right moment
+
+Scene context includes the relationships between characters **who are both in the
+scene**, reconstructed at the scene's **entry boundary**.
+
+The boundary is the point. Drafting Chapter 3 must never receive Chapter 20's
+fractured version of a friendship that is currently warm — that would quietly
+write the ending into the beginning. A test asserts exactly this: a relationship
+that turns hostile later does not appear in an earlier scene's context.
 
 This is the payoff. A drafting or rewriting operation now receives _who is where,
 who is carrying what, and who knows what_ as compiled context — instead of a
@@ -323,6 +417,9 @@ with no model involved.
 - Only confirmed transitions are canon; proposals never contribute to state.
 - Truth, character knowledge and belief never share a field.
 - A belief never mutates the fact it points at.
+- Relationship identity survives every change of type and status.
+- Relationship dimensions are optional; no writer is forced to quantify.
+- Compiled context never shows a scene a later scene's relationship state.
 - Deception is representable: a source need not hold what they convey.
 - A transition cannot name an entity that does not exist, or one of the wrong kind.
 - State edits are reversible change sets.

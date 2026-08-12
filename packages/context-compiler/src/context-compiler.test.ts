@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ContextCompiler, RECIPES } from "./compiler";
 import { CompileError } from "./errors";
 import { fixtureReader, FIXTURE_FILES } from "./fixture";
+import { buildTimeline } from "./recipes/state";
 import { renderContextPackage } from "./present";
 import { adjacentChapters, adjacentScenes, orderScenes } from "./sequence";
 import { estimateTokens } from "./tokens";
@@ -385,5 +386,44 @@ describe("story state in context", () => {
     expect(
       state?.items.every((i) => i.provenance.reason.includes("immediately before SCENE_0001")),
     ).toBe(true);
+  });
+});
+
+describe("relationship state in context", () => {
+  it("includes relationships between characters present, at the entry boundary", async () => {
+    const pkg = await compiler().compile({ recipe: "scene_inspection", targetId: "SCENE_0002" });
+    const item = allItems(pkg).find((i) => i.id.startsWith("REL_0001@"));
+
+    expect(item?.provenance.reason).toBe(
+      "relationship between CHAR_0001 and CHAR_0002 immediately before SCENE_0002, both of whom are in SCENE_0002",
+    );
+    expect(item?.text).toContain("type: rival");
+    expect(item?.text).toContain("status: wary");
+  });
+
+  it("never provides future relationship state while working on an earlier scene", async () => {
+    // The relationship turns hostile in SCENE_0003 and trust is recorded in
+    // SCENE_0002 — neither may appear in SCENE_0002's entry context.
+    const pkg = await compiler().compile({ recipe: "scene_inspection", targetId: "SCENE_0002" });
+    const item = allItems(pkg).find((i) => i.id.startsWith("REL_0001@"));
+    expect(item?.text).not.toContain("hostile");
+    expect(item?.text).not.toContain("trust");
+
+    // Later in the story, both are present.
+    const later = await compiler().compile({ recipe: "scene_inspection", targetId: "SCENE_0004" });
+    const timeline = await buildTimeline(fixtureReader());
+    expect(
+      timeline.relationshipBeforeScene(
+        { id: "REL_0001", characterAId: "CHAR_0001", characterBId: "CHAR_0002", type: "rival" },
+        "SCENE_0004",
+      ).status,
+    ).toBe("hostile");
+    // SCENE_0004 has only one character, so no relationship is compiled for it.
+    expect(allItems(later).some((i) => i.id.startsWith("REL_0001@"))).toBe(false);
+  });
+
+  it("omits relationships where only one party is in the scene", async () => {
+    const pkg = await compiler().compile({ recipe: "scene_inspection", targetId: "SCENE_0001" });
+    expect(allItems(pkg).some((i) => i.id.startsWith("REL_0001@"))).toBe(false);
   });
 });

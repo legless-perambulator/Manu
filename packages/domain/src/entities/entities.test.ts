@@ -81,6 +81,7 @@ describe("entity shapes", () => {
       characterAId: ids.next("character"),
       characterBId: ids.next("character"),
       type: "sibling",
+      status: "",
       description: "",
     };
     expectTypeOf(chapter.id).toEqualTypeOf<ChapterId>();

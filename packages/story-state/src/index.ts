@@ -36,6 +36,27 @@ export type {
 
 export { factKnowledgeGraph, falseBeliefsAt, informationAsymmetriesAt } from "./graph";
 
+export {
+  RELATIONSHIP_DIMENSIONS,
+  RELATIONSHIP_EVENT_KINDS,
+  QUALITATIVE_LEVELS,
+  isRelationshipDimension,
+  isRelationshipEventKind,
+  isQualitativeLevel,
+  qualitativeOf,
+  describeDimensionChange,
+  describeRelationship,
+} from "./relationships";
+export type {
+  DimensionValue,
+  QualitativeLevel,
+  RelationshipChange,
+  RelationshipDimension,
+  RelationshipEventKind,
+  RelationshipEventRecord,
+  RelationshipState,
+} from "./relationships";
+
 export { checkKnowledgeViolations } from "./violations";
 export type {
   CheckInput,

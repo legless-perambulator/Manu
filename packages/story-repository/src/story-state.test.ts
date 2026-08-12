@@ -415,3 +415,165 @@ describe("revision persistence of knowledge", () => {
     void repo;
   });
 });
+
+// ── Relationships over time ─────────────────────────────────────────────────
+
+describe("relationship state through the repository", () => {
+  /** Elias and Mara: warm allies who sour after the lie in SCENE_0042. */
+  async function relationship() {
+    const f = await novel();
+    const { repo, elias, mara, s40, s42, s43, chapter } = f;
+    const rel = await repo.addRelationship({
+      characterAId: elias.id,
+      characterBId: mara.id,
+      type: "allies",
+      status: "warm",
+      description: "Thrown together by the same investigation.",
+    });
+    await repo.addStateTransitions([
+      { sceneId: s40.id, kind: "relationship_event", subjectId: rel.id, value: "first_meeting" },
+      {
+        sceneId: s40.id,
+        kind: "relationship_dimension",
+        subjectId: rel.id,
+        value: "",
+        dimension: "trust",
+        level: "moderate",
+        magnitude: 0.48,
+      },
+      {
+        sceneId: s42.id,
+        kind: "relationship_dimension",
+        subjectId: rel.id,
+        value: "",
+        dimension: "trust",
+        level: "low",
+        magnitude: 0.31,
+        note: "Mara lies about the vault.",
+      },
+      { sceneId: s42.id, kind: "relationship_status", subjectId: rel.id, value: "suspicious" },
+      { sceneId: s43.id, kind: "relationship_type", subjectId: rel.id, value: "adversaries" },
+    ]);
+    return { ...f, rel, chapter };
+  }
+
+  it("answers what the relationship was at a point, not what it became", async () => {
+    const { repo, rel, s42, s43 } = await relationship();
+
+    const before = await repo.getRelationshipBeforeScene(rel.id, s42.id);
+    expect(before).toMatchObject({ type: "allies", status: "warm" });
+    expect(before.dimensions.trust).toMatchObject({ magnitude: 0.48, level: "moderate" });
+
+    const after = await repo.getRelationshipAfterScene(rel.id, s42.id);
+    expect(after).toMatchObject({ type: "allies", status: "suspicious" });
+    expect(after.dimensions.trust).toMatchObject({
+      magnitude: 0.31,
+      previous: { magnitude: 0.48 },
+      reason: "Mara lies about the vault.",
+    });
+
+    expect((await repo.getRelationshipAfterScene(rel.id, s43.id)).type).toBe("adversaries");
+  });
+
+  it("keeps identity across every change", async () => {
+    const { repo, rel, elias, mara, s43 } = await relationship();
+    const latest = await repo.getRelationshipAfterScene(rel.id, s43.id);
+    expect(latest).toMatchObject({
+      relationshipId: rel.id,
+      characterAId: elias.id,
+      characterBId: mara.id,
+    });
+  });
+
+  it("gives a character's relationships as they stood at a moment", async () => {
+    const { repo, elias, s40, s43 } = await relationship();
+    const early = await repo.getRelationshipsForCharacter(elias.id, {
+      sceneId: s40.id,
+      position: "before",
+    });
+    expect(early).toHaveLength(1);
+    expect(early[0]).toMatchObject({ type: "allies", status: "warm" });
+
+    const late = await repo.getRelationshipsForCharacter(elias.id, {
+      sceneId: s43.id,
+      position: "after",
+    });
+    expect(late[0]).toMatchObject({ type: "adversaries", status: "suspicious" });
+  });
+
+  it("gives the history and the changes within a chapter", async () => {
+    const { repo, rel, chapter } = await relationship();
+    const history = await repo.getRelationshipHistory(rel.id);
+    expect(history.map((c) => c.label)).toEqual([
+      "first_meeting",
+      "trust",
+      "trust",
+      "status",
+      "type",
+    ]);
+
+    const inChapter = await repo.getRelationshipChangesInChapter(chapter.id);
+    expect(inChapter).toHaveLength(history.length);
+    expect(inChapter.find((c) => c.label === "type")?.to).toBe("adversaries");
+  });
+
+  it("refuses invalid subjects and characters", async () => {
+    const { repo, elias, s40 } = await relationship();
+    await expect(
+      repo.addStateTransitions([
+        { sceneId: s40.id, kind: "relationship_status", subjectId: elias.id, value: "warm" },
+      ]),
+    ).rejects.toThrow(/needs a relationship subject/);
+
+    await expect(
+      repo.addRelationship({
+        characterAId: elias.id,
+        characterBId: "CHAR_9999" as typeof elias.id,
+        type: "allies",
+      }),
+    ).rejects.toThrow(RepositoryError);
+  });
+});
+
+describe("relationship deletion safety", () => {
+  it("refuses to delete a relationship with recorded history", async () => {
+    const { repo, elias, mara, s40 } = await novel();
+    const rel = await repo.addRelationship({
+      characterAId: elias.id,
+      characterBId: mara.id,
+      type: "allies",
+    });
+    await repo.addStateTransitions([
+      { sceneId: s40.id, kind: "relationship_status", subjectId: rel.id, value: "warm" },
+    ]);
+
+    await expect(repo.deleteEntity(rel.id)).rejects.toThrow(/story-state transition/);
+    expect(await repo.getEntity(rel.id)).not.toBeNull();
+  });
+
+  it("removes the history when unlinking", async () => {
+    const { repo, elias, mara, s40 } = await novel();
+    const rel = await repo.addRelationship({
+      characterAId: elias.id,
+      characterBId: mara.id,
+      type: "allies",
+    });
+    await repo.addStateTransitions([
+      { sceneId: s40.id, kind: "relationship_status", subjectId: rel.id, value: "warm" },
+    ]);
+
+    await repo.deleteEntity(rel.id, { mode: "unlink" });
+    expect((await repo.listStateTransitions()).some((t) => t.subjectId === rel.id)).toBe(false);
+    expect((await repo.getStoryTimeline()).knownRelationshipIds()).not.toContain(rel.id);
+  });
+
+  it("refuses to delete a character a relationship depends on", async () => {
+    const { repo, elias, mara } = await novel();
+    await repo.addRelationship({
+      characterAId: elias.id,
+      characterBId: mara.id,
+      type: "allies",
+    });
+    await expect(repo.deleteEntity(elias.id)).rejects.toThrow(RepositoryError);
+  });
+});

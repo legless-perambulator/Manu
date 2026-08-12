@@ -32,6 +32,7 @@ export type SelectionRule =
   | "false_belief"
   | "information_asymmetry"
   | "fact_knowledge"
+  | "relationship_state"
   | "lexical_search"
   | "pinned";
 

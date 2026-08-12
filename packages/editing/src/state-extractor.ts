@@ -10,7 +10,12 @@ import type { StoryRepository } from "@jellytind/story-repository";
 import {
   ACQUISITION_SOURCES,
   describeTransition,
+  isQualitativeLevel,
+  isRelationshipDimension,
   KNOWLEDGE_STATES,
+  QUALITATIVE_LEVELS,
+  RELATIONSHIP_DIMENSIONS,
+  RELATIONSHIP_EVENT_KINDS,
   TRANSITION_KINDS,
   validateTransition,
   type AcquisitionSource,
@@ -82,6 +87,8 @@ Rules:
   - "unknown" — they no longer hold it at all.
 - Say how they came by it: witnessed, told, read, inferred, remembered, assumed, deceived, or unknown. When another character is the source, name them in sourceEntityId.
 - A character can be told something false. Record what they now hold, not what is true; use "deceived" when they are being lied to.
+- For relationships, report a change of type or status when the scene shows one, and milestones (betrayal, alliance, reconciliation, and so on) when they occur.
+- Relationship dimensions are optional analytical aids, not objective truth. Only report one when the scene clearly moves it, prefer a qualitative level over a number, and always give a reason.
 - Give each change a confidence between 0 and 1 and quote the phrase that supports it.
 - You are proposing, not deciding. A human confirms every change.`;
 
@@ -97,10 +104,14 @@ const FORMAT = `Reply with JSON only, matching:
       "knowledgeState": "${KNOWLEDGE_STATES.join(" | ")} — only for knowledge_changed",
       "sourceType": "${ACQUISITION_SOURCES.join(" | ")} — only for knowledge_changed",
       "sourceEntityId": "CHAR_ or OBJECT_ the information came from, when there is one",
-      "certainty": 1.0
+      "certainty": 1.0,
+      "dimension": "${RELATIONSHIP_DIMENSIONS.join(" | ")} — only for relationship_dimension",
+      "level": "${QUALITATIVE_LEVELS.join(" | ")} — preferred form for a dimension",
+      "magnitude": 0.0
     }
   ]
 }
+For relationship_type and relationship_status, subjectId is a REL_ id and value is the new type or status. For relationship_event, value is one of: ${RELATIONSHIP_EVENT_KINDS.join(", ")}.
 Return an empty array if the scene changes nothing.`;
 
 export interface StateExtractorOptions {
@@ -260,6 +271,9 @@ export class StateExtractor {
         ...(typeof entry.sourceEntityId === "string" && entry.sourceEntityId !== ""
           ? { sourceEntityId: entry.sourceEntityId }
           : {}),
+        ...(isRelationshipDimension(entry.dimension) ? { dimension: entry.dimension } : {}),
+        ...(isQualitativeLevel(entry.level) ? { level: entry.level } : {}),
+        ...(typeof entry.magnitude === "number" ? { magnitude: clamp(entry.magnitude) } : {}),
         note: typeof entry.evidence === "string" ? `Evidence: ${entry.evidence}` : undefined,
       };
 

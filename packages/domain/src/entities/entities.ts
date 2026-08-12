@@ -180,13 +180,22 @@ export interface StoryEvent {
   readonly characterIds: readonly CharacterId[];
 }
 
-/** Identity of a relationship between two characters. No numeric state yet. */
+/**
+ * The **identity** of a relationship between two characters.
+ *
+ * Identity survives change: `REL_0012` is Elias↔Mara for the whole book, however
+ * often the type or status changes. `type` and `status` here are the *starting*
+ * values; how the relationship evolves lives in scene-anchored transitions and
+ * is reconstructed at any story moment (docs/STORY_STATE.md).
+ */
 export interface Relationship {
   readonly id: RelationshipId;
   readonly characterAId: CharacterId;
   readonly characterBId: CharacterId;
-  /** Free-form relationship type, e.g. "sibling", "rival", "mentor". */
+  /** Starting relationship type, e.g. "sibling", "rival", "mentor". */
   readonly type: string;
+  /** Starting free-form status, e.g. "warm", "strained". Optional to record. */
+  readonly status: string;
   readonly description: string;
 }
 

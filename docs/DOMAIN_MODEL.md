@@ -68,7 +68,7 @@ All cross-entity references are by **stable ID**.
 | `Fact`         | statement, status, objectiveTruth, source?, notes?         | —                                                                                       |
 | `WorldRule`    | name, description, severity (`hard`/`soft`/`style`), scope | —                                                                                       |
 | `StoryEvent`   | name, description, storyTime?                              | `sceneId?`, `locationId?`, `characterIds[]`                                             |
-| `Relationship` | type, description                                          | `characterAId`, `characterBId` (required)                                               |
+| `Relationship` | type, status, description (all _starting_ values)          | `characterAId`, `characterBId` (required)                                               |
 | `Scene`        | title, purpose[], status                                   | `chapterId?`, `pov?`, `locationId?`, `characterIds[]`, `plotThreadIds[]`, `objectIds[]` |
 | `Chapter`      | title, order, status                                       | —                                                                                       |
 
@@ -165,7 +165,11 @@ word_count: 2381
 
 ## Selected entity notes
 
-- **Relationship** — a dynamic object, not a static label. Variables (trust, affection, fear, resentment, loyalty, dependency, suspicion, attraction, respect, power, knowledge_of_other) change with story events so progression can be inspected for whether it is _earned_. Use for analysis, not to mechanically dictate prose. See [STORY_STATE.md](STORY_STATE.md).
+- **Relationship** — a dynamic object, not a static label. The entity carries
+  identity (which survives every change) and starting values; type, status, ten
+  optional analytical dimensions and milestone events evolve through
+  scene-anchored transitions, so any story moment can be reconstructed. Use for
+  analysis, not to mechanically dictate prose. See [STORY_STATE.md](STORY_STATE.md).
 - **PlotThread** — has a lifecycle: `planned → introduced → active → escalating → dormant → resolved → abandoned`. Tracks appearances. Dormancy can be flagged but is not automatically "bad".
 - **Foreshadowing** — setups and payoffs are _linked_ entities with visibility and reader-interpretation metadata; detect setup-without-payoff and payoff-without-setup. Supports multi-stage foreshadowing.
 - **Object** — important objects are entities tracking ownership, location, condition, appearances, transfers, destruction and knowledge, enabling inventory-continuity checks.

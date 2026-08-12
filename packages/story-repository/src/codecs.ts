@@ -249,6 +249,7 @@ export function normalizeRelationship(raw: unknown): Relationship | null {
     characterAId: d.characterAId as CharacterId,
     characterBId: d.characterBId as CharacterId,
     type: str(d.type),
+    status: str(d.status),
     description: str(d.description),
   };
 }

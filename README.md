@@ -14,7 +14,7 @@ This is **not** a chatbot with a writing editor attached. It lets AI agents insp
 
 ## Status
 
-**Phase 11 complete.** Implemented and tested so far:
+**Phase 12 complete.** Implemented and tested so far:
 
 - **Phase 0** — monorepo, tooling, stable branded entity IDs, persistence and
   model-provider boundaries, Tauri + React desktop shell.
@@ -52,6 +52,10 @@ This is **not** a chatbot with a writing editor attached. It lets AI agents insp
   knowledge, belief and false belief kept separate, with acquisition sources,
   traceable information chains, deterministic continuity checks, and selected
   knowledge carried into compiled context.
+- **Phase 12** — dynamic relationship state: stable identity with evolving type,
+  status, optional analytical dimensions and milestones, queryable at any story
+  moment, with a chapter-by-chapter timeline view and context that never shows an
+  earlier scene a later scene's relationship.
 
 Implementation proceeds as vertical slices — see
 [`docs/ROADMAP.md`](docs/ROADMAP.md) and

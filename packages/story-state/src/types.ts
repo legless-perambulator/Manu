@@ -1,5 +1,6 @@
 import type { CharacterStatus } from "@jellytind/domain";
 import type { AcquisitionSource, KnowledgeRecord, KnowledgeState } from "./knowledge";
+import type { QualitativeLevel, RelationshipDimension } from "./relationships";
 
 /**
  * Story State V1.
@@ -31,7 +32,15 @@ export type TransitionKind =
    * `knowledgeState` says what they now hold — which covers learning it,
    * suspecting it, rejecting it, and forgetting it again.
    */
-  | "knowledge_changed";
+  | "knowledge_changed"
+  /** A relationship's type changes. `subjectId` is a relationship, `value` the new type. */
+  | "relationship_type"
+  /** A relationship's free-form status changes, e.g. "strained". */
+  | "relationship_status"
+  /** One analytical dimension moves. `dimension` names it; `level`/`magnitude` carry it. */
+  | "relationship_dimension"
+  /** A relationship milestone. `value` is a {@link RelationshipEventKind}. */
+  | "relationship_event";
 
 export const TRANSITION_KINDS: readonly TransitionKind[] = [
   "character_location",
@@ -40,6 +49,10 @@ export const TRANSITION_KINDS: readonly TransitionKind[] = [
   "object_location",
   "fact_established",
   "knowledge_changed",
+  "relationship_type",
+  "relationship_status",
+  "relationship_dimension",
+  "relationship_event",
 ];
 
 /**
@@ -92,6 +105,17 @@ export interface StateTransition {
    * @deprecated Use `sourceType`.
    */
   readonly howLearned?: KnowledgeSource;
+
+  /** For `relationship_dimension`: which dimension moved. */
+  readonly dimension?: RelationshipDimension;
+  /** For `relationship_dimension`: the qualitative level it moved to. */
+  readonly level?: QualitativeLevel;
+  /**
+   * For `relationship_dimension`: the 0–1 analytical value it moved to.
+   * An aid for analysis, never objective literary truth.
+   */
+  readonly magnitude?: number;
+
   readonly source: TransitionSource;
   readonly confirmationStatus: ConfirmationStatus;
   /** The model that proposed this, when `source` is `agent`. */

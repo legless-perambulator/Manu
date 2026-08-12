@@ -1,12 +1,14 @@
 import { orderScenes } from "@jellytind/domain";
-import type { Chapter, Fact, Scene } from "@jellytind/domain";
+import type { Chapter, Fact, Relationship, Scene } from "@jellytind/domain";
 import {
+  describeRelationship,
   falseBeliefsAt,
   holdsAsTrue,
   informationAsymmetriesAt,
   StoryTimeline,
   type CharacterState,
   type ObjectState,
+  type RelationshipState,
 } from "@jellytind/story-state";
 import { PRIORITY, type Candidate } from "../candidate";
 import type { ProjectReader } from "../reader";
@@ -283,6 +285,82 @@ export function knowledgeCandidates(input: {
   }
 
   return out;
+}
+
+function renderRelationship(state: RelationshipState): string {
+  const lines = [
+    `RELATIONSHIP ${state.relationshipId} — ${state.characterAId} ↔ ${state.characterBId} ${boundaryWords(state.asOf)}`,
+    `type: ${state.type}`,
+  ];
+  if (state.status !== "") lines.push(`status: ${state.status}`);
+  if (state.description !== "") lines.push(`description: ${state.description}`);
+
+  const dimensions = Object.values(state.dimensions).filter((d) => d !== undefined);
+  for (const d of dimensions) {
+    const value =
+      d.level !== undefined && d.magnitude !== undefined
+        ? `${d.level} (${String(d.magnitude)})`
+        : (d.level ?? String(d.magnitude ?? ""));
+    lines.push(
+      `${d.dimension}: ${value} — since ${d.changedAtSceneId}${d.reason === undefined ? "" : `; ${d.reason}`}`,
+    );
+  }
+  if (state.events.length > 0) {
+    lines.push(
+      `history: ${state.events.map((e) => `${e.kind.replace(/_/g, " ")} (${e.sceneId})`).join(", ")}`,
+    );
+  }
+  return lines.join("\n");
+}
+
+/**
+ * Relationship state between the characters in a scene, **as it stood entering
+ * it**.
+ *
+ * The boundary is the whole point. Drafting Chapter 3 must never be handed
+ * Chapter 20's fractured version of a friendship that is currently warm — that
+ * would quietly write the ending into the beginning. Every relationship here is
+ * reconstructed at the scene's entry boundary and says so in its provenance.
+ *
+ * Only pairs where *both* characters are in the scene are included: a
+ * relationship neither participant is present for is not context, it is noise.
+ */
+export function relationshipCandidates(input: {
+  readonly timeline: StoryTimeline;
+  readonly relationships: readonly Relationship[];
+  readonly scene: Scene;
+  readonly becauseOf?: string;
+}): Candidate[] {
+  const { timeline, relationships, scene } = input;
+  try {
+    timeline.positionOf(scene.id);
+  } catch {
+    return [];
+  }
+
+  const becauseOf = input.becauseOf ?? (scene.id as string);
+  const present = new Set(involvedCharacters(scene));
+  const asOf = { sceneId: scene.id as string, position: "before" } as const;
+
+  return relationships
+    .filter((r) => present.has(r.characterAId) && present.has(r.characterBId))
+    .map((r, index) => {
+      const state = timeline.relationshipStateAt(r, asOf);
+      return {
+        id: `${r.id}@before:${scene.id}`,
+        kind: "relationship_state",
+        label: `${r.characterAId} ↔ ${r.characterBId}`,
+        section: "storyState" as const,
+        priority: PRIORITY.state + 6 + index,
+        provenance: provenance(
+          "relationship_state",
+          `relationship between ${r.characterAId} and ${r.characterBId} ${boundaryWords(asOf)}, both of whom are in ${becauseOf}`,
+          [becauseOf, r.id as string],
+        ),
+        full: renderRelationship(state),
+        summary: describeRelationship(state),
+      };
+    });
 }
 
 /** Characters a scene involves, POV first, deduplicated. */

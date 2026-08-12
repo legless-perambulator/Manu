@@ -45,6 +45,8 @@ import {
   validateTransition,
   type FactKnowledgeGraph,
   type KnowledgeViolation,
+  type RelationshipChange,
+  type RelationshipState,
   type StateBoundary,
   type StateTransition,
   type TimelineView,
@@ -571,6 +573,8 @@ export class StoryRepository {
     characterAId: CharacterId;
     characterBId: CharacterId;
     type: string;
+    /** Starting status. How it evolves is recorded as state transitions. */
+    status?: string;
     description?: string;
   }): Promise<Relationship> {
     const id = this.ids.next("relationship");
@@ -579,6 +583,7 @@ export class StoryRepository {
       characterAId: input.characterAId,
       characterBId: input.characterBId,
       type: input.type,
+      status: input.status ?? "",
       description: input.description ?? "",
     };
     await this.persistEntity("relationship", rel, rel.type, undefined, {
@@ -688,6 +693,9 @@ export class StoryRepository {
         ...(draft.knowledgeState !== undefined ? { knowledgeState: draft.knowledgeState } : {}),
         ...(draft.sourceType !== undefined ? { sourceType: draft.sourceType } : {}),
         ...(draft.sourceEntityId !== undefined ? { sourceEntityId: draft.sourceEntityId } : {}),
+        ...(draft.dimension !== undefined ? { dimension: draft.dimension } : {}),
+        ...(draft.level !== undefined ? { level: draft.level } : {}),
+        ...(draft.magnitude !== undefined ? { magnitude: draft.magnitude } : {}),
         ...(draft.note !== undefined ? { note: draft.note } : {}),
         source: options.source ?? "author",
         confirmationStatus: status,
@@ -831,6 +839,82 @@ export class StoryRepository {
       characterIds: (await this.listCharacters()).map((c) => c.id as string),
       view,
     });
+  }
+
+  // ── Relationships over time ─────────────────────────────────────────────────
+
+  /**
+   * A relationship as it stood at a story moment.
+   *
+   * "Elias and Mara are allies" is not an answer; this is. Identity comes from
+   * the entity, everything mutable is replayed from transitions up to the
+   * boundary, so an earlier scene never sees a later scene's state
+   * (docs/STORY_STATE.md).
+   */
+  async getRelationshipAt(
+    relationshipId: string,
+    asOf: StateBoundary,
+    view: TimelineView = {},
+  ): Promise<RelationshipState> {
+    const [timeline, rel] = await Promise.all([
+      this.getStoryTimeline(),
+      this.getEntity<Relationship>(relationshipId),
+    ]);
+    if (rel === null) {
+      throw new RepositoryError("entity_not_found", `No relationship with id ${relationshipId}.`);
+    }
+    return timeline.relationshipStateAt(rel, asOf, view);
+  }
+
+  getRelationshipBeforeScene(
+    relationshipId: string,
+    sceneId: string,
+    view: TimelineView = {},
+  ): Promise<RelationshipState> {
+    return this.getRelationshipAt(relationshipId, { sceneId, position: "before" }, view);
+  }
+
+  getRelationshipAfterScene(
+    relationshipId: string,
+    sceneId: string,
+    view: TimelineView = {},
+  ): Promise<RelationshipState> {
+    return this.getRelationshipAt(relationshipId, { sceneId, position: "after" }, view);
+  }
+
+  /** Every recorded change to one relationship, in story order. */
+  async getRelationshipHistory(
+    relationshipId: string,
+    view: TimelineView = {},
+  ): Promise<RelationshipChange[]> {
+    return (await this.getStoryTimeline()).relationshipHistory(relationshipId, view);
+  }
+
+  /** Every relationship a character is part of, as it stood at a boundary. */
+  async getRelationshipsForCharacter(
+    characterId: string,
+    asOf: StateBoundary,
+    view: TimelineView = {},
+  ): Promise<RelationshipState[]> {
+    const [timeline, relationships] = await Promise.all([
+      this.getStoryTimeline(),
+      this.listRelationships(),
+    ]);
+    return relationships
+      .filter((r) => r.characterAId === characterId || r.characterBId === characterId)
+      .map((r) => timeline.relationshipStateAt(r, asOf, view));
+  }
+
+  /** Relationship changes recorded anywhere in a chapter. */
+  async getRelationshipChangesInChapter(
+    chapterId: string,
+    view: TimelineView = {},
+  ): Promise<RelationshipChange[]> {
+    const [timeline, scenes] = await Promise.all([this.getStoryTimeline(), this.listScenes()]);
+    return timeline.relationshipChangesInScenes(
+      scenes.filter((s) => s.chapterId === chapterId).map((s) => s.id as string),
+      view,
+    );
   }
 
   /** Positions the story world contradicts, at a boundary. */

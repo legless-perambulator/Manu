@@ -7,7 +7,7 @@ north-star spec see [`../MASTER_BUILD.md`](../MASTER_BUILD.md).
 
 ## Status
 
-**Phases 1 & 3–11 implemented.** On the Phase-0 foundation: the persistent Story
+**Phases 1 & 3–12 implemented.** On the Phase-0 foundation: the persistent Story
 Repository, the fiction-domain **entity graph** with referential integrity,
 deterministic **search & retrieval** (`@jellytind/search`), **revision history**
 — journaled change sets, checkpoints, diffs, revert, and a staging transaction —
@@ -20,7 +20,8 @@ for every model operation, and **controlled AI manuscript editing**: targeted,
 staged, reviewable prose edits that only a human decision commits, and **Story
 State V1**: deterministic, time-aware state reconstructable at any scene
 boundary, including a character knowledge and belief graph that keeps objective
-truth, knowledge and belief separate. The remaining subsystem packages are typed
+truth, knowledge and belief separate, and dynamic relationships whose type,
+status and optional dimensions evolve scene by scene. The remaining subsystem packages are typed
 interfaces marked **PLANNED**; features continue as vertical slices (see
 [`ROADMAP.md`](ROADMAP.md)).
 

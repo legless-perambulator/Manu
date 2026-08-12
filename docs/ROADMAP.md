@@ -8,7 +8,7 @@ Versioned delivery plan. Implementation proceeds **vertically**: finish a cohere
 (search & retrieval), 5 (revision history, checkpoints & diffs), 6
 (provider-independent model layer), 7 (agent runtime & read-only tool system), 8
 (Context Compiler V1), 9 (controlled AI manuscript editing), 10 (Story State V1)
-and 11 (knowledge & belief graph) complete.** AI can inspect a project through
+11 (knowledge & belief graph) and 12 (dynamic relationship state) complete.** AI can inspect a project through
 typed tools, receive explicit attributed context — including who is where, who
 knows what, and who believes something false at a named scene boundary — and
 propose targeted prose edits and state changes that a human reviews before
@@ -308,6 +308,36 @@ believe, what they wrongly believe, how sure they are, and how they found out.
   and positions on the facts a scene references — never a dump of everything.
 - `Scene.factIds` records the facts a scene puts on the page, the deterministic
   signal behind the reference check.
+
+See [STORY_STATE.md](STORY_STATE.md).
+
+## Phase 12 — Dynamic relationship state ✅
+
+Relationships stop being labels and become time-aware state.
+
+- **Identity survives change.** The entity holds `REL_0012` and its starting
+  type, status and description; everything that evolves lives in scene-anchored
+  transitions, so a pair can go from allies to enemies without anything keying
+  off "the ally relationship".
+- **Descriptive state first**: type, status and description are free text, and a
+  writer who never touches a number has a fully working system.
+- **Ten optional analytical dimensions** — trust, affection, fear, resentment,
+  loyalty, dependency, suspicion, attraction, respect, power. Each change may
+  carry a qualitative level, a 0–1 magnitude, or both, with the reason it moved.
+  Both forms are first class and the system never invents the one it was not
+  given.
+- **Milestones** that are not romance-shaped: alliances, betrayals, oaths, debts
+  and rescues alongside kisses and breakups.
+- **Queries**: relationship before/after a scene, its full history as movements
+  (`trust: high (0.72) → low (0.31)`), every relationship a character is in at a
+  moment, and the changes inside a chapter.
+- **Context Compiler**: relationships between characters both present in a scene,
+  at the scene's **entry boundary** — never a later scene's version, with a test
+  that asserts it.
+- **AI extraction** extended to propose relationship changes, still validated and
+  still proposed until confirmed.
+- UI: a Relations tab showing the arc grouped by chapter, with a form to record
+  the next change.
 
 See [STORY_STATE.md](STORY_STATE.md).
 

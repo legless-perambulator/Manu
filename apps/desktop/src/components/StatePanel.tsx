@@ -27,6 +27,10 @@ const KIND_LABELS: Record<TransitionKind, string> = {
   object_location: "object is at",
   fact_established: "fact becomes true",
   knowledge_changed: "character's position on a fact",
+  relationship_type: "relationship type becomes",
+  relationship_status: "relationship status becomes",
+  relationship_dimension: "relationship dimension moves",
+  relationship_event: "relationship milestone",
 };
 
 /**
