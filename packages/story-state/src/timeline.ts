@@ -1,6 +1,15 @@
-import type { CharacterStatus } from "@jellytind/domain";
+import type { CharacterStatus, ObjectStatus, ObjectVisibility } from "@jellytind/domain";
 import { AppError } from "@jellytind/shared";
 import { holdsAsTrue, type AcquisitionStep, type KnowledgeRecord } from "./knowledge";
+import {
+  DEFAULT_OBJECT_STATUS,
+  DEFAULT_OBJECT_VISIBILITY,
+  isObjectTransition,
+  objectChangeKind,
+  type ObjectChange,
+  type ObjectChangeKind,
+  type ObjectTransfer,
+} from "./objects";
 import type {
   DimensionValue,
   RelationshipChange,
@@ -8,10 +17,12 @@ import type {
   RelationshipEventRecord,
   RelationshipState,
 } from "./relationships";
-import { foldKnowledge, normaliseTransition } from "./normalise";
+import { foldKnowledge, normaliseObjectStatus, normaliseTransition } from "./normalise";
 import type {
   CharacterState,
+  ObjectPlacement,
   ObjectState,
+  Presence,
   StateBoundary,
   StateTransition,
   TimelineView,
@@ -117,15 +128,39 @@ export class StoryTimeline {
   ): CharacterState {
     const effective = this.inEffect(asOf, view);
     let locationId: string | undefined;
+    let lastKnownLocationId: string | undefined;
+    let travellingTo: string | undefined;
+    let presence: Presence = "unknown";
     let status: CharacterStatus = DEFAULT_STATUS;
     const knowledge = new Map<string, KnowledgeRecord>();
     const owned = new Map<string, string>(); // objectId -> owner
+    const held = new Map<string, string>(); // objectId -> holder
 
     for (const t of effective) {
       switch (t.kind) {
-        case "character_location":
-          if (t.subjectId === characterId) locationId = t.value;
+        case "character_location": {
+          if (t.subjectId !== characterId) break;
+          // An absent `movement` means arrival: that is what every transition
+          // written before Phase 14 meant, and it stays true on read.
+          const movement = t.movement ?? "arrival";
+          travellingTo = undefined;
+          if (t.value !== "") lastKnownLocationId = t.value;
+          if (movement === "arrival") {
+            locationId = t.value;
+            presence = "present";
+          } else if (movement === "departure") {
+            locationId = undefined;
+            presence = "departed";
+          } else if (movement === "travel") {
+            locationId = undefined;
+            presence = "travelling";
+            if (t.value !== "") travellingTo = t.value;
+          } else {
+            locationId = undefined;
+            presence = "unknown";
+          }
           break;
+        }
         case "character_status":
           if (t.subjectId === characterId) status = t.value as CharacterStatus;
           break;
@@ -137,19 +172,35 @@ export class StoryTimeline {
         case "object_owner":
           owned.set(t.subjectId, t.value);
           break;
+        case "object_holder":
+          held.set(t.subjectId, t.value);
+          break;
         default:
           break;
       }
     }
 
+    // What a character is *carrying* is what they hold; anything they own but
+    // have not got on them is property, not inventory. With no holder recorded
+    // the owner is the best available answer, which keeps projects that never
+    // use `object_holder` working exactly as before.
+    const carrying = new Set<string>();
+    for (const [objectId, owner] of owned) {
+      if (owner === characterId && !held.has(objectId)) carrying.add(objectId);
+    }
+    for (const [objectId, holder] of held) {
+      if (holder === characterId) carrying.add(objectId);
+      else carrying.delete(objectId);
+    }
+
     return {
       characterId,
       ...(locationId !== undefined ? { locationId } : {}),
+      presence,
+      ...(travellingTo !== undefined ? { travellingTo } : {}),
+      ...(lastKnownLocationId !== undefined ? { lastKnownLocationId } : {}),
       status,
-      inventory: [...owned.entries()]
-        .filter(([, owner]) => owner === characterId)
-        .map(([objectId]) => objectId)
-        .sort(),
+      inventory: [...carrying].sort(),
       // A position of `unknown` is the absence of a position, not a record.
       knowledge: [...knowledge.values()]
         .filter((record) => record.state !== "unknown")
@@ -341,20 +392,172 @@ export class StoryTimeline {
     return this.objectStateAt(objectId, { sceneId, position: "before" }, view);
   }
 
+  /**
+   * An object's full state at a boundary.
+   *
+   * `placement` records which of holder and location was set most recently,
+   * because that is what decides where the object actually is: a held object
+   * travels with whoever holds it, a placed one stays where it was left. Getting
+   * this wrong is precisely how "the revolver was in the flat" survives into a
+   * scene at the manor (docs/OBJECTS_LOCATIONS.md).
+   */
   objectStateAt(objectId: string, asOf: StateBoundary, view: TimelineView = {}): ObjectState {
     let ownerId: string | undefined;
+    let holderId: string | undefined;
     let locationId: string | undefined;
+    let condition: string | undefined;
+    let status: ObjectStatus = DEFAULT_OBJECT_STATUS;
+    let visibility: ObjectVisibility = DEFAULT_OBJECT_VISIBILITY;
+    let placement: ObjectPlacement = "unplaced";
+
     for (const t of this.inEffect(asOf, view)) {
       if (t.subjectId !== objectId) continue;
-      if (t.kind === "object_owner") ownerId = t.value === "" ? undefined : t.value;
-      if (t.kind === "object_location") locationId = t.value;
+      switch (t.kind) {
+        case "object_owner":
+          ownerId = t.value === "" ? undefined : t.value;
+          break;
+        case "object_holder":
+          holderId = t.value === "" ? undefined : t.value;
+          // Picking something up moves it; putting it down leaves it where the
+          // holder was, which only a later `object_location` can state.
+          placement = holderId === undefined ? "unplaced" : "held";
+          break;
+        case "object_location":
+          locationId = t.value;
+          placement = "placed";
+          // Setting something down ends anyone's hold on it. Saying otherwise
+          // would let one object be both in a drawer and in a pocket.
+          holderId = undefined;
+          break;
+        case "object_condition":
+          condition = t.value;
+          break;
+        case "object_status":
+          status = normaliseObjectStatus(t.value);
+          break;
+        case "object_visibility":
+          visibility = t.value as ObjectVisibility;
+          break;
+        default:
+          break;
+      }
     }
+
     return {
       objectId,
       ...(ownerId !== undefined ? { ownerId } : {}),
+      ...(holderId !== undefined ? { holderId } : {}),
       ...(locationId !== undefined ? { locationId } : {}),
+      ...(condition !== undefined ? { condition } : {}),
+      status,
+      visibility,
+      placement,
       asOf,
     };
+  }
+
+  /**
+   * Where an object effectively is, following whoever holds it.
+   *
+   * A held object is wherever its holder is, which is the only reading that
+   * makes "Elias carries the revolver to the manor" work without a second
+   * transition restating the obvious.
+   */
+  objectLocationAt(
+    objectId: string,
+    asOf: StateBoundary,
+    view: TimelineView = {},
+  ): string | undefined {
+    const state = this.objectStateAt(objectId, asOf, view);
+    if (state.placement === "held" && state.holderId !== undefined) {
+      return this.characterStateAt(state.holderId, asOf, view).locationId;
+    }
+    return state.locationId;
+  }
+
+  /** Every object with any recorded change. */
+  knownObjectIds(view: TimelineView = {}): string[] {
+    return [
+      ...new Set(
+        this.visible(view)
+          .filter(isObjectTransition)
+          .map((t) => t.subjectId),
+      ),
+    ].sort();
+  }
+
+  /**
+   * Every recorded step in one object's life, in story order, each carrying what
+   * it changed *from* — the data behind an object history a writer can read.
+   */
+  objectHistory(objectId: string, view: TimelineView = {}): ObjectChange[] {
+    const running = new Map<ObjectChangeKind, string>();
+    const out: ObjectChange[] = [];
+
+    for (const t of this.visible(view)) {
+      if (t.subjectId !== objectId) continue;
+      const kind = objectChangeKind(t.kind);
+      if (kind === null) continue;
+      const from = running.get(kind);
+      running.set(kind, t.value);
+      out.push({
+        objectId,
+        sceneId: t.sceneId,
+        kind,
+        ...(from !== undefined ? { from } : {}),
+        to: t.value,
+        ...(t.note !== undefined ? { reason: t.note } : {}),
+      });
+    }
+    return out;
+  }
+
+  /**
+   * Changes of hands and of place, as transfers.
+   *
+   * Derived from the same transitions the state is, so a transfer can never
+   * disagree with the timeline. Holder and location changes recorded at one
+   * scene are folded into a single transfer, because "Mara takes the key from
+   * the drawer" is one event however many fields it touches.
+   */
+  objectTransfers(objectId: string, view: TimelineView = {}): ObjectTransfer[] {
+    const bySceneId = new Map<string, Record<string, string>>();
+    let holder: string | undefined;
+    let location: string | undefined;
+
+    for (const t of this.visible(view)) {
+      if (t.subjectId !== objectId) continue;
+      if (t.kind !== "object_holder" && t.kind !== "object_location") continue;
+
+      const at = bySceneId.get(t.sceneId) ?? {};
+      // The "from" of a transfer is whatever was true entering this scene, so it
+      // is captured once and never overwritten by a second write at the scene.
+      if (holder !== undefined) at.fromCharacterId ??= holder;
+      if (location !== undefined) at.fromLocationId ??= location;
+      if (t.note !== undefined) at.reason = t.note;
+
+      if (t.kind === "object_holder") {
+        holder = t.value === "" ? undefined : t.value;
+        if (holder !== undefined) {
+          at.toCharacterId = holder;
+          // Picking something up takes it away from where it lay, so the next
+          // hand-off is from a person, not from a place it left long ago.
+          location = undefined;
+        }
+      } else {
+        at.toLocationId = t.value;
+        location = t.value;
+        // Putting something down ends the hold — the same rule state replay
+        // uses, so a transfer can never disagree with the state it describes.
+        holder = undefined;
+      }
+      bySceneId.set(t.sceneId, at);
+    }
+
+    const rank = (sceneId: string): number => this.order.get(sceneId) ?? Number.MAX_SAFE_INTEGER;
+    return [...bySceneId.entries()]
+      .map(([sceneId, fields]) => ({ objectId, sceneId, ...fields }) as ObjectTransfer)
+      .sort((a, b) => rank(a.sceneId) - rank(b.sceneId));
   }
 
   // ── Facts ────────────────────────────────────────────────────────────────

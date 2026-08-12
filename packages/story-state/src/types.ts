@@ -1,4 +1,4 @@
-import type { CharacterStatus } from "@jellytind/domain";
+import type { CharacterStatus, ObjectStatus, ObjectVisibility } from "@jellytind/domain";
 import type { AcquisitionSource, KnowledgeRecord, KnowledgeState } from "./knowledge";
 import type { QualitativeLevel, RelationshipDimension } from "./relationships";
 
@@ -23,8 +23,20 @@ export type TransitionKind =
   | "character_status"
   /** An object changes hands. `value` is a character ID, or `""` for unowned. */
   | "object_owner"
+  /**
+   * Someone physically has the object now. `value` is a character ID, or `""`
+   * for nobody. Deliberately not `object_owner`: a stolen revolver still belongs
+   * to its owner, and continuity turns on which of the two you mean.
+   */
+  | "object_holder"
   /** An object is somewhere. `value` is a location ID. */
   | "object_location"
+  /** An object's physical condition changes. `value` is free text: "cracked". */
+  | "object_condition"
+  /** An object's status changes. `value` is an {@link ObjectStatus}. */
+  | "object_status"
+  /** An object's visibility changes. `value` is an {@link ObjectVisibility}. */
+  | "object_visibility"
   /** A fact becomes true in the story world. `value` is the fact ID. */
   | "fact_established"
   /**
@@ -46,7 +58,11 @@ export const TRANSITION_KINDS: readonly TransitionKind[] = [
   "character_location",
   "character_status",
   "object_owner",
+  "object_holder",
   "object_location",
+  "object_condition",
+  "object_status",
+  "object_visibility",
   "fact_established",
   "knowledge_changed",
   "relationship_type",
@@ -70,6 +86,34 @@ export const LEGACY_TRANSITION_KINDS: Readonly<Record<string, TransitionKind>> =
  * @deprecated Superseded by `AcquisitionSource`, which this is a subset of.
  */
 export type KnowledgeSource = "witnessed" | "told" | "inferred";
+
+/**
+ * What a `character_location` transition does.
+ *
+ * "Elias is at the manor" and "Elias leaves the manor" are different claims, and
+ * a project that can only say the first has no way to record that someone is
+ * *in transit* or that their whereabouts are deliberately unknown — which is
+ * often the point of the chapter (docs/OBJECTS_LOCATIONS.md).
+ */
+export type LocationChangeKind =
+  /** The character is now at `value`. The default reading. */
+  | "arrival"
+  /** The character has left `value`, and is not placed anywhere yet. */
+  | "departure"
+  /** The character is between places; `value` is the destination, or `""`. */
+  | "travel"
+  /** Their whereabouts are deliberately unrecorded. `value` may be `""`. */
+  | "unknown";
+
+export const LOCATION_CHANGE_KINDS: readonly LocationChangeKind[] = [
+  "arrival",
+  "departure",
+  "travel",
+  "unknown",
+];
+
+/** Where a character stands relative to being *somewhere*. */
+export type Presence = "present" | "travelling" | "departed" | "unknown";
 
 /** Who proposed a transition. */
 export type TransitionSource = "author" | "agent" | "import";
@@ -106,6 +150,12 @@ export interface StateTransition {
    */
   readonly howLearned?: KnowledgeSource;
 
+  /**
+   * For `character_location`: what kind of move this is. Absent means
+   * `arrival`, which is what every transition written before Phase 14 meant.
+   */
+  readonly movement?: LocationChangeKind;
+
   /** For `relationship_dimension`: which dimension moved. */
   readonly dimension?: RelationshipDimension;
   /** For `relationship_dimension`: the qualitative level it moved to. */
@@ -130,7 +180,18 @@ export interface StateTransition {
 
 export interface CharacterState {
   readonly characterId: string;
+  /** Where they are, when they are anywhere. Absent while travelling or unknown. */
   readonly locationId?: string;
+  /**
+   * Whether they are placed at all. A character who has departed is not "at"
+   * their last location any more, and saying so is the difference between a
+   * usable continuity check and a noisy one.
+   */
+  readonly presence: Presence;
+  /** For `travelling`: where they are heading, when the story says. */
+  readonly travellingTo?: string;
+  /** The last location they were recorded at, whatever their presence now. */
+  readonly lastKnownLocationId?: string;
   readonly status: CharacterStatus;
   /** Objects this character owns at this point. */
   readonly inventory: readonly string[];
@@ -144,10 +205,29 @@ export interface CharacterState {
   readonly asOf: StateBoundary;
 }
 
+/**
+ * How an object came to be where it is.
+ *
+ * A held object travels with whoever holds it; a placed one stays put until
+ * something moves it. Which of the two applies decides whether "the revolver is
+ * in the flat" is still true after its owner walks to the manor — so the
+ * distinction is recorded rather than guessed.
+ */
+export type ObjectPlacement = "held" | "placed" | "unplaced";
+
 export interface ObjectState {
   readonly objectId: string;
+  /** Whose it is. Survives theft, loss and lending. */
   readonly ownerId?: string;
+  /** Who physically has it. Often, but not always, the owner. */
+  readonly holderId?: string;
+  /** Where it was last put down. Meaningful when `placement` is `placed`. */
   readonly locationId?: string;
+  /** Free-text physical condition: "cracked", "bloodstained". */
+  readonly condition?: string;
+  readonly status: ObjectStatus;
+  readonly visibility: ObjectVisibility;
+  readonly placement: ObjectPlacement;
   readonly asOf: StateBoundary;
 }
 

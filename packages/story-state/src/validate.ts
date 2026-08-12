@@ -1,4 +1,4 @@
-import { entityKindOf } from "@jellytind/domain";
+import { entityKindOf, OBJECT_STATUSES, OBJECT_VISIBILITIES } from "@jellytind/domain";
 import { AppError } from "@jellytind/shared";
 import {
   ACQUISITION_SOURCES,
@@ -15,9 +15,12 @@ import {
   type QualitativeLevel,
   type RelationshipDimension,
 } from "./relationships";
+import { normaliseObjectStatus } from "./normalise";
 import {
   LEGACY_TRANSITION_KINDS,
+  LOCATION_CHANGE_KINDS,
   TRANSITION_KINDS,
+  type LocationChangeKind,
   type StateTransition,
   type TransitionKind,
 } from "./types";
@@ -33,7 +36,11 @@ const SHAPE: Readonly<Record<TransitionKind, { subject: string; value: string | 
   character_location: { subject: "character", value: "location" },
   character_status: { subject: "character", value: null },
   object_owner: { subject: "object", value: "character" },
+  object_holder: { subject: "object", value: "character" },
   object_location: { subject: "object", value: "location" },
+  object_condition: { subject: "object", value: null },
+  object_status: { subject: "object", value: null },
+  object_visibility: { subject: "object", value: null },
   fact_established: { subject: "fact", value: null },
   knowledge_changed: { subject: "character", value: "fact" },
   relationship_type: { subject: "relationship", value: null },
@@ -43,6 +50,13 @@ const SHAPE: Readonly<Record<TransitionKind, { subject: string; value: string | 
 };
 
 const STATUSES = new Set(["active", "inactive", "deceased", "unknown"]);
+
+/** Kinds whose value may be `""`, and what the blank means. */
+const BLANK_MEANS: Readonly<Record<string, string>> = {
+  object_owner: "unowned",
+  object_holder: "held by nobody",
+  character_location: "nowhere recorded",
+};
 
 export interface TransitionDraft {
   readonly sceneId: string;
@@ -57,6 +71,8 @@ export interface TransitionDraft {
   readonly sourceEntityId?: string;
   /** @deprecated Use `sourceType`. */
   readonly howLearned?: StateTransition["howLearned"];
+  /** For `character_location`: arrival, departure, travel or unknown. */
+  readonly movement?: LocationChangeKind;
   /** For `relationship_dimension`. */
   readonly dimension?: RelationshipDimension;
   readonly level?: QualitativeLevel;
@@ -109,11 +125,30 @@ export function validateTransition(draft: TransitionDraft): TransitionDraft {
         value: draft.value,
       });
     }
+  } else if (draft.kind === "object_status") {
+    if (!OBJECT_STATUSES.includes(normaliseObjectStatus(draft.value))) {
+      throw new TransitionError(
+        `"${draft.value}" is not an object status (${OBJECT_STATUSES.join(", ")}).`,
+        { value: draft.value },
+      );
+    }
+  } else if (draft.kind === "object_visibility") {
+    if (!OBJECT_VISIBILITIES.includes(draft.value as (typeof OBJECT_VISIBILITIES)[number])) {
+      throw new TransitionError(
+        `"${draft.value}" is not an object visibility (${OBJECT_VISIBILITIES.join(", ")}).`,
+        { value: draft.value },
+      );
+    }
+  } else if (draft.kind === "object_condition") {
+    if (draft.value.trim() === "") {
+      throw new TransitionError("An object condition needs a description.", { kind: draft.kind });
+    }
   } else if (shape.value !== null) {
-    // `object_owner` accepts "" to mean the object is unowned.
-    const unowned = draft.kind === "object_owner" && draft.value === "";
+    // A blank value is meaningful for a few kinds — unowned, held by nobody,
+    // whereabouts unrecorded — and nonsense for the rest.
+    const blank = draft.value === "" && BLANK_MEANS[draft.kind] !== undefined;
     const valueKind = entityKindOf(draft.value);
-    if (!unowned && valueKind !== shape.value) {
+    if (!blank && valueKind !== shape.value) {
       throw new TransitionError(
         `"${draft.kind}" needs a ${shape.value} value, but "${draft.value}" is ${
           valueKind ?? "not a valid ID"
@@ -159,6 +194,22 @@ export function validateTransition(draft: TransitionDraft): TransitionDraft {
     throw new TransitionError(`"${draft.kind}" does not take knowledge fields.`, {
       kind: draft.kind,
     });
+  }
+
+  if (draft.kind === "character_location") {
+    if (draft.movement !== undefined && !LOCATION_CHANGE_KINDS.includes(draft.movement)) {
+      throw new TransitionError(
+        `"${draft.movement}" is not a movement (${LOCATION_CHANGE_KINDS.join(", ")}).`,
+        { movement: draft.movement },
+      );
+    }
+    // Arriving somewhere means arriving *somewhere*. Departing, travelling and
+    // going unrecorded may all leave the destination blank.
+    if ((draft.movement ?? "arrival") === "arrival" && draft.value === "") {
+      throw new TransitionError("An arrival needs a location.", { kind: draft.kind });
+    }
+  } else if (draft.movement !== undefined) {
+    throw new TransitionError(`"${draft.kind}" does not take a movement.`, { kind: draft.kind });
   }
 
   if (draft.kind === "relationship_dimension") {
@@ -224,20 +275,48 @@ const STATE_VERBS: Readonly<Record<KnowledgeState, string>> = {
 export function describeTransition(
   t: Pick<
     StateTransition,
-    "kind" | "subjectId" | "value" | "knowledgeState" | "dimension" | "level" | "magnitude"
+    | "kind"
+    | "subjectId"
+    | "value"
+    | "knowledgeState"
+    | "movement"
+    | "dimension"
+    | "level"
+    | "magnitude"
   >,
 ): string {
   switch (t.kind) {
     case "character_location":
-      return `${t.subjectId} is at ${t.value}`;
+      switch (t.movement ?? "arrival") {
+        case "departure":
+          return `${t.subjectId} leaves ${t.value}`;
+        case "travel":
+          return t.value === ""
+            ? `${t.subjectId} is travelling`
+            : `${t.subjectId} is travelling to ${t.value}`;
+        case "unknown":
+          return `${t.subjectId} is somewhere unrecorded`;
+        default:
+          return `${t.subjectId} is at ${t.value}`;
+      }
     case "character_status":
       return `${t.subjectId} becomes ${t.value}`;
     case "object_owner":
       return t.value === ""
         ? `${t.subjectId} has no owner`
         : `${t.value} takes possession of ${t.subjectId}`;
+    case "object_holder":
+      return t.value === ""
+        ? `${t.subjectId} is put down`
+        : `${t.value} is carrying ${t.subjectId}`;
     case "object_location":
       return `${t.subjectId} is at ${t.value}`;
+    case "object_condition":
+      return `${t.subjectId} is ${t.value}`;
+    case "object_status":
+      return `${t.subjectId} is ${t.value}`;
+    case "object_visibility":
+      return `${t.subjectId} is ${t.value}`;
     case "fact_established":
       return `${t.value} becomes true`;
     case "knowledge_changed":

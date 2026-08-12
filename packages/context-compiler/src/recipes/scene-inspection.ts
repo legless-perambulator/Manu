@@ -1,3 +1,4 @@
+import { indexLocations } from "@jellytind/domain";
 import type { Scene } from "@jellytind/domain";
 import { PRIORITY, type Candidate } from "../candidate";
 import type { ProjectReader } from "../reader";
@@ -156,6 +157,7 @@ export async function gatherSceneInspection(
     ...stateCandidates({
       timeline,
       facts,
+      locations: indexLocations(snap.locations),
       characterIds: involvedCharacters(scene),
       objectIds: [...scene.objectIds] as string[],
       sceneId: scene.id,

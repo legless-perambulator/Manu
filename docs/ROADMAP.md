@@ -376,6 +376,40 @@ sequences over the same material.
 
 See [TIMELINE.md](TIMELINE.md).
 
+## Phase 14 — Object continuity and location tracking ✅
+
+Physical things become traceable, and physical contradictions become arithmetic.
+
+- **Six object dimensions** as time-aware state: owner, holder, location,
+  condition, status (`exists`/`lost`/`destroyed`/`hidden`/`unknown`) and
+  visibility. Legacy `intact` and `transformed` are interpreted on read.
+- **Owner is not holder.** A stolen revolver still belongs to its owner, and a
+  character's inventory is what they _hold_. Collapsing the two would make theft
+  and lending unrepresentable and turn every hand-off into a false conflict.
+- **Placement decides where a thing is**: a held object travels with whoever
+  holds it, a placed one stays where it was left, and putting something down
+  ends the hold.
+- **Transfers are derived, not stored.** `recordObjectTransfer` writes the
+  transitions; `objectTransfers` reads them back, so there is one version of the
+  truth. A stated origin the timeline contradicts is refused.
+- **Nested locations** with containment honoured everywhere: someone in the
+  Hidden Vault is at Blackthorn Manor, and a check that could not see that would
+  report a contradiction between two true statements.
+- **Character location strengthened** with arrival, departure, travel and
+  deliberate unknown, so a departed character is not read as still standing
+  there.
+- **Six deterministic continuity checks** — impossible appearance, destroyed
+  object reused, conflicting ownership, unexplained relocation, conflicting
+  character location, invalid nesting — graded error versus warning, with two
+  disciplines against false positives: containment is honoured, and silence is
+  never treated as a claim.
+- **Context Compiler** carries object state for the objects a scene uses, with
+  locations spelled out through their containment path.
+- UI: an Objects tab showing an object's history as a trail through the
+  chapters, with the findings that name it.
+
+See [OBJECTS_LOCATIONS.md](OBJECTS_LOCATIONS.md).
+
 ## V1 (remaining) — Writing IDE
 
 Prove the core paradigm: **AI can operate reliably on a fiction project instead of merely chatting about it.**

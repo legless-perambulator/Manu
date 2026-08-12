@@ -23,7 +23,8 @@ import type { ProjectReader } from "./reader";
  * and so the documented example in docs/CONTEXT_COMPILER.md is backed by data
  * that actually compiles.
  *
- * Two chapters, four scenes, three characters, two locations, three plot threads
+ * Two chapters, four scenes, three characters, four locations (two of them
+ * nested, so containment is exercised), one tracked object, three plot threads
  * (one resolved, so "active threads" filtering is exercised) and two world rules
  * of differing severity.
  */
@@ -86,6 +87,7 @@ export const FIXTURE_SCENES: Scene[] = [
     characterIds: ["CHAR_0001", "CHAR_0002"],
     plotThreadIds: ["THREAD_0001", "THREAD_0002"],
     purpose: ["Mara refuses Elias's help"],
+    objectIds: ["OBJECT_0001"],
     storyTime: { kind: "exact", instant: "2019-03-04T18:00:00Z" },
   }),
   scene("SCENE_0003", "Aftermath", "CHAPTER_0001", {
@@ -185,6 +187,25 @@ export const FIXTURE_LOCATIONS = [
     description: "Overgrown, east of the manor.",
     notes: "",
     filePath: "world/locations/LOC_0002.md",
+  },
+  // Nested, so containment is exercised: the vault is inside the manor.
+  {
+    id: "LOC_0003",
+    name: "West Wing",
+    aliases: [],
+    description: "Shut up since the fire.",
+    notes: "",
+    parentLocationId: "LOC_0001",
+    filePath: "world/locations/LOC_0003.md",
+  },
+  {
+    id: "LOC_0004",
+    name: "Hidden Vault",
+    aliases: [],
+    description: "Beneath the library floor.",
+    notes: "",
+    parentLocationId: "LOC_0003",
+    filePath: "world/locations/LOC_0004.md",
   },
 ] as unknown as Location[];
 
@@ -288,6 +309,39 @@ export const FIXTURE_TRANSITIONS: StateTransition[] = [
   },
   // The relationship sours only in SCENE_0003 — later than SCENE_0002, so a
   // recipe targeting SCENE_0002 must not see it.
+  // The brass key: put down in the west wing, then carried by Mara.
+  {
+    id: "TRANS_0006",
+    sceneId: "SCENE_0001",
+    kind: "object_location",
+    subjectId: "OBJECT_0001",
+    value: "LOC_0003",
+    note: "left in the west wing",
+    source: "author",
+    confirmationStatus: "confirmed",
+    createdAt: "2026-01-01T00:00:00.000Z",
+  },
+  {
+    id: "TRANS_0007",
+    sceneId: "SCENE_0002",
+    kind: "object_holder",
+    subjectId: "OBJECT_0001",
+    value: "CHAR_0001",
+    note: "Mara takes the key",
+    source: "author",
+    confirmationStatus: "confirmed",
+    createdAt: "2026-01-01T00:00:00.000Z",
+  },
+  {
+    id: "TRANS_0008",
+    sceneId: "SCENE_0002",
+    kind: "object_condition",
+    subjectId: "OBJECT_0001",
+    value: "bent",
+    source: "author",
+    confirmationStatus: "confirmed",
+    createdAt: "2026-01-01T00:00:00.000Z",
+  },
   {
     id: "TRANS_0004",
     sceneId: "SCENE_0002",

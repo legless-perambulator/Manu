@@ -1,3 +1,4 @@
+import { indexLocations } from "@jellytind/domain";
 import type { Chapter } from "@jellytind/domain";
 import { PRIORITY, type Candidate } from "../candidate";
 import { CompileError } from "../errors";
@@ -155,6 +156,7 @@ export async function gatherChapterInspection(
       ...stateCandidates({
         timeline,
         facts,
+        locations: indexLocations(snap.locations),
         characterIds: involvement.characterIds,
         objectIds: involvement.objectIds,
         sceneId: involvement.firstScene.id,

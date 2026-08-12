@@ -14,7 +14,7 @@ This is **not** a chatbot with a writing editor attached. It lets AI agents insp
 
 ## Status
 
-**Phase 13 complete.** Implemented and tested so far:
+**Phase 14 complete.** Implemented and tested so far:
 
 - **Phase 0** — monorepo, tooling, stable branded entity IDs, persistence and
   model-provider boundaries, Tauri + React desktop shell.
@@ -62,6 +62,11 @@ This is **not** a chatbot with a writing editor attached. It lets AI agents insp
   relations for stories that carry no calendar, character timelines, historical
   state queries, contradiction checks that never assume real-world travel, and a
   visual timeline.
+- **Phase 14** — object continuity and location tracking: objects traced through
+  the story by owner, holder, place, condition, status and visibility; nested
+  locations that know the Hidden Vault is inside Blackthorn Manor; and six
+  deterministic checks that find the revolver left in a flat and fired at the
+  manor without a model re-reading a word.
 
 Implementation proceeds as vertical slices — see
 [`docs/ROADMAP.md`](docs/ROADMAP.md) and

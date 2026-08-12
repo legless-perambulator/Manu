@@ -51,12 +51,47 @@ export const CHARACTER_STATUSES: readonly CharacterStatus[] = [
   "unknown",
 ];
 
-export type ObjectStatus = "intact" | "lost" | "destroyed" | "transformed" | "unknown";
+/**
+ * Whether an object is still in the story world, and findable.
+ *
+ * `hidden` is not `lost`: someone put it there and, usually, someone knows
+ * where. `lost` is nobody's knowledge. Both differ from `unknown`, which is the
+ * project not having recorded an answer rather than the story giving one.
+ */
+export type ObjectStatus = "exists" | "lost" | "destroyed" | "hidden" | "unknown";
 export const OBJECT_STATUSES: readonly ObjectStatus[] = [
-  "intact",
+  "exists",
   "lost",
   "destroyed",
-  "transformed",
+  "hidden",
+  "unknown",
+];
+
+/**
+ * Statuses written before status and condition were separated, and what they
+ * mean now.
+ *
+ * `transformed` conflated the two: a melted candlestick still exists, it is in a
+ * different *condition*. Interpreted on read so no project is rewritten
+ * (docs/OBJECTS_LOCATIONS.md).
+ */
+export const LEGACY_OBJECT_STATUSES: Readonly<Record<string, ObjectStatus>> = {
+  intact: "exists",
+  transformed: "exists",
+};
+
+/**
+ * Whether an object can be seen for what it is.
+ *
+ * Distinct from status, and the distinction earns its place: a `concealed`
+ * object is present but not found, a `disguised` one is in plain sight and not
+ * recognised — which is a different scene, and often a different plot.
+ */
+export type ObjectVisibility = "visible" | "concealed" | "disguised" | "unknown";
+export const OBJECT_VISIBILITIES: readonly ObjectVisibility[] = [
+  "visible",
+  "concealed",
+  "disguised",
   "unknown",
 ];
 

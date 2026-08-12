@@ -10,7 +10,7 @@ export { StoryTimeline, TimelineError } from "./timeline";
 export { validateTransition, describeTransition, TransitionError } from "./validate";
 export type { TransitionDraft } from "./validate";
 
-export { TRANSITION_KINDS, LEGACY_TRANSITION_KINDS } from "./types";
+export { TRANSITION_KINDS, LEGACY_TRANSITION_KINDS, LOCATION_CHANGE_KINDS } from "./types";
 
 export {
   KNOWLEDGE_STATES,
@@ -80,6 +80,25 @@ export type {
   TimelineViolationSeverity,
 } from "./timeline-checks";
 
+export {
+  DEFAULT_OBJECT_STATUS,
+  DEFAULT_OBJECT_VISIBILITY,
+  GONE_STATUSES,
+  isGone,
+  isObjectTransition,
+  objectChangeKind,
+  describeObjectState,
+} from "./objects";
+export type { ObjectChange, ObjectChangeKind, ObjectTransfer } from "./objects";
+
+export { checkContinuity } from "./continuity";
+export type {
+  ContinuityCheckInput,
+  ContinuitySeverity,
+  ContinuityViolation,
+  ContinuityViolationKind,
+} from "./continuity";
+
 export { checkKnowledgeViolations } from "./violations";
 export type {
   CheckInput,
@@ -88,12 +107,15 @@ export type {
   ViolationSeverity,
 } from "./violations";
 
-export { normaliseTransition, foldKnowledge } from "./normalise";
+export { normaliseTransition, normaliseObjectStatus, foldKnowledge } from "./normalise";
 export type {
   CharacterState,
   ConfirmationStatus,
   KnowledgeSource,
+  LocationChangeKind,
+  ObjectPlacement,
   ObjectState,
+  Presence,
   StateBoundary,
   StateTransition,
   TimelineView,

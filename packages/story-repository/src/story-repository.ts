@@ -39,11 +39,16 @@ import {
   type TravelRule,
   orderScenes,
   normaliseStoryTime,
+  indexLocations,
+  isWithin,
+  locationDescendants,
+  locationPath,
 } from "@jellytind/domain";
 import { normalizeProjectPath, type ProjectStore, type ProjectIndex } from "@jellytind/persistence";
 import type { SearchHit, SearchQuery } from "@jellytind/search";
 import type { AgentStore } from "@jellytind/agent-runtime";
 import {
+  checkContinuity,
   checkKnowledgeViolations,
   checkTimeline,
   factKnowledgeGraph,
@@ -52,8 +57,13 @@ import {
   StoryTimeline,
   timelineNodes,
   validateTransition,
+  type CharacterState,
   type CharacterTimelineEntry,
+  type ContinuityViolation,
   type FactKnowledgeGraph,
+  type ObjectChange,
+  type ObjectState,
+  type ObjectTransfer,
   type KnowledgeViolation,
   type RelationshipChange,
   type RelationshipState,
@@ -485,7 +495,7 @@ export class StoryRepository {
       name: input.name,
       aliases: input.aliases ?? [],
       description: input.description ?? "",
-      status: input.status ?? "intact",
+      status: input.status ?? "exists",
       filePath: objectFilePath(id),
     };
     await this.persistEntity("object", object, object.name, object.filePath, {
@@ -722,6 +732,7 @@ export class StoryRepository {
         ...(draft.knowledgeState !== undefined ? { knowledgeState: draft.knowledgeState } : {}),
         ...(draft.sourceType !== undefined ? { sourceType: draft.sourceType } : {}),
         ...(draft.sourceEntityId !== undefined ? { sourceEntityId: draft.sourceEntityId } : {}),
+        ...(draft.movement !== undefined ? { movement: draft.movement } : {}),
         ...(draft.dimension !== undefined ? { dimension: draft.dimension } : {}),
         ...(draft.level !== undefined ? { level: draft.level } : {}),
         ...(draft.magnitude !== undefined ? { magnitude: draft.magnitude } : {}),
@@ -943,6 +954,168 @@ export class StoryRepository {
     return timeline.relationshipChangesInScenes(
       scenes.filter((s) => s.chapterId === chapterId).map((s) => s.id as string),
       view,
+    );
+  }
+
+  // ── Object continuity ───────────────────────────────────────────────────────
+
+  /** A character's state at a boundary: where they are, and whether they are there. */
+  async getCharacterState(
+    characterId: string,
+    asOf: StateBoundary,
+    view: TimelineView = {},
+  ): Promise<CharacterState> {
+    return (await this.getStoryTimeline()).characterStateAt(characterId, asOf, view);
+  }
+
+  /** An object's full state at a boundary: owner, holder, place, condition. */
+  async getObjectState(
+    objectId: string,
+    asOf: StateBoundary,
+    view: TimelineView = {},
+  ): Promise<ObjectState> {
+    return (await this.getStoryTimeline()).objectStateAt(objectId, asOf, view);
+  }
+
+  /** Every recorded step in an object's life, in story order. */
+  async getObjectHistory(objectId: string, view: TimelineView = {}): Promise<ObjectChange[]> {
+    return (await this.getStoryTimeline()).objectHistory(objectId, view);
+  }
+
+  /** An object's changes of hands and of place, as transfers. */
+  async getObjectTransfers(objectId: string, view: TimelineView = {}): Promise<ObjectTransfer[]> {
+    return (await this.getStoryTimeline()).objectTransfers(objectId, view);
+  }
+
+  /**
+   * Where an object effectively is, following whoever is carrying it.
+   *
+   * A held object is wherever its holder is; only a put-down object stays where
+   * it was left (docs/OBJECTS_LOCATIONS.md).
+   */
+  async getObjectLocation(
+    objectId: string,
+    asOf: StateBoundary,
+    view: TimelineView = {},
+  ): Promise<string | undefined> {
+    return (await this.getStoryTimeline()).objectLocationAt(objectId, asOf, view);
+  }
+
+  /**
+   * Record an object changing hands or place.
+   *
+   * A convenience over the transitions it writes, not a second store: transfers
+   * are *derived* from state, so there is only ever one version of where a thing
+   * is. Supplying `from` fields is optional and, when given, is checked against
+   * the state entering the scene — a caller asserting the key came from Mara
+   * when the timeline says it was in a drawer is stating something the project
+   * contradicts, and is told so rather than having it silently recorded.
+   */
+  async recordObjectTransfer(input: {
+    objectId: string;
+    sceneId: string;
+    fromCharacterId?: string;
+    toCharacterId?: string;
+    fromLocationId?: string;
+    toLocationId?: string;
+    reason?: string;
+    source?: StateTransition["source"];
+    confirmationStatus?: StateTransition["confirmationStatus"];
+    modelId?: string;
+  }): Promise<StateTransition[]> {
+    if (input.toCharacterId === undefined && input.toLocationId === undefined) {
+      throw new RepositoryError(
+        "invalid_reference",
+        "A transfer needs somewhere or someone to go to.",
+        { details: { objectId: input.objectId } },
+      );
+    }
+
+    const timeline = await this.getStoryTimeline();
+    const before = timeline.objectStateAt(input.objectId, {
+      sceneId: input.sceneId,
+      position: "before",
+    });
+
+    const disagreement =
+      input.fromCharacterId !== undefined && input.fromCharacterId !== before.holderId
+        ? `holder entering ${input.sceneId} is ${before.holderId ?? "nobody"}, not ${input.fromCharacterId}`
+        : input.fromLocationId !== undefined && input.fromLocationId !== before.locationId
+          ? `location entering ${input.sceneId} is ${before.locationId ?? "unrecorded"}, not ${input.fromLocationId}`
+          : undefined;
+    if (disagreement !== undefined) {
+      throw new RepositoryError(
+        "invalid_reference",
+        `This transfer disagrees with the recorded state of ${input.objectId}: ${disagreement}. Omit the "from" to record it against the state as it stands.`,
+        { details: { objectId: input.objectId, sceneId: input.sceneId } },
+      );
+    }
+
+    const drafts: TransitionDraft[] = [];
+    if (input.toCharacterId !== undefined) {
+      drafts.push({
+        sceneId: input.sceneId,
+        kind: "object_holder",
+        subjectId: input.objectId,
+        value: input.toCharacterId,
+        ...(input.reason !== undefined ? { note: input.reason } : {}),
+      });
+    }
+    if (input.toLocationId !== undefined) {
+      drafts.push({
+        sceneId: input.sceneId,
+        kind: "object_location",
+        subjectId: input.objectId,
+        value: input.toLocationId,
+        ...(input.reason !== undefined ? { note: input.reason } : {}),
+      });
+    }
+
+    return this.addStateTransitions(drafts, {
+      ...(input.source !== undefined ? { source: input.source } : {}),
+      ...(input.confirmationStatus !== undefined
+        ? { confirmationStatus: input.confirmationStatus }
+        : {}),
+      ...(input.modelId !== undefined ? { modelId: input.modelId } : {}),
+      summary: `Transfer ${input.objectId} at ${input.sceneId}`,
+    });
+  }
+
+  /**
+   * Deterministic physical-continuity checks across the project — objects that
+   * cannot be where they are, and characters who cannot be either.
+   */
+  async checkContinuity(view: TimelineView = {}): Promise<ContinuityViolation[]> {
+    const [timeline, scenes, locations] = await Promise.all([
+      this.getStoryTimeline(),
+      this.listScenes(),
+      this.listLocations(),
+    ]);
+    return checkContinuity({ timeline, scenes, locations, view });
+  }
+
+  /** A location and everything containing it, outermost first. */
+  async getLocationPath(locationId: string): Promise<string[]> {
+    return locationPath(indexLocations(await this.listLocations()), locationId).reverse();
+  }
+
+  /** Every location inside this one, at any depth. */
+  async getContainedLocations(locationId: string): Promise<string[]> {
+    return locationDescendants(indexLocations(await this.listLocations()), locationId);
+  }
+
+  /**
+   * Scenes set at a location **or anywhere inside it**.
+   *
+   * The containment-aware sibling of `getScenesByLocation`: asking for scenes at
+   * Blackthorn Manor should find the one set in the Hidden Vault.
+   */
+  async getScenesWithinLocation(locationId: string): Promise<Scene[]> {
+    const [scenes, locations] = await Promise.all([this.listScenes(), this.listLocations()]);
+    const index = indexLocations(locations);
+    return scenes.filter(
+      (scene) =>
+        scene.locationId !== undefined && isWithin(index, scene.locationId as string, locationId),
     );
   }
 

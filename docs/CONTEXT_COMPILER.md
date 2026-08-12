@@ -247,7 +247,8 @@ character participation · locations · world rules · style and voice material 
 user-pinned context · derived structural summaries · story state at a named
 boundary · character knowledge, false beliefs and information asymmetries ·
 relationship state between the characters present · story time, preceding
-events and concurrent material.
+events and concurrent material · object state for the objects a scene uses,
+with locations spelled out through their containment path.
 
 Planned: reader knowledge · foreshadowing · pacing · scene specifications ·
 stored hierarchical summaries · semantic search.

@@ -4,6 +4,7 @@ import {
   transition,
   type PermissionGrant,
 } from "@jellytind/agent-runtime";
+import { OBJECT_STATUSES, OBJECT_VISIBILITIES } from "@jellytind/domain";
 import { ContextCompiler, renderContextPackage } from "@jellytind/context-compiler";
 import { ModelError, type LanguageModel, type OutputSchema } from "@jellytind/model-router";
 import type { StoryRepository } from "@jellytind/story-repository";
@@ -16,12 +17,14 @@ import {
   QUALITATIVE_LEVELS,
   RELATIONSHIP_DIMENSIONS,
   RELATIONSHIP_EVENT_KINDS,
+  LOCATION_CHANGE_KINDS,
   TRANSITION_KINDS,
   validateTransition,
   type AcquisitionSource,
   type KnowledgeState,
   type StateTransition,
   type TransitionDraft,
+  type LocationChangeKind,
   type TransitionKind,
 } from "@jellytind/story-state";
 import { EditError } from "./types";
@@ -87,6 +90,10 @@ Rules:
   - "unknown" — they no longer hold it at all.
 - Say how they came by it: witnessed, told, read, inferred, remembered, assumed, deceived, or unknown. When another character is the source, name them in sourceEntityId.
 - A character can be told something false. Record what they now hold, not what is true; use "deceived" when they are being lied to.
+- For objects, separate who *owns* a thing from who is *holding* it: a stolen revolver still belongs to its owner. Use object_holder when it changes hands and object_location when it is put down somewhere.
+- Report object_status only when the scene changes it: ${OBJECT_STATUSES.join(", ")}. Do not mark something destroyed because it is merely lost or hidden.
+- object_condition is free text for physical damage or change ("cracked", "bloodstained"); object_visibility is ${OBJECT_VISIBILITIES.join(", ")}.
+- For a character arriving somewhere, use character_location with no movement. Use movement "departure" when they leave, "travel" while they are between places, and "unknown" when the scene deliberately hides where they are.
 - For relationships, report a change of type or status when the scene shows one, and milestones (betrayal, alliance, reconciliation, and so on) when they occur.
 - Relationship dimensions are optional analytical aids, not objective truth. Only report one when the scene clearly moves it, prefer a qualitative level over a number, and always give a reason.
 - Give each change a confidence between 0 and 1 and quote the phrase that supports it.
@@ -105,12 +112,14 @@ const FORMAT = `Reply with JSON only, matching:
       "sourceType": "${ACQUISITION_SOURCES.join(" | ")} — only for knowledge_changed",
       "sourceEntityId": "CHAR_ or OBJECT_ the information came from, when there is one",
       "certainty": 1.0,
+      "movement": "${LOCATION_CHANGE_KINDS.join(" | ")} — only for character_location, omit for a plain arrival",
       "dimension": "${RELATIONSHIP_DIMENSIONS.join(" | ")} — only for relationship_dimension",
       "level": "${QUALITATIVE_LEVELS.join(" | ")} — preferred form for a dimension",
       "magnitude": 0.0
     }
   ]
 }
+For object_condition, object_status and object_visibility, subjectId is an OBJECT_ id and value is the new condition, status or visibility.
 For relationship_type and relationship_status, subjectId is a REL_ id and value is the new type or status. For relationship_event, value is one of: ${RELATIONSHIP_EVENT_KINDS.join(", ")}.
 Return an empty array if the scene changes nothing.`;
 
@@ -271,6 +280,7 @@ export class StateExtractor {
         ...(typeof entry.sourceEntityId === "string" && entry.sourceEntityId !== ""
           ? { sourceEntityId: entry.sourceEntityId }
           : {}),
+        ...(isLocationChangeKind(entry.movement) ? { movement: entry.movement } : {}),
         ...(isRelationshipDimension(entry.dimension) ? { dimension: entry.dimension } : {}),
         ...(isQualitativeLevel(entry.level) ? { level: entry.level } : {}),
         ...(typeof entry.magnitude === "number" ? { magnitude: clamp(entry.magnitude) } : {}),
@@ -317,4 +327,8 @@ function isKnowledgeState(value: unknown): value is KnowledgeState {
 
 function isAcquisitionSource(value: unknown): value is AcquisitionSource {
   return typeof value === "string" && (ACQUISITION_SOURCES as readonly string[]).includes(value);
+}
+
+function isLocationChangeKind(value: unknown): value is LocationChangeKind {
+  return typeof value === "string" && (LOCATION_CHANGE_KINDS as readonly string[]).includes(value);
 }

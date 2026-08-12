@@ -18,6 +18,7 @@ import {
   WORLD_RULE_SEVERITIES,
   normaliseStoryTime,
   normaliseDuration,
+  LEGACY_OBJECT_STATUSES,
   type Chapter,
   type Character,
   type Location,
@@ -145,7 +146,9 @@ export const objectCodec: MarkdownCodec<StoryObject> = {
       name: str(d.name),
       aliases: strArray(d.aliases),
       description: str(d.description),
-      status: oneOf(d.status, OBJECT_STATUSES, "intact"),
+      // `intact` and `transformed` predate the status/condition split and are
+      // read as `exists` (docs/OBJECTS_LOCATIONS.md).
+      status: oneOf(LEGACY_OBJECT_STATUSES[str(d.status)] ?? d.status, OBJECT_STATUSES, "exists"),
       filePath: objectFilePath(id),
     };
   },

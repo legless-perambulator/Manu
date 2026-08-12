@@ -1,5 +1,5 @@
-import { orderScenes } from "@jellytind/domain";
-import type { Chapter, Fact, Relationship, Scene } from "@jellytind/domain";
+import { describeLocationPath, locationDepth, orderScenes } from "@jellytind/domain";
+import type { Chapter, Fact, LocationIndex, Relationship, Scene } from "@jellytind/domain";
 import {
   describeRelationship,
   falseBeliefsAt,
@@ -38,12 +38,15 @@ export async function buildTimeline(reader: ProjectReader): Promise<StoryTimelin
   );
 }
 
-function renderCharacterState(state: CharacterState, facts: ReadonlyMap<string, Fact>): string {
-  const lines = [
-    `location: ${state.locationId ?? "unrecorded"}`,
-    `status: ${state.status}`,
+function renderCharacterState(
+  state: CharacterState,
+  facts: ReadonlyMap<string, Fact>,
+  locations: LocationIndex,
+): string {
+  const lines = [`location: ${describeWhere(state, locations)}`, `status: ${state.status}`];
+  lines.push(
     `carrying: ${state.inventory.length === 0 ? "nothing recorded" : state.inventory.join(", ")}`,
-  ];
+  );
   if (state.knowledge.length === 0) {
     lines.push("holds: nothing recorded");
   } else {
@@ -72,17 +75,67 @@ function boundaryWords(asOf: { sceneId: string; position: "before" | "after" }):
   return `${asOf.position === "before" ? "immediately before" : "immediately after"} ${asOf.sceneId}`;
 }
 
-function renderObjectState(state: ObjectState): string {
-  return [
+/**
+ * Where a character is, spelled out with the places containing it.
+ *
+ * `LOC_0004` tells a model nothing; `Blackthorn Manor › West Wing › Library ›
+ * Hidden Vault` tells it the character is in the manor, which is the fact a
+ * scene set "at the manor" turns on (docs/OBJECTS_LOCATIONS.md).
+ */
+function describeWhere(state: CharacterState, locations: LocationIndex): string {
+  if (state.presence === "travelling") {
+    return state.travellingTo === undefined
+      ? "travelling; whereabouts between places"
+      : `travelling to ${withPath(state.travellingTo, locations)}`;
+  }
+  if (state.presence === "departed") {
+    return state.lastKnownLocationId === undefined
+      ? "has left; no location recorded"
+      : `has left ${withPath(state.lastKnownLocationId, locations)}`;
+  }
+  if (state.locationId === undefined) return "unrecorded";
+  return withPath(state.locationId, locations);
+}
+
+function withPath(locationId: string, locations: LocationIndex): string {
+  const path = describeLocationPath(locations, locationId);
+  return locationDepth(locations, locationId) === 0 ? locationId : `${locationId} (${path})`;
+}
+
+/**
+ * An object's state, said plainly enough that a model cannot use it wrongly.
+ *
+ * Where a held object is comes from whoever holds it, so the rendering says
+ * "carried by" rather than naming a place the object left chapters ago — which
+ * is exactly the confusion that puts a revolver in two counties at once.
+ */
+function renderObjectState(state: ObjectState, locations: LocationIndex): string {
+  const where =
+    state.placement === "held" && state.holderId !== undefined
+      ? `carried by ${state.holderId}`
+      : state.locationId === undefined
+        ? "unrecorded"
+        : withPath(state.locationId, locations);
+
+  const lines = [
     `STATE OF ${state.objectId} ${boundaryWords(state.asOf)}`,
     `owner: ${state.ownerId ?? "unowned"}`,
-    `location: ${state.locationId ?? "unrecorded"}`,
-  ].join("\n");
+    `where: ${where}`,
+    `status: ${state.status}`,
+  ];
+  if (state.condition !== undefined) lines.push(`condition: ${state.condition}`);
+  if (state.visibility !== "visible") lines.push(`visibility: ${state.visibility}`);
+  if (state.status === "destroyed") {
+    lines.push("This object no longer exists in the story world. Do not use it.");
+  }
+  return lines.join("\n");
 }
 
 export interface StateCandidateInput {
   readonly timeline: StoryTimeline;
   readonly facts: ReadonlyMap<string, Fact>;
+  /** Locations, so state can be rendered with the places that contain it. */
+  readonly locations?: LocationIndex;
   /** Characters whose state matters to this operation. */
   readonly characterIds: readonly string[];
   readonly objectIds: readonly string[];
@@ -106,6 +159,7 @@ export function stateCandidates(input: StateCandidateInput): Candidate[] {
   }
 
   const asOf = { sceneId, position } as const;
+  const locations = input.locations ?? new Map();
   const out: Candidate[] = [];
 
   for (const [index, characterId] of input.characterIds.entries()) {
@@ -121,7 +175,7 @@ export function stateCandidates(input: StateCandidateInput): Candidate[] {
         `story state of ${characterId} ${boundaryWords(asOf)}, who is involved in ${becauseOf}`,
         [becauseOf, characterId],
       ),
-      full: renderCharacterState(state, input.facts),
+      full: renderCharacterState(state, input.facts, locations),
     });
   }
 
@@ -138,7 +192,7 @@ export function stateCandidates(input: StateCandidateInput): Candidate[] {
         `story state of ${objectId} ${boundaryWords(asOf)}, which appears in ${becauseOf}`,
         [becauseOf, objectId],
       ),
-      full: renderObjectState(state),
+      full: renderObjectState(state, locations),
     });
   }
 

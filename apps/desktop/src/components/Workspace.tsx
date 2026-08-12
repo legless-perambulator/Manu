@@ -17,9 +17,18 @@ import { StatePanel } from "./StatePanel";
 import { KnowledgePanel } from "./KnowledgePanel";
 import { RelationshipPanel } from "./RelationshipPanel";
 import { TimelinePanel } from "./TimelinePanel";
+import { ObjectPanel } from "./ObjectPanel";
 
 type LeftTab =
-  "files" | "entities" | "search" | "state" | "knowledge" | "relations" | "timeline" | "history";
+  | "files"
+  | "entities"
+  | "search"
+  | "state"
+  | "knowledge"
+  | "relations"
+  | "objects"
+  | "timeline"
+  | "history";
 type RightTab = "inspector" | "agent" | "context";
 
 interface WorkspaceProps {
@@ -125,6 +134,12 @@ export function Workspace({ repo, secrets, onClose, onOpenSettings }: WorkspaceP
               Relations
             </button>
             <button
+              className={`tab${tab === "objects" ? " tab--active" : ""}`}
+              onClick={() => setTab("objects")}
+            >
+              Objects
+            </button>
+            <button
               className={`tab${tab === "timeline" ? " tab--active" : ""}`}
               onClick={() => setTab("timeline")}
             >
@@ -177,6 +192,17 @@ export function Workspace({ repo, secrets, onClose, onOpenSettings }: WorkspaceP
           {tab === "knowledge" && <KnowledgePanel repo={repo} refreshToken={refreshToken} />}
           {tab === "relations" && (
             <RelationshipPanel repo={repo} refreshToken={refreshToken} onChanged={refresh} />
+          )}
+          {tab === "objects" && (
+            <ObjectPanel
+              repo={repo}
+              refreshToken={refreshToken}
+              onChanged={refresh}
+              onSelectEntity={(id) => {
+                setSelectedEntityId(id);
+                setRightTab("inspector");
+              }}
+            />
           )}
           {tab === "timeline" && (
             <TimelinePanel

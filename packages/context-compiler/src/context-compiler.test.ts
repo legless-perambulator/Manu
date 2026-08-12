@@ -1,13 +1,22 @@
 import { describe, expect, it } from "vitest";
 import { ContextCompiler, RECIPES } from "./compiler";
 import { CompileError } from "./errors";
-import { fixtureReader, FIXTURE_FILES, FIXTURE_SCENES } from "./fixture";
+import {
+  fixtureReader,
+  FIXTURE_CHAPTERS,
+  FIXTURE_FILES,
+  FIXTURE_LOCATIONS,
+  FIXTURE_SCENES,
+  FIXTURE_TRANSITIONS,
+} from "./fixture";
 import { buildTimeline } from "./recipes/state";
 import { buildChronology, temporalCandidates } from "./recipes/temporal";
 import { renderContextPackage } from "./present";
 import { adjacentChapters, adjacentScenes, orderScenes } from "./sequence";
 import { estimateTokens } from "./tokens";
 import { allItems, includedIds, section, type ContextPackage } from "./types";
+import { orderScenes as domainOrderScenes } from "@jellytind/domain";
+import { checkContinuity, StoryTimeline } from "@jellytind/story-state";
 import type { Scene } from "@jellytind/domain";
 
 const compiler = () => new ContextCompiler(fixtureReader(), { now: () => "2026-01-01T00:00:00Z" });
@@ -503,5 +512,51 @@ describe("temporal context", () => {
       "EVENT_0002",
       "SCENE_0004",
     ]);
+  });
+});
+
+describe("object and location state in context", () => {
+  it("says where an object is, following whoever carries it", async () => {
+    const pkg = await compiler().compile({ recipe: "scene_inspection", targetId: "SCENE_0002" });
+    const item = allItems(pkg).find((i) => i.id.startsWith("OBJECT_0001@"));
+
+    expect(item?.provenance.rule).toBe("object_state");
+    // Entering SCENE_0002 the key is still where it was left, not yet in a hand.
+    expect(item?.text).toContain("where: LOC_0003 (Blackthorn Manor › West Wing)");
+    expect(item?.text).toContain("status: exists");
+  });
+
+  /**
+   * The reason containment is spelled out: `LOC_0003` tells a model nothing,
+   * while the path tells it the key is at the manor — which is what a scene set
+   * "at the manor" turns on.
+   */
+  it("spells out the places a nested location sits inside", async () => {
+    const pkg = await compiler().compile({ recipe: "scene_inspection", targetId: "SCENE_0002" });
+    const item = allItems(pkg).find((i) => i.id.startsWith("CHAR_0001@"));
+    expect(item?.text).toContain("location: LOC_0001");
+    // A top-level location needs no trail.
+    expect(item?.text).not.toContain("LOC_0001 (");
+  });
+
+  it("carries condition and holder once the object changes hands", async () => {
+    const timeline = await buildTimeline(fixtureReader());
+    const after = timeline.objectStateAfterScene("OBJECT_0001", "SCENE_0002");
+    expect(after.holderId).toBe("CHAR_0001");
+    expect(after.condition).toBe("bent");
+    expect(after.placement).toBe("held");
+  });
+
+  it("finds no continuity problems in a consistent fixture", () => {
+    expect(
+      checkContinuity({
+        timeline: new StoryTimeline(
+          domainOrderScenes(FIXTURE_SCENES, FIXTURE_CHAPTERS).map((s) => s.id as string),
+          FIXTURE_TRANSITIONS,
+        ),
+        scenes: FIXTURE_SCENES,
+        locations: FIXTURE_LOCATIONS,
+      }),
+    ).toEqual([]);
   });
 });

@@ -33,6 +33,20 @@ export {
   normaliseStoryTime,
   normaliseDuration,
 } from "./story-time";
+export {
+  indexLocations,
+  locationPath,
+  locationAncestors,
+  locationDescendants,
+  locationDepth,
+  locationTreeFaults,
+  describeLocationPath,
+  isWithin,
+  locationsCompatible,
+  rootLocation,
+} from "./location-tree";
+export type { LocationIndex, LocationTreeFault, LocationTreeProblem } from "./location-tree";
+
 export type {
   StoryTime,
   StoryTimeKind,

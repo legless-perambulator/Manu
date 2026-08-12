@@ -1,5 +1,20 @@
+import { LEGACY_OBJECT_STATUSES, OBJECT_STATUSES, type ObjectStatus } from "@jellytind/domain";
 import type { AcquisitionSource, KnowledgeRecord, KnowledgeState } from "./knowledge";
 import { LEGACY_TRANSITION_KINDS, type StateTransition, type TransitionKind } from "./types";
+
+/**
+ * Read a stored object status in current terms.
+ *
+ * `intact` became `exists`, and `transformed` — which conflated status with
+ * condition — becomes `exists` too: a melted candlestick has not left the story,
+ * it has changed condition, and there is now a field that says so
+ * (docs/OBJECTS_LOCATIONS.md). Anything unrecognised reads as `unknown`, which
+ * is the honest answer for a value this version cannot interpret.
+ */
+export function normaliseObjectStatus(value: string): ObjectStatus {
+  if ((OBJECT_STATUSES as readonly string[]).includes(value)) return value as ObjectStatus;
+  return LEGACY_OBJECT_STATUSES[value] ?? "unknown";
+}
 
 /**
  * Read a stored transition in current terms.
