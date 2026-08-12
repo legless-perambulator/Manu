@@ -1,0 +1,60 @@
+# Flatpak packaging for Manu.
+#
+# Why this exists alongside the AppImage: a Flatpak runs against a fixed
+# runtime (org.gnome.Platform) and takes the host's GPU driver through the
+# org.freedesktop.Platform.GL extension, which Flatpak version-matches to the
+# host. It therefore cannot hit the class of bug where a bundled
+# libwayland-client shadows the host's Mesa — the failure this package exists
+# to route around on SteamOS. See docs/BUILDING.md.
+#
+# The app itself is not rebuilt here; this wraps the .deb that
+# `tauri build --bundles deb` already produced, which is the packaging path
+# Tauri documents for Flatpak.
+app-id: com.manu.app
+runtime: org.gnome.Platform
+runtime-version: "49"
+sdk: org.gnome.Sdk
+command: manu-desktop
+
+finish-args:
+  # Windowing. Wayland first, XWayland as the fallback.
+  - --share=ipc
+  - --socket=wayland
+  - --socket=fallback-x11
+  # Hardware acceleration for WebKit.
+  - --device=dri
+  # Provider HTTP. Outbound calls are made from the Rust host and are scoped to
+  # the configured endpoint in src-tauri/capabilities/default.json; this only
+  # lets the sandbox reach the network at all.
+  - --share=network
+  # A Manu project is a folder of plain files the writer chooses. The app reads
+  # and writes it directly (src-tauri/src/project_fs.rs confines access to the
+  # chosen root), so the sandbox has to permit the user's own files.
+  - --filesystem=home
+  # Provider API keys live in the OS secure store, reached over the Secret
+  # Service D-Bus interface.
+  - --talk-name=org.freedesktop.secrets
+
+modules:
+  - name: manu
+    buildsystem: simple
+    build-commands:
+      - ar x Manu_0.1.0-alpha_amd64.deb
+      - tar -xf data.tar.gz
+      - install -Dm755 usr/bin/manu-desktop /app/bin/manu-desktop
+      # Flatpak requires the desktop entry, icons and metainfo to be named for
+      # the app id.
+      - install -Dm644 usr/share/applications/Manu.desktop
+        /app/share/applications/com.manu.app.desktop
+      - desktop-file-edit --set-key=Icon --set-value=com.manu.app
+        /app/share/applications/com.manu.app.desktop
+      - for s in 32 128 512; do install -Dm644
+        "usr/share/icons/hicolor/${s}x${s}/apps/manu-desktop.png"
+        "/app/share/icons/hicolor/${s}x${s}/apps/com.manu.app.png"; done
+      - install -Dm644 com.manu.app.metainfo.xml
+        /app/share/metainfo/com.manu.app.metainfo.xml
+    sources:
+      - type: file
+        path: ../src-tauri/target/release/bundle/deb/Manu_0.1.0-alpha_amd64.deb
+      - type: file
+        path: com.manu.app.metainfo.xml

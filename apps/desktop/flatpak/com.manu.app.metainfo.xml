@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.manu.app</id>
+  <name>Manu</name>
+  <summary>A writing IDE for fiction</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>LicenseRef-proprietary</project_license>
+  <developer id="com.manu">
+    <name>Manu</name>
+  </developer>
+  <description>
+    <p>
+      Manu is an AI-native fiction development environment. A project is a folder of plain
+      files you own; the story's structure — state, knowledge, relationships, chronology,
+      objects, threads and causality — is recorded alongside the manuscript so continuity
+      can be checked, tested, debugged and refactored deterministically.
+    </p>
+    <p>
+      Every deterministic check runs with no model configured at all. When a model is
+      configured it proposes rather than writes: nothing reaches the manuscript without
+      the author accepting it, and every change is recorded and revertible.
+    </p>
+  </description>
+  <launchable type="desktop-id">com.manu.app.desktop</launchable>
+  <content_rating type="oars-1.1" />
+  <releases>
+    <release version="0.1.0-alpha" date="2026-08-12">
+      <description>
+        <p>First alpha packaging.</p>
+      </description>
+    </release>
+  </releases>
+</component>

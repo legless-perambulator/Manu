@@ -35,3 +35,9 @@ pnpm-debug.log*
 .env
 .env.local
 .env.*.local
+
+# Flatpak build outputs
+apps/desktop/flatpak/build-dir/
+apps/desktop/flatpak/.flatpak-builder/
+apps/desktop/flatpak/repo/
+*.flatpak

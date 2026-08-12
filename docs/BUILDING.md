@@ -64,13 +64,14 @@ outlined and carry no live text. See [BRAND.md](BRAND.md).
 
 ## Building the Linux AppImage
 
+**Use the packaging script, not `tauri build` on its own:**
+
 ```bash
-cd apps/desktop
-pnpm exec tauri build --bundles appimage
+scripts/package-appimage.sh
 ```
 
-This runs `pnpm build` (Vite → `apps/desktop/dist`), compiles the Rust host in
-release mode, and bundles the two together. The artifact lands at:
+It builds, then removes libraries Tauri's bundler over-bundles, then repacks.
+The artifact lands at:
 
 ```
 apps/desktop/src-tauri/target/release/bundle/appimage/Manu_0.1.0-alpha_amd64.AppImage
@@ -86,16 +87,99 @@ chmod +x Manu_0.1.0-alpha_amd64.AppImage
 The AppImage is **standalone**: the frontend is compiled into the binary, so it
 needs no dev server, no Node, and no checkout. It carries no source paths.
 
+### Why the extra step: EGL_BAD_PARAMETER
+
+A plain `tauri build --bundles appimage` produces an AppImage that **crashes on
+launch on current distributions** — Steam Deck / SteamOS among them:
+
+```
+Could not create default EGL display: EGL_BAD_PARAMETER. Aborting...
+```
+
+`linuxdeploy` follows libwebkit2gtk's dependency graph and sweeps a lot of the
+build host's base system into `usr/lib`, including **`libwayland-client`** and
+**`libwayland-egl`**. AppRun puts that directory first on `LD_LIBRARY_PATH`.
+
+WebKitGTK does not bundle libEGL — it dlopens the **host's**. On the target,
+the host's Mesa then resolves _its own_ dependencies against the AppImage's
+older copies, and `eglGetDisplay(EGL_DEFAULT_DISPLAY)` fails. SteamOS ships
+Mesa 25; Ubuntu 24.04 ships Wayland 1.22; that pairing is the documented
+trigger.
+
+This is why `WEBKIT_DISABLE_DMABUF_RENDERER`, `WEBKIT_DISABLE_COMPOSITING_MODE`
+and `GDK_BACKEND=x11` make no difference: the failure is in `PlatformDisplay`
+creation, before any renderer or compositing mode is chosen. (`GDK_BACKEND=x11`
+in particular is already forced by Tauri's own AppRun hook, so setting it is a
+no-op.)
+
+`libwayland-client` is on the [canonical AppImage
+excludelist](https://github.com/AppImage/pkg2appimage/blob/master/excludelist)
+for exactly this reason. `scripts/package-appimage.sh` removes it and the
+related set named in [tauri-apps/tauri#15665](https://github.com/tauri-apps/tauri/issues/15665):
+the Wayland libraries, the GLib family, GStreamer, and the base-system
+libraries Mesa links (`libffi`, `libpcre2`, `libzstd`, `libelf`, `libmount`,
+`libblkid`, `libselinux`) — 29 files. The upstream issue is open; no released
+Tauri does this for us.
+
+**Trade-off:** these libraries are "assumed present on the host" by AppImage
+convention, so dropping them raises Manu's baseline to a host with **GLib ≥
+2.80** (Ubuntu 24.04 / Fedora 40 / SteamOS 3.6 and newer). Every current
+desktop distribution satisfies it; a 2023-era LTS may not.
+
 ### Notes
 
 - The first build downloads `linuxdeploy` into `~/.cache/tauri`. It needs
   network access once; later builds do not.
-- `--bundles appimage,deb` also produces a `.deb` under
-  `target/release/bundle/deb/`.
+- `--skip-build` reuses the compiled AppDir and only re-prunes and repacks.
 - Release builds take several minutes. `cargo check --manifest-path
 apps/desktop/src-tauri/Cargo.toml` is the fast way to verify the host
   compiles.
 - Build artifacts are **not** committed. `target/` and `dist/` are ignored.
+
+## Building the Flatpak
+
+Flatpak is the more robust Linux package, and the recommended one on SteamOS.
+It runs against a fixed runtime and takes the host's GPU driver through
+Flatpak's `org.freedesktop.Platform.GL` extension, which is version-matched to
+the host — so the shadowing failure above **cannot occur by construction**.
+
+```bash
+flatpak install -y flathub org.gnome.Platform//49 org.gnome.Sdk//49
+
+cd apps/desktop
+pnpm exec tauri build --bundles deb          # the Flatpak wraps this
+cd flatpak
+flatpak-builder --user --force-clean --repo=repo build-dir com.manu.app.yml
+flatpak build-bundle repo Manu_0.1.0-alpha_x86_64.flatpak com.manu.app \
+  --runtime-repo=https://flathub.org/repo/flathub.flatpakrepo
+```
+
+Install and run:
+
+```bash
+flatpak install --user Manu_0.1.0-alpha_x86_64.flatpak
+flatpak run com.manu.app
+```
+
+The bundle is ~4 MB because the runtime is shared; the first install pulls
+`org.gnome.Platform//49` (~700 MB) if it is not already present. On a Steam
+Deck it usually is, since Flathub is the default software source.
+
+### Sandbox permissions
+
+`apps/desktop/flatpak/com.manu.app.yml` grants exactly what Manu already did
+outside a sandbox, and nothing more:
+
+| Permission                                                 | Why                                                                                         |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `--socket=wayland`, `--socket=fallback-x11`, `--share=ipc` | Windowing                                                                                   |
+| `--device=dri`                                             | WebKit hardware acceleration                                                                |
+| `--filesystem=home`                                        | A project is a folder of plain files the writer picks; the app reads and writes it directly |
+| `--share=network`                                          | Provider HTTP, still scoped to the configured endpoint by `capabilities/default.json`       |
+| `--talk-name=org.freedesktop.secrets`                      | Provider API keys in the OS secure store                                                    |
+
+Local storage, the SQLite index, project file access and the Tauri capability
+set are unchanged — the Flatpak wraps the same binary the `.deb` installs.
 
 ### What is and is not in the bundle
 
