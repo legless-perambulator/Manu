@@ -20,6 +20,7 @@ import { TimelinePanel } from "./TimelinePanel";
 import { ObjectPanel } from "./ObjectPanel";
 import { ThreadPanel } from "./ThreadPanel";
 import { BuildPanel } from "./BuildPanel";
+import { StoryTestPanel } from "./StoryTestPanel";
 
 type LeftTab =
   | "files"
@@ -32,6 +33,7 @@ type LeftTab =
   | "threads"
   | "timeline"
   | "build"
+  | "tests"
   | "history";
 type RightTab = "inspector" | "agent" | "context";
 
@@ -177,6 +179,12 @@ export function Workspace({ repo, secrets, onClose, onOpenSettings }: WorkspaceP
               Build
             </button>
             <button
+              className={`tab${tab === "tests" ? " tab--active" : ""}`}
+              onClick={() => setTab("tests")}
+            >
+              Tests
+            </button>
+            <button
               className={`tab${tab === "history" ? " tab--active" : ""}`}
               onClick={() => setTab("history")}
             >
@@ -259,6 +267,20 @@ export function Workspace({ repo, secrets, onClose, onOpenSettings }: WorkspaceP
           )}
           {tab === "build" && (
             <BuildPanel
+              repo={repo}
+              refreshToken={refreshToken}
+              onChanged={refresh}
+              onSelectEntity={(id) => {
+                setSelectedEntityId(id);
+                setRightTab("inspector");
+              }}
+              onOpenScene={(sceneId) => {
+                void openScene(sceneId);
+              }}
+            />
+          )}
+          {tab === "tests" && (
+            <StoryTestPanel
               repo={repo}
               refreshToken={refreshToken}
               onChanged={refresh}

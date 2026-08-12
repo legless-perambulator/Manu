@@ -6,10 +6,12 @@ over structured state rather than by a model re-reading the manuscript.
 
 - **Package:** `@jellytind/story-compiler`
 - **Depends on:** `@jellytind/domain`, `@jellytind/shared`, `@jellytind/story-state`
-- **Status (Phase 16):** **V1 implemented and tested.** The diagnostic model,
-  the rule registry, ten deterministic rules, configuration, build history and
-  comparison, the agent tools and the Story Build view are built. Semantic
-  checks, Story Tests and full incremental compilation are **PLANNED**.
+- **Status (Phase 17):** **V1 implemented and tested.** The diagnostic model,
+  the rule registry, eleven deterministic rules, configuration, build history
+  and comparison, the agent tools and the Story Build view are built, and the
+  build runs the writer's deterministic Story Tests
+  ([STORY_TESTS.md](STORY_TESTS.md)). Semantic checks, semantic test evaluation
+  and full incremental compilation are **PLANNED**.
 
 ## The premise
 
@@ -39,6 +41,7 @@ a check that already exists in the subsystem that owns the data:
 | `setup_payoff`          | `checkNarrative`                                |
 | `scene_relationships`   | — structural, and nowhere else to live          |
 | `world_rules`           | — recorded statuses against declared hard rules |
+| `story_tests`           | `runStoryTests` (the story-test engine)         |
 
 Re-deriving any of that inside the compiler would create a second
 implementation of continuity to drift apart from the first. A rule's job is to
@@ -150,6 +153,28 @@ The same honesty governs world rules: hard rules the compiler cannot evaluate
 deterministically are reported as `info`, so a green build never implies they
 were enforced.
 
+## Story Tests
+
+The build also runs the writer's own assertions —
+_Elias must not know the killer's identity before chapter 37_ — and reports them
+**separately** from the rules, because they are a different kind of claim: what
+the writer said their story must be, rather than what the system checks
+([STORY_TESTS.md](STORY_TESTS.md)).
+
+```
+DETERMINISTIC STORY TESTS                        21 / 22 passed
+```
+
+They are evaluated once per build and reach the compiler two ways: as
+`build.tests`, the whole run with its totals and per-failure detail, and — for
+failures only — as diagnostics under the `story_tests` rule, so a broken
+intention lands in the same list as a broken continuity fact.
+
+A failing test's diagnostic carries **the test's own severity**: a writer who
+recorded an intention as a warning gets a warning. A test that could not run
+becomes a warning saying so. **Semantic tests never become diagnostics**, and
+never count as passed.
+
 ## Build history and comparison
 
 Builds are numbered, and their summaries persist under `.writer/builds/`.
@@ -236,7 +261,8 @@ implemented, because they cannot yet be made reliable:
 - repeated phrases and voice convergence — semantic
 - most world rules — prose, and therefore model work
 - pacing and scene-purpose judgements — semantic
-- Story Tests (`EXPECT knows(CHAR_ELIAS, FACT) == false UNTIL CHAPTER_0037`)
+- evaluation of **semantic** Story Tests — needs Reader Simulation; they are
+  recorded and reported as not evaluated ([STORY_TESTS.md](STORY_TESTS.md))
 
 A build a writer cannot trust is worse than a shorter one.
 

@@ -1,5 +1,6 @@
 import {
   createBuildTools,
+  createTestTools,
   createProjectTools,
   createTask,
   InvestigationAgent,
@@ -48,6 +49,7 @@ export async function startInvestigation(
   const registry = new ToolRegistry().register(
     ...createProjectTools(access),
     ...createBuildTools(access),
+    ...createTestTools(access),
   );
 
   // Phase 7 is read-only: the grant carries no write permission at all, so no

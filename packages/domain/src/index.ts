@@ -47,6 +47,27 @@ export {
 } from "./location-tree";
 export type { LocationIndex, LocationTreeFault, LocationTreeProblem } from "./location-tree";
 
+export {
+  TEST_SEVERITIES,
+  SCOPE_KINDS,
+  DETERMINISTIC_ASSERTION_KINDS,
+  SEMANTIC_ASSERTION_KINDS,
+  DEFAULT_TEST_SEVERITY,
+  ALIVE_STATUSES,
+  isDeterministicAssertion,
+  assertionEntities,
+  describeTest,
+} from "./story-tests";
+export type {
+  Assertion,
+  DeterministicAssertion,
+  SemanticAssertion,
+  StoryTest,
+  TestScope,
+  TestSeverity,
+  TestType,
+} from "./story-tests";
+
 export type {
   StoryTime,
   StoryTimeKind,

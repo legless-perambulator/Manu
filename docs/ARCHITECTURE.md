@@ -32,7 +32,9 @@ time-aware state, first-class setups and payoffs, dormancy measured rather than
 judged, and a structural guard keeping authorial intent out of reader-facing
 context. On top of all of it sits **Story Compiler V1**: one command that asks
 every recorded subsystem whether the story holds together and answers with
-deterministic, navigable diagnostics. The remaining subsystem packages are typed
+deterministic, navigable diagnostics — and **Story Tests**, the writer's own
+assertions about what must be true where, run by every build and reported
+separately from the system's checks. The remaining subsystem packages are typed
 interfaces marked **PLANNED**; features continue as vertical slices (see
 [`ROADMAP.md`](ROADMAP.md)).
 
@@ -112,7 +114,10 @@ There are no cycles. `shared` is a sink; the UI is a source.
 `story-compiler` sits _below_ `story-repository`, not above it. The compiler
 runs rules over a `BuildContext` that the repository assembles and hands to it,
 so the compiler depends on nothing that owns a project — which is also why a
-rule can be tested against a hand-built context with no filesystem at all. See
+rule can be tested against a hand-built context with no filesystem at all. The
+story-test engine lives there too, for the same reason: it decides assertions
+against reconstructed state and knows nothing about where a project is stored
+([`STORY_TESTS.md`](STORY_TESTS.md)). See
 [`STORY_COMPILER.md`](STORY_COMPILER.md).
 
 `agent-runtime` sits _beside_ `story-repository`, not above it: it depends on

@@ -5,7 +5,9 @@ import {
   type Fact,
   type Location,
   type PlotThread,
+  type Relationship,
   type Scene,
+  type StoryTest,
   type Setup,
   type StoryObject,
   type WorldRule,
@@ -120,6 +122,8 @@ export interface FixtureOverrides {
   readonly setups?: readonly Setup[];
   readonly threads?: readonly PlotThread[];
   readonly worldRules?: readonly WorldRule[];
+  readonly relationships?: readonly Relationship[];
+  readonly storyTests?: readonly StoryTest[];
   readonly danglingReferences?: readonly DanglingReference[];
 }
 
@@ -198,6 +202,8 @@ export function buildContext(overrides: FixtureOverrides = {}): Omit<BuildContex
     worldRules: overrides.worldRules ?? [],
     events: [],
     setups: overrides.setups ?? [],
+    relationships: overrides.relationships ?? [],
+    storyTests: overrides.storyTests ?? [],
     transitions,
     temporalLinks: [],
     travelRules: [],

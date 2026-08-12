@@ -436,6 +436,57 @@ function revivals(
 }
 
 /**
+ * Failing story tests, as diagnostics.
+ *
+ * The suite is reported separately on the build — a writer's own assertions are
+ * a different kind of result from the compiler's built-in checks. But a failure
+ * is still something to navigate to and to compare against the last build, so
+ * each one also becomes a diagnostic, carrying the test's own severity rather
+ * than a severity the compiler chose.
+ *
+ * A semantic test is never a diagnostic. It has not been evaluated, and an
+ * unanswered question is not a failure.
+ */
+const storyTests: StoryCompilerRule = {
+  id: "story_tests",
+  name: "Story tests",
+  category: "story_tests",
+  description: "The writer's own assertions about what must be true, and when.",
+  inputs: ["story_tests", "transitions", "scenes", "entities"],
+  run(context) {
+    const out: DiagnosticDraft[] = [];
+    for (const result of context.testResults?.results ?? []) {
+      if (result.status === "errored") {
+        out.push({
+          severity: "warning",
+          message: `Story test "${result.name}" could not run: ${result.reason ?? "unknown reason"}.`,
+          entities: [result.testId],
+          evidence: result.statement,
+          suggestedAction: "Correct the test's scope, or the entities it names.",
+          key: "errored",
+        });
+        continue;
+      }
+      if (result.status !== "failed") continue;
+
+      for (const failure of result.failures) {
+        out.push({
+          severity: result.severity,
+          message: `Story test "${result.name}" failed at ${failure.sceneId}: expected ${failure.expected}, but ${failure.actual}.`,
+          entities: [result.testId, ...failure.entities],
+          sceneId: failure.sceneId,
+          evidence: failure.evidence,
+          suggestedAction:
+            "Change the story so the assertion holds, or change the assertion if the intention moved.",
+          key: `${result.testId}:${failure.sceneId}`,
+        });
+      }
+    }
+    return out;
+  },
+};
+
+/**
  * Every rule the compiler ships with, in the order a build reports them.
  *
  * A plain array so later phases — and eventually plugins — can concatenate
@@ -452,6 +503,7 @@ export const CORE_RULES: readonly StoryCompilerRule[] = [
   threadLifecycle,
   setupPayoff,
   worldRuleEvaluation,
+  storyTests,
 ];
 
 /** Look a rule up by ID — for configuration UIs and for tests. */

@@ -14,7 +14,7 @@ This is **not** a chatbot with a writing editor attached. It lets AI agents insp
 
 ## Status
 
-**Phase 16 complete.** Implemented and tested so far:
+**Phase 17 complete.** Implemented and tested so far:
 
 - **Phase 0** — monorepo, tooling, stable branded entity IDs, persistence and
   model-provider boundaries, Tauri + React desktop shell.
@@ -77,6 +77,12 @@ This is **not** a chatbot with a writing editor attached. It lets AI agents insp
   suggested action, click-through navigation, build history and a diff against
   the last build. The compiler consumes the existing checks rather than
   reimplementing them, and says plainly what it did not check.
+- **Phase 17** — Story Tests: the writer's own assertions, written down and
+  held to. _Elias must not know the killer's identity before chapter 37_ becomes
+  a persistent, executable test that every build re-asks — built from a
+  structured form rather than code, failing with expected state, actual state,
+  the scene and the evidence. Semantic assertions are recorded in a separate
+  type and reported as not evaluated, never as passing.
 
 Implementation proceeds as vertical slices — see
 [`docs/ROADMAP.md`](docs/ROADMAP.md) and

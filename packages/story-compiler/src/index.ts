@@ -11,6 +11,21 @@ export type { BuildOptions } from "./build";
 
 export { CORE_RULES, ruleById, RULE_SEVERITY_HINT } from "./rules";
 
+export {
+  runStoryTests,
+  runStoryTest,
+  resolveScope,
+  describeTestRun,
+  ScopeError,
+} from "./story-tests";
+export type {
+  TestFailure,
+  TestResult,
+  TestRunInput,
+  TestRunSummary,
+  TestStatus,
+} from "./story-tests";
+
 export { SEVERITIES, RULE_CATEGORIES } from "./types";
 export type {
   BuildComparison,

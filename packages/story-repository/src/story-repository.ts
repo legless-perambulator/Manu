@@ -39,8 +39,15 @@ import {
   type TemporalLink,
   type TemporalRelation,
   type TravelRule,
+  type Assertion,
+  type StoryTest,
+  type TestScope,
+  type TestSeverity,
   orderScenes,
   normaliseStoryTime,
+  assertionEntities,
+  isDeterministicAssertion,
+  DEFAULT_TEST_SEVERITY,
   indexLocations,
   isWithin,
   locationDescendants,
@@ -90,6 +97,7 @@ import {
 import {
   buildStory,
   compareBuilds,
+  runStoryTests,
   CORE_RULES,
   type BuildComparison,
   type BuildConfig,
@@ -97,12 +105,14 @@ import {
   type BuildInputKind,
   type BuildSummary,
   type StoryBuild,
+  type TestRunSummary,
 } from "@jellytind/story-compiler";
 import { RepositoryError } from "./errors";
 import { RepositoryAgentStore } from "./agent-store";
 import { TransitionStore } from "./state-store";
 import { TimelineStore } from "./timeline-store";
 import { BuildStore } from "./build-store";
+import { TestStore } from "./test-store";
 import { ProjectSearch } from "./project-search";
 import {
   scenesByCharacter,
@@ -196,6 +206,12 @@ function citesEntity(t: StateTransition, id: string): boolean {
 
 const nowIso = (): string => new Date().toISOString();
 
+/** The scene or chapter IDs a test scope names. */
+function scopeAnchors(scope: TestScope): string[] {
+  if (scope.kind === "always") return [];
+  return scope.kind === "between" ? [scope.anchorId, scope.untilId] : [scope.anchorId];
+}
+
 /** Words in a chapter file, front matter excluded. */
 function countWords(raw: string): number {
   const body = raw.replace(/^---\n[\s\S]*?\n---\n?/, "");
@@ -218,6 +234,7 @@ export class StoryRepository {
   private readonly transitions: TransitionStore;
   private readonly timeline: TimelineStore;
   private readonly builds: BuildStore;
+  private readonly tests: TestStore;
   private manifest: ProjectManifest;
   private ids: SequentialIdGenerator;
 
@@ -243,6 +260,9 @@ export class StoryRepository {
     // Not journaled: a build is derived analysis, and running one changes
     // nothing about the story.
     this.builds = new BuildStore(rawStore);
+    // Journaled: a story test is the writer's stated intention, and as authored
+    // as any other piece of canon.
+    this.tests = new TestStore(this.store);
   }
 
   // ── Lifecycle ────────────────────────────────────────────────────────────
@@ -1039,6 +1059,125 @@ export class StoryRepository {
     );
   }
 
+  // ── Story tests ─────────────────────────────────────────────────────────────
+
+  /** Every story test, enabled or not. */
+  listStoryTests(): Promise<StoryTest[]> {
+    return this.tests.list();
+  }
+
+  getStoryTest(id: string): Promise<StoryTest | null> {
+    return this.tests.get(id);
+  }
+
+  /**
+   * Record a story test.
+   *
+   * Every entity the assertion names must exist: a test about a character the
+   * project does not have asserts nothing, and would fail forever for the wrong
+   * reason (docs/STORY_TESTS.md).
+   */
+  async addStoryTest(input: {
+    name: string;
+    assertion: Assertion;
+    description?: string;
+    scope?: TestScope;
+    severity?: TestSeverity;
+    enabled?: boolean;
+  }): Promise<StoryTest> {
+    const type = isDeterministicAssertion(input.assertion) ? "deterministic" : "semantic";
+    for (const id of assertionEntities(input.assertion)) {
+      if ((await this.getEntity(id)) === null) {
+        throw new RepositoryError(
+          "entity_not_found",
+          `This test references "${id}", which does not exist in this project.`,
+          { details: { id } },
+        );
+      }
+    }
+
+    const scope = input.scope ?? { kind: "always" };
+    for (const anchor of scopeAnchors(scope)) {
+      if ((await this.getEntity(anchor)) === null) {
+        throw new RepositoryError(
+          "entity_not_found",
+          `This test's scope references "${anchor}", which does not exist in this project.`,
+          { details: { id: anchor } },
+        );
+      }
+    }
+
+    let stored: StoryTest[] = [];
+    await this.recordChange(
+      { actor: "human", operation: "add_story_test", summary: `Add story test "${input.name}"` },
+      async () => {
+        stored = await this.tests.append([
+          {
+            name: input.name,
+            description: input.description ?? "",
+            type,
+            scope,
+            enabled: input.enabled ?? true,
+            severity: input.severity ?? DEFAULT_TEST_SEVERITY,
+            assertion: input.assertion,
+            createdAt: this.clock(),
+          },
+        ]);
+        await this.touch();
+      },
+    );
+    return stored[0] as StoryTest;
+  }
+
+  /** Enable or disable a test. A disabled test is kept and reported as skipped. */
+  async setStoryTestEnabled(id: string, enabled: boolean): Promise<StoryTest> {
+    let updated: StoryTest | null = null;
+    await this.recordChange(
+      {
+        actor: "human",
+        operation: enabled ? "enable_story_test" : "disable_story_test",
+        summary: `${enabled ? "Enable" : "Disable"} story test ${id}`,
+      },
+      async () => {
+        updated = await this.tests.update(id, { enabled });
+        await this.touch();
+      },
+    );
+    if (updated === null) {
+      throw new RepositoryError("entity_not_found", `No story test with id ${id}.`);
+    }
+    return updated;
+  }
+
+  async deleteStoryTest(id: string): Promise<void> {
+    await this.recordChange(
+      { actor: "human", operation: "delete_story_test", summary: `Delete story test ${id}` },
+      async () => {
+        if (!(await this.tests.remove(id))) {
+          throw new RepositoryError("entity_not_found", `No story test with id ${id}.`);
+        }
+        await this.touch();
+      },
+    );
+  }
+
+  /**
+   * Run the story tests without running a whole build.
+   *
+   * The build runs them too; this is for the test builder, where a writer wants
+   * to see whether the assertion they just wrote holds before committing to it.
+   */
+  async runStoryTests(): Promise<TestRunSummary> {
+    const [tests, timeline, scenes, chapters, relationships] = await Promise.all([
+      this.tests.list(),
+      this.getStoryTimeline(),
+      this.listScenes(),
+      this.listChapters(),
+      this.listRelationships(),
+    ]);
+    return runStoryTests({ tests, timeline, scenes, chapters, relationships });
+  }
+
   // ── The Story Build ─────────────────────────────────────────────────────────
 
   /**
@@ -1060,6 +1199,8 @@ export class StoryRepository {
       worldRules,
       events,
       setups,
+      relationships,
+      storyTests,
       transitions,
       temporalLinks,
       travelRules,
@@ -1076,6 +1217,8 @@ export class StoryRepository {
       this.listWorldRules(),
       this.listEvents(),
       this.listSetups(),
+      this.listRelationships(),
+      this.tests.list(),
       this.transitions.list(),
       this.timeline.listLinks(),
       this.timeline.listTravelRules(),
@@ -1094,6 +1237,8 @@ export class StoryRepository {
       worldRules,
       events,
       setups,
+      relationships,
+      storyTests,
       transitions,
       temporalLinks,
       travelRules,
@@ -1904,6 +2049,22 @@ export class StoryRepository {
       );
     }
 
+    // A story test naming a deleted entity would assert nothing and fail
+    // forever for the wrong reason.
+    const asserting = (await this.tests.list()).filter(
+      (test) =>
+        assertionEntities(test.assertion).includes(id) || scopeAnchors(test.scope).includes(id),
+    );
+    if (asserting.length > 0 && mode === "prevent") {
+      throw new RepositoryError(
+        "has_references",
+        `${id} is referenced by ${String(asserting.length)} story test(s) (${asserting
+          .map((t) => t.id as string)
+          .join(", ")}). Delete them first or delete with mode "unlink".`,
+        { details: { storyTests: asserting.map((t) => t.id as string) } },
+      );
+    }
+
     if (referrers.length > 0 && mode === "prevent") {
       throw new RepositoryError(
         "has_references",
@@ -1929,6 +2090,7 @@ export class StoryRepository {
           await this.transitions.remove(transition.id);
         }
         await this.timeline.removeLinksFor(id);
+        for (const test of asserting) await this.tests.remove(test.id as string);
         if (referrers.length > 0) {
           unlinked = await this.graph.unlinkReferences(id);
           for (const otherId of unlinked) {

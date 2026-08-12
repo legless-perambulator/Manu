@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { InMemoryProjectStore } from "@jellytind/persistence";
 import {
   createBuildTools,
+  createTestTools,
   createProjectTools,
   createTask,
   READ_ONLY_GRANT,
@@ -71,6 +72,7 @@ function runtimeFor(repo: StoryRepository) {
   const registry = new ToolRegistry().register(
     ...createProjectTools(access),
     ...createBuildTools(access),
+    ...createTestTools(access),
   );
   const executor = new ToolExecutor({ registry, grant: READ_ONLY_GRANT, store: repo.agents });
   return { registry, executor };
@@ -262,5 +264,93 @@ describe("story build tools", () => {
         .list()
         .every((tool) => tool.permission === "read_canon" || tool.permission === "read_manuscript"),
     ).toBe(true);
+  });
+});
+
+/**
+ * Story tests are a better source than the agent's own reading: they are what
+ * the writer *said* their story must be. The agent may read them and run them.
+ * It may not write one, and there is no tool that repairs a failing one — an
+ * assertion about what a story must be belongs to the person who made it.
+ */
+describe("story test tools", () => {
+  it("lists the writer's tests and runs them", async () => {
+    const { repo, mara } = await novel();
+    await repo.addStoryTest({
+      name: "Mara survives the first act",
+      assertion: { kind: "character_alive", characterId: mara.id },
+    });
+    const { executor } = runtimeFor(repo);
+
+    const listed = await executor.execute("TASK_0001", "list_story_tests", {});
+    expect(listed.ok).toBe(true);
+    expect((listed.output as { tests: unknown[] }).tests).toHaveLength(1);
+
+    const run = await executor.execute("TASK_0001", "run_story_tests", {});
+    expect(run.ok).toBe(true);
+    expect((run.output as { deterministic: { passed: number } }).deterministic.passed).toBe(1);
+  });
+
+  /**
+   * A test asserts something *must* be true, so an unrecorded state fails it.
+   * That is not the same as a continuity check inferring a contradiction from
+   * silence: here the writer asked for a guarantee the project cannot give.
+   */
+  it("returns only the failures, with where and why", async () => {
+    const { repo, mara, manor, together } = await novel();
+    await repo.addStoryTest({
+      name: "Mara must be at the manor for the confrontation",
+      assertion: { kind: "character_at_location", characterId: mara.id, locationId: manor.id },
+      scope: { kind: "at", anchorId: together.id },
+    });
+    const { executor } = runtimeFor(repo);
+
+    const outcome = await executor.execute("TASK_0001", "get_failed_story_tests", {});
+    expect(outcome.ok).toBe(true);
+    const { failed, total } = outcome.output as {
+      failed: Array<{ failures: Array<{ sceneId: string; actual: string }> }>;
+      total: number;
+    };
+    expect(total).toBe(1);
+    expect(failed).toHaveLength(1);
+    expect(failed[0]?.failures[0]?.sceneId).toBe(together.id);
+    expect(failed[0]?.failures[0]?.actual).not.toBe("");
+  });
+
+  /** A semantic test must never come back as passing. */
+  it("reports semantic tests as not evaluated", async () => {
+    const { repo, mara } = await novel();
+    await repo.addStoryTest({
+      name: "The romance should feel slow-burn",
+      assertion: {
+        kind: "reader_suspicion",
+        characterId: mara.id,
+        comparison: "below",
+        level: "strong",
+      },
+      scope: { kind: "always" },
+    });
+    const { executor } = runtimeFor(repo);
+
+    const run = await executor.execute("TASK_0001", "run_story_tests", {});
+    const output = run.output as {
+      deterministic: { total: number };
+      semantic: { total: number; notEvaluated: number };
+      results: Array<{ status: string }>;
+    };
+    expect(output.deterministic.total).toBe(0);
+    expect(output.semantic).toEqual({ total: 1, notEvaluated: 1 });
+    expect(output.results[0]?.status).toBe("not_evaluated");
+  });
+
+  it("offers no tool that writes or repairs a test", async () => {
+    const { repo } = await novel();
+    const { registry } = runtimeFor(repo);
+    const names = registry.list().map((tool) => tool.name);
+
+    expect(names).toEqual(expect.arrayContaining(["list_story_tests", "run_story_tests"]));
+    expect(names.some((name) => /add_story_test|write_story_test|fix_story_test/.test(name))).toBe(
+      false,
+    );
   });
 });

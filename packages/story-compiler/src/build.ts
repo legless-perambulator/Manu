@@ -1,3 +1,4 @@
+import { runStoryTests } from "./story-tests";
 import type {
   BuildComparison,
   BuildConfig,
@@ -71,7 +72,17 @@ export async function buildStory(
   const config = resolveConfig(options.config);
   const started = now();
   const startedMs = Date.now();
-  const full: BuildContext = { ...context, config };
+
+  // Tests are evaluated once, here, so the separate suite summary and the
+  // diagnostics the `story_tests` rule emits can never disagree.
+  const testResults = runStoryTests({
+    tests: context.storyTests,
+    timeline: context.timeline,
+    scenes: context.scenes,
+    chapters: context.chapters,
+    relationships: context.relationships,
+  });
+  const full: BuildContext = { ...context, config, testResults };
 
   const affected =
     options.only === undefined
@@ -143,6 +154,7 @@ export async function buildStory(
     diagnostics: ordered,
     rules: outcomes,
     config,
+    tests: testResults,
   };
 }
 

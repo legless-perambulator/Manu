@@ -1,6 +1,7 @@
 import { READ_ONLY_PERMISSIONS, type AgentPermission } from "./permissions";
 import { READ_ONLY_TOOL_NAMES } from "./tools/project-tools";
 import { BUILD_TOOL_NAMES } from "./tools/build-tools";
+import { TEST_TOOL_NAMES } from "./tools/test-tools";
 
 /**
  * Agent identity and capability.
@@ -35,7 +36,7 @@ export const INVESTIGATOR_AGENT: AgentDescriptor = {
   // The build tools are read-and-run: they change nothing about the story, and
   // an investigator that can build answers continuity questions from
   // deterministic diagnostics rather than from its own reading.
-  permittedTools: [...READ_ONLY_TOOL_NAMES, ...BUILD_TOOL_NAMES],
+  permittedTools: [...READ_ONLY_TOOL_NAMES, ...BUILD_TOOL_NAMES, ...TEST_TOOL_NAMES],
   permissions: READ_ONLY_PERMISSIONS,
   preferredTask: "continuity",
 };

@@ -4,9 +4,11 @@ import type {
   Fact,
   Location,
   PlotThread,
+  Relationship,
   Scene,
   Setup,
   StoryEvent,
+  StoryTest,
   StoryObject,
   TemporalLink,
   TravelRule,
@@ -18,6 +20,7 @@ import type {
   StoryChronology,
   StoryTimeline,
 } from "@jellytind/story-state";
+import type { TestRunSummary } from "./story-tests";
 
 /**
  * How serious a diagnostic is.
@@ -44,7 +47,8 @@ export type RuleCategory =
   | "timeline"
   | "plot_threads"
   | "setup_payoff"
-  | "project_rules";
+  | "project_rules"
+  | "story_tests";
 
 export const RULE_CATEGORIES: readonly RuleCategory[] = [
   "referential_integrity",
@@ -55,6 +59,7 @@ export const RULE_CATEGORIES: readonly RuleCategory[] = [
   "plot_threads",
   "setup_payoff",
   "project_rules",
+  "story_tests",
 ];
 
 /**
@@ -66,7 +71,14 @@ export const RULE_CATEGORIES: readonly RuleCategory[] = [
  * being retrofitted later (docs/STORY_COMPILER.md — "Incremental builds").
  */
 export type BuildInputKind =
-  "entities" | "scenes" | "transitions" | "chronology" | "setups" | "world_rules" | "prose";
+  | "entities"
+  | "scenes"
+  | "transitions"
+  | "chronology"
+  | "setups"
+  | "world_rules"
+  | "prose"
+  | "story_tests";
 
 /**
  * One finding from one rule.
@@ -124,6 +136,8 @@ export interface BuildContext {
   readonly worldRules: readonly WorldRule[];
   readonly events: readonly StoryEvent[];
   readonly setups: readonly Setup[];
+  readonly relationships: readonly Relationship[];
+  readonly storyTests: readonly StoryTest[];
   readonly transitions: readonly StateTransition[];
   readonly temporalLinks: readonly TemporalLink[];
   readonly travelRules: readonly TravelRule[];
@@ -141,6 +155,14 @@ export interface BuildContext {
   readonly danglingReferences: readonly DanglingReference[];
 
   readonly config: ResolvedBuildConfig;
+  /**
+   * Test results, evaluated once by the build before the rules run.
+   *
+   * Populated by `buildStory`, not by the caller: tests are decided in one place
+   * so the separate suite summary and the navigable diagnostics can never
+   * disagree about what happened (docs/STORY_TESTS.md).
+   */
+  readonly testResults?: TestRunSummary;
 }
 
 export interface DanglingReference {
@@ -229,6 +251,14 @@ export interface StoryBuild {
   readonly diagnostics: readonly Diagnostic[];
   readonly rules: readonly RuleOutcome[];
   readonly config: ResolvedBuildConfig;
+  /**
+   * The story-test suite, reported separately from the rules.
+   *
+   * A writer's own assertions are a different kind of result from the
+   * compiler's built-in checks, and a build that blurred them would hide which
+   * of the two just went red.
+   */
+  readonly tests: TestRunSummary;
 }
 
 /** A build without its diagnostics — what a history list shows. */

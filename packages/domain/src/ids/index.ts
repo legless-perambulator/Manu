@@ -26,6 +26,7 @@ export {
   isWorldRuleId,
   isRelationshipId,
   isSetupId,
+  isTestId,
   createStoryProjectId,
   assertIdOfKind,
 } from "./ids";
@@ -42,6 +43,7 @@ export type {
   WorldRuleId,
   RelationshipId,
   SetupId,
+  TestId,
   EntityId,
   AnyId,
   IdTypeByKind,

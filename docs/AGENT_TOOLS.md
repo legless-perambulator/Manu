@@ -173,3 +173,22 @@ simply does not offer them.
 **There is deliberately no tool that applies a fix.** A diagnostic is a finding
 about the writer's story, and acting on one is an editorial decision that stays
 with a human. See [STORY_COMPILER.md](STORY_COMPILER.md).
+
+## Story Test tools (Phase 17)
+
+```
+list_story_tests       — the writer's assertions about their own story, as stated
+run_story_tests        — run them; every result, with deterministic and semantic totals
+get_failed_story_tests — only the failures, with story point, expected and actual
+```
+
+All three carry `read_canon`. They are a better source than the agent's own
+reading of the prose: _Elias must not know the killer's identity before chapter
+37_ is an intention stated by the person who owns it, not something inferred.
+
+Semantic tests come back as **not evaluated**, never as passing, so an agent
+cannot mistake an unanswered judgement for a satisfied one.
+
+**No tool writes a test, and none repairs a failing one.** An assertion about
+what a story must be belongs to the person who made it. See
+[STORY_TESTS.md](STORY_TESTS.md).

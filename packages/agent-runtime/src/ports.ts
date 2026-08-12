@@ -19,6 +19,40 @@ import type { AgentActivityEvent } from "./activity";
  * Declared structurally rather than imported: `@jellytind/story-compiler` is a
  * sibling, not a dependency, and the runtime only ever reads these fields.
  */
+/** The shape of a story test this package reads. */
+export interface StoryTestLike {
+  readonly id: string;
+  readonly name: string;
+  readonly description: string;
+  readonly type: string;
+  readonly enabled: boolean;
+  readonly severity: string;
+}
+
+/** The shape of a test run this package reads. */
+export interface TestRunLike {
+  readonly deterministic: {
+    readonly total: number;
+    readonly passed: number;
+    readonly failed: number;
+  };
+  readonly semantic: { readonly total: number; readonly notEvaluated: number };
+  readonly results: ReadonlyArray<{
+    readonly testId: string;
+    readonly name: string;
+    readonly type: string;
+    readonly status: string;
+    readonly statement: string;
+    readonly failures: ReadonlyArray<{
+      readonly sceneId: string;
+      readonly expected: string;
+      readonly actual: string;
+      readonly evidence: string;
+    }>;
+    readonly reason?: string;
+  }>;
+}
+
 export interface StoryBuildLike {
   readonly id: string;
   readonly status: string;
@@ -73,6 +107,10 @@ export interface ProjectAccess {
   }): Promise<StoryBuildLike>;
   getBuild?(id: string): Promise<StoryBuildLike | null>;
   getLatestBuild?(): Promise<StoryBuildLike | null>;
+
+  /** The writer's own assertions, and running them. */
+  listStoryTests?(): Promise<StoryTestLike[]>;
+  runStoryTests?(): Promise<TestRunLike>;
 
   getScenesByCharacter(id: CharacterId): Promise<Scene[]>;
   getScenesByLocation(id: LocationId): Promise<Scene[]>;

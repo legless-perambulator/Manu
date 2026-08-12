@@ -125,6 +125,48 @@ export function BuildPanel({ repo, refreshToken, onChanged, onSelectEntity, onOp
             </p>
           </section>
 
+          <section className="state__section">
+            <h3>
+              Deterministic story tests
+              <span
+                className={`build__verdict build__verdict--${
+                  build.tests.deterministic.failed > 0 ? "failed" : "passed"
+                }`}
+              >
+                {build.tests.deterministic.passed} / {build.tests.deterministic.total} passed
+              </span>
+            </h3>
+            {build.tests.results.length === 0 ? (
+              <p className="hint">
+                No story tests. A story test records an intention — what must be true, and when — so
+                a later revision cannot quietly break it.
+              </p>
+            ) : (
+              <ul className="state__knowledge">
+                {build.tests.results
+                  .filter((result) => result.status === "failed" || result.status === "errored")
+                  .map((result) => (
+                    <li key={result.testId} className="ctx--error">
+                      {result.name} — {result.statement}
+                      {result.failures[0] !== undefined && (
+                        <span className="ctx__why"> {result.failures[0].actual}</span>
+                      )}
+                    </li>
+                  ))}
+              </ul>
+            )}
+            {build.tests.semantic.total > 0 && (
+              <p className="hint">
+                {build.tests.semantic.total} semantic test(s) recorded, not evaluated. They need a
+                model&rsquo;s reading, which the build does not do — an unanswered question is not a
+                passing one.
+              </p>
+            )}
+            {build.tests.skipped > 0 && (
+              <p className="hint">{build.tests.skipped} test(s) disabled and not run.</p>
+            )}
+          </section>
+
           {showPassing && passed.length > 0 && (
             <section className="state__section">
               <h3>Passed</h3>

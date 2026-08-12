@@ -481,9 +481,42 @@ whether the story holds together.
   navigation to scene and entity, and the diff against the previous build.
 
 Nothing is faked: checks that cannot yet be made reliable — POV rules, voice
-convergence, most world rules, Story Tests — are absent and documented as such.
+convergence, most world rules — are absent and documented as such.
 
 See [STORY_COMPILER.md](STORY_COMPILER.md).
+
+## Phase 17 — Story Tests ✅
+
+The fiction equivalent of automated tests: a writer states what must be true at
+a point in the story, and the project holds them to it.
+
+- **Deterministic tests, fully implemented.** Ten assertions —
+  knows / does not know a fact, alive, dead, at a location, object placement and
+  ownership, thread status, fact truth, relationship status — each answered from
+  recorded state alone.
+- **Scopes are ranges.** `always`, `at`, `before`, `from`, `between`, resolved to
+  the scenes they cover and checked at every one, because most narrative
+  intentions are not "always true" but "true until". A chapter anchor means the
+  chapter's first scene, so _before chapter 37_ means before it begins.
+- **Semantic tests are declared, not faked.** `reader_suspicion`,
+  `relationship_progression`, `character_disposition` and `free_form` are stored
+  in a **separate type union**, reported as `not evaluated`, and never turned
+  into diagnostics. An unanswered question is not a satisfied one.
+- **A structured test builder**, not a language. Entity pickers driven by the
+  assertion kind, scope pickers over chapters and scenes, and the test read back
+  as a sentence before it is saved. A textual power-user syntax is a later layer
+  over the same structures.
+- **Failures say enough to act on**: expected state, actual state, the story
+  point, the evidence behind it, and click-through to the scene and entities.
+- **Build integration**: the suite runs during every Story Build and is
+  displayed separately — `DETERMINISTIC STORY TESTS 21 / 22 passed` — with
+  failures also landing as diagnostics carrying the test's own severity.
+- **Tests are canon**: journaled, revertible, validated against real entities,
+  and protected from entity deletion the way any other reference is.
+- **Agent tools** `list_story_tests`, `run_story_tests` and
+  `get_failed_story_tests` — read-and-run. No tool writes a test or repairs one.
+
+See [STORY_TESTS.md](STORY_TESTS.md).
 
 ## V1 (remaining) — Writing IDE
 

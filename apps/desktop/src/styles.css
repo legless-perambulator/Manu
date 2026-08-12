@@ -1627,3 +1627,25 @@ code {
   text-decoration: line-through;
   opacity: 0.75;
 }
+
+/* Story tests */
+.test__failure {
+  margin: 6px 0 0;
+  padding: 6px 8px;
+  border-left: 2px solid #ff9a9a;
+  background: rgba(255, 154, 154, 0.06);
+  font-size: 12px;
+}
+.test__preview {
+  margin: 8px 0;
+  padding: 8px 10px;
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+.test__preview strong {
+  color: var(--text);
+  letter-spacing: 0;
+}
