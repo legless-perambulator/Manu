@@ -2,6 +2,7 @@ import {
   createBuildTools,
   createTestTools,
   createDebugTools,
+  createRefactorTools,
   createProjectTools,
   createTask,
   InvestigationAgent,
@@ -15,6 +16,7 @@ import {
 } from "@jellytind/agent-runtime";
 import type { SecretStore } from "@jellytind/model-router";
 import type { StoryRepository } from "@jellytind/story-repository";
+import { refactorAccess } from "@jellytind/story-refactor";
 import { createConfiguredModel, loadModelSettings } from "./models";
 
 /**
@@ -46,12 +48,15 @@ export async function startInvestigation(
   const { repo, secrets, question, onActivity } = options;
 
   // The repository satisfies the runtime's read port directly.
-  const access: ProjectAccess = repo;
+  // The repository plus refactor analysis: the composition lives in
+  // @jellytind/story-refactor, which is the layer that depends on both.
+  const access: ProjectAccess = refactorAccess(repo);
   const registry = new ToolRegistry().register(
     ...createProjectTools(access),
     ...createBuildTools(access),
     ...createTestTools(access),
     ...createDebugTools(access),
+    ...createRefactorTools(access),
   );
 
   // Phase 7 is read-only: the grant carries no write permission at all, so no

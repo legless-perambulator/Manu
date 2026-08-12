@@ -7,7 +7,7 @@ north-star spec see [`../MASTER_BUILD.md`](../MASTER_BUILD.md).
 
 ## Status
 
-**Phases 1 & 3–19 implemented.** On the Phase-0 foundation: the persistent Story
+**Phases 1 & 3–20 implemented.** On the Phase-0 foundation: the persistent Story
 Repository, the fiction-domain **entity graph** with referential integrity,
 deterministic **search & retrieval** (`@jellytind/search`), **revision history**
 — journaled change sets, checkpoints, diffs, revert, and a staging transaction —
@@ -39,7 +39,9 @@ investigates _why_ something is not working before anything is rewritten,
 keeping deterministic evidence, model judgement and suggestion visibly apart —
 and the **causality graph**, which records why one part of a story exists
 because of another and answers _if I remove this scene, what depends on it?_
-from persistent architecture rather than by asking a model.
+from persistent architecture rather than by asking a model — and **Story
+Refactor V1**, which turns a structural request into an analysed, planned,
+staged and validated change that commits only on approval.
 The remaining subsystem packages are typed
 interfaces marked **PLANNED**; features continue as vertical slices (see
 [`ROADMAP.md`](ROADMAP.md)).
@@ -66,6 +68,7 @@ A pnpm-workspaces monorepo. Applications live in `apps/`, libraries in
 │   ├── story-compiler/          @jellytind/story-compiler — the Story Build: rules, diagnostics
 │   ├── story-debugger/          @jellytind/story-debugger — deterministic investigation of narrative problems
 │   ├── story-causality/         @jellytind/story-causality — the dependency graph and blast radius
+│   ├── story-refactor/          @jellytind/story-refactor — analyse, plan, stage, validate, commit
 │   ├── agent-runtime/           @jellytind/agent-runtime — typed tools, permissions, tasks, agents
 │   ├── editing/                 @jellytind/editing       — controlled AI manuscript editing
 │   ├── search/                  @jellytind/search        — lexical search (semantic PLANNED)
@@ -85,7 +88,7 @@ Each layer may depend only on layers below it. The package graph enforces this.
 │ apps/desktop (UI)                                               │
 │   renderer imports domain + shared; Rust host owns FS/window    │
 ├───────────────────────────────────────────────────────────────┤
-│ Application services: editing (orchestration: PLANNED)          │
+│ Application services: editing    story-refactor                  │
 ├───────────────────────────────────────────────────────────────┤
 │ context-compiler                                                │
 ├───────────────────────────────────────────────────────────────┤
@@ -117,6 +120,7 @@ Each layer may depend only on layers below it. The package graph enforces this.
 | `context-compiler`   | `shared`, `domain`, `search`, `story-state`                                                                                                                                                                       |
 | `agent-runtime`      | `shared`, `domain`, `model-router`, `persistence`, `search`                                                                                                                                                       |
 | `editing`            | `shared`, `domain`, `story-repository`, `context-compiler`, `model-router`, `agent-runtime`, `story-state`, `story-debugger`, `story-causality`                                                                   |
+| `story-refactor`     | `shared`, `domain`, `story-repository`, `story-causality`, `story-compiler`, `context-compiler`, `model-router`, `agent-runtime`, `story-state`                                                                   |
 | `apps/desktop`       | `domain`, `persistence`, `story-repository`, `story-state`, `story-compiler`, `story-debugger`, `story-causality`, `model-router`, `provider-anthropic`, `agent-runtime`, `context-compiler`, `editing`, `shared` |
 
 There are no cycles. `shared` is a sink; the UI is a source.
@@ -143,6 +147,14 @@ shared: the dependency graph is pure traversal over recorded edges, so the
 compiler consumes it, the repository persists it, and both can be tested
 against a hand-built list of edges with no filesystem
 ([`CAUSALITY.md`](CAUSALITY.md)).
+
+`story-refactor` sits at the top, beside `editing`, because it is the one
+operation that composes everything: it reads through the repository, asks the
+causality graph for a blast radius, validates with the compiler and the story
+tests, gets its context from the Context Compiler and its plan help from the
+model router. It is also where `ProjectAccess` and refactor analysis are
+composed for the agent tools, since it is the layer that depends on both
+([`STORY_REFACTOR.md`](STORY_REFACTOR.md)).
 
 `agent-runtime` sits _beside_ `story-repository`, not above it: it depends on
 domain, persistence, search and the model router, and it declares **ports**

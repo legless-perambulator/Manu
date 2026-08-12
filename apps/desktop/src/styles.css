@@ -1696,3 +1696,21 @@ code {
   border-left: 2px solid var(--accent);
   padding-left: 10px;
 }
+
+/* Refactor workspace */
+.refactor__diff {
+  margin: 6px 0;
+  font-size: 12px;
+}
+.refactor__diff summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+.refactor__diff pre {
+  margin: 6px 0 0;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 4px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+}

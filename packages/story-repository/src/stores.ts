@@ -11,6 +11,17 @@ export interface EntityStore<T extends HasId> {
   get(id: string): Promise<T | null>;
   put(entity: T): Promise<void>;
   remove(id: string): Promise<void>;
+  /**
+   * The file write a `put` would perform, computed rather than performed.
+   *
+   * Reads through the supplied reader instead of the store, so a caller
+   * staging several changes to one collection sees its own earlier writes
+   * (docs/STORY_REFACTOR.md — staged transactions).
+   */
+  stage(
+    entity: T,
+    read: (path: string) => Promise<string | null>,
+  ): Promise<{ path: string; content: string }>;
 }
 
 /** Codec between a typed entity and its Markdown-with-frontmatter file. */
@@ -70,6 +81,13 @@ export class MarkdownEntityStore<T extends HasId> implements EntityStore<T> {
   async remove(id: string): Promise<void> {
     await this.store.delete(this.filePath(id));
   }
+
+  stage(entity: T): Promise<{ path: string; content: string }> {
+    return Promise.resolve({
+      path: this.filePath(entity.id),
+      content: serializeFrontmatter(this.codec.toData(entity), this.codec.toBody(entity)),
+    });
+  }
 }
 
 /**
@@ -85,22 +103,7 @@ export class JsonCollectionStore<T extends HasId> implements EntityStore<T> {
   ) {}
 
   private async readAll(): Promise<T[]> {
-    const raw = await this.store.readFile(this.path);
-    if (raw === null) return [];
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      return [];
-    }
-    const items = (parsed as { items?: unknown }).items;
-    if (!Array.isArray(items)) return [];
-    const out: T[] = [];
-    for (const item of items) {
-      const normalized = this.normalize(item);
-      if (normalized !== null) out.push(normalized);
-    }
-    return out;
+    return this.parse(await this.store.readFile(this.path));
   }
 
   private async writeAll(items: T[]): Promise<void> {
@@ -125,5 +128,34 @@ export class JsonCollectionStore<T extends HasId> implements EntityStore<T> {
   async remove(id: string): Promise<void> {
     const items = (await this.readAll()).filter((i) => i.id !== id);
     await this.writeAll(items);
+  }
+
+  async stage(
+    entity: T,
+    read: (path: string) => Promise<string | null>,
+  ): Promise<{ path: string; content: string }> {
+    const raw = await read(this.path);
+    const current = this.parse(raw).filter((i) => i.id !== entity.id);
+    const sorted = [...current, entity].sort((a, b) => a.id.localeCompare(b.id));
+    return { path: this.path, content: `${JSON.stringify({ items: sorted }, null, 2)}\n` };
+  }
+
+  /** Parse a collection file's contents. Shared by reading and staging. */
+  private parse(raw: string | null): T[] {
+    if (raw === null) return [];
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return [];
+    }
+    const items = (parsed as { items?: unknown }).items;
+    if (!Array.isArray(items)) return [];
+    const out: T[] = [];
+    for (const item of items) {
+      const normalized = this.normalize(item);
+      if (normalized !== null) out.push(normalized);
+    }
+    return out;
   }
 }

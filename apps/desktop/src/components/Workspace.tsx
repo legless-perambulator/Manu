@@ -23,6 +23,7 @@ import { BuildPanel } from "./BuildPanel";
 import { StoryTestPanel } from "./StoryTestPanel";
 import { DebugPanel } from "./DebugPanel";
 import { CausalityPanel } from "./CausalityPanel";
+import { RefactorPanel } from "./RefactorPanel";
 
 type LeftTab =
   | "files"
@@ -38,6 +39,7 @@ type LeftTab =
   | "tests"
   | "debug"
   | "causality"
+  | "refactor"
   | "history";
 type RightTab = "inspector" | "agent" | "context";
 
@@ -201,6 +203,12 @@ export function Workspace({ repo, secrets, onClose, onOpenSettings }: WorkspaceP
               Causality
             </button>
             <button
+              className={`tab${tab === "refactor" ? " tab--active" : ""}`}
+              onClick={() => setTab("refactor")}
+            >
+              Refactor
+            </button>
+            <button
               className={`tab${tab === "history" ? " tab--active" : ""}`}
               onClick={() => setTab("history")}
             >
@@ -336,6 +344,18 @@ export function Workspace({ repo, secrets, onClose, onOpenSettings }: WorkspaceP
               }}
               onOpenScene={(sceneId) => {
                 void openScene(sceneId);
+              }}
+            />
+          )}
+          {tab === "refactor" && (
+            <RefactorPanel
+              repo={repo}
+              secrets={secrets}
+              refreshToken={refreshToken}
+              onChanged={refresh}
+              onSelectEntity={(id) => {
+                setSelectedEntityId(id);
+                setRightTab("inspector");
               }}
             />
           )}

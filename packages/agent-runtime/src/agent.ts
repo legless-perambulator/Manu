@@ -3,6 +3,7 @@ import { READ_ONLY_TOOL_NAMES } from "./tools/project-tools";
 import { BUILD_TOOL_NAMES } from "./tools/build-tools";
 import { TEST_TOOL_NAMES } from "./tools/test-tools";
 import { DEBUG_TOOL_NAMES } from "./tools/debug-tools";
+import { REFACTOR_TOOL_NAMES } from "./tools/refactor-tools";
 
 /**
  * Agent identity and capability.
@@ -42,6 +43,7 @@ export const INVESTIGATOR_AGENT: AgentDescriptor = {
     ...BUILD_TOOL_NAMES,
     ...TEST_TOOL_NAMES,
     ...DEBUG_TOOL_NAMES,
+    ...REFACTOR_TOOL_NAMES,
   ],
   permissions: READ_ONLY_PERMISSIONS,
   preferredTask: "continuity",

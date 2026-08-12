@@ -108,6 +108,45 @@ export interface DebugTraceLike {
   }>;
 }
 
+/**
+ * A refactor request and its analysis, structurally.
+ *
+ * `@jellytind/story-refactor` sits above the runtime, so the shapes are
+ * declared rather than imported. The request is loose: the kinds and their
+ * fields belong to that package, which validates them and returns a message
+ * written for whoever asked.
+ */
+export interface RefactorRequestLike {
+  readonly kind: string;
+  readonly [field: string]: unknown;
+}
+
+export interface RefactorAnalysisLike {
+  readonly summary: string;
+  readonly affected: ReadonlyArray<{
+    readonly id: string;
+    readonly kind: string;
+    readonly name: string;
+    readonly why: string;
+    readonly direct: boolean;
+  }>;
+  readonly counts: Readonly<Record<string, number>>;
+  readonly manuscriptReferences: ReadonlyArray<{
+    readonly path: string;
+    readonly term: string;
+    readonly occurrences: number;
+    readonly excerpt: string;
+  }>;
+  readonly risks: ReadonlyArray<{
+    readonly level: string;
+    readonly summary: string;
+    readonly detail: string;
+    readonly entities: readonly string[];
+    readonly source: string;
+  }>;
+  readonly highRisk: readonly string[];
+}
+
 export interface DebugReportSummaryLike {
   readonly id: string;
   readonly mode: string;
@@ -187,6 +226,13 @@ export interface ProjectAccess {
    * agent and the record (docs/STORY_DEBUGGER.md).
    */
   traceStoryProblem?(request: DebugRequestLike): Promise<DebugTraceLike>;
+
+  /**
+   * What a structural change would reach. **Analysis only** — there is
+   * deliberately no port method that stages or applies one
+   * (docs/STORY_REFACTOR.md).
+   */
+  analyseStoryRefactor?(request: RefactorRequestLike): Promise<RefactorAnalysisLike>;
   listDebugReports?(limit?: number): Promise<DebugReportSummaryLike[]>;
   getDebugReport?(id: string): Promise<DebugReportLike | null>;
 

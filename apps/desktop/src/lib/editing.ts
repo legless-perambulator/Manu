@@ -2,6 +2,7 @@ import { DependencyAnalyst, DiagnosisAnalyst, ManuscriptEditor } from "@jellytin
 import type { PermissionGrant } from "@jellytind/agent-runtime";
 import type { SecretStore } from "@jellytind/model-router";
 import type { StoryRepository } from "@jellytind/story-repository";
+import { RefactorPlanner } from "@jellytind/story-refactor";
 import { createConfiguredModel, loadModelSettings } from "./models";
 
 /**
@@ -83,4 +84,31 @@ export async function createDependencyAnalyst(
 ): Promise<DependencyAnalyst> {
   const model = await createConfiguredModel(loadModelSettings(), secrets);
   return new DependencyAnalyst({ repo, model, grant: STORY_DEBUG_GRANT });
+}
+
+/**
+ * The permission grant Story Refactor runs under.
+ *
+ * `edit_manuscript` because a refactor rewrites prose; nothing wider, so a
+ * mistake here cannot delete an entity or branch the project
+ * (docs/STORY_REFACTOR.md).
+ */
+export const STORY_REFACTOR_GRANT: PermissionGrant = {
+  permissions: ["read_manuscript", "read_canon", "edit_manuscript"],
+  allowedTools: ["story_refactor"],
+};
+
+/**
+ * Build a {@link RefactorPlanner} for the open project.
+ *
+ * Only needed to add the model's reading of the consequences and its sentence
+ * rewrites — the deterministic plan needs no model, which is why a refactor
+ * works before one is configured.
+ */
+export async function createRefactorPlanner(
+  repo: StoryRepository,
+  secrets: SecretStore,
+): Promise<RefactorPlanner> {
+  const model = await createConfiguredModel(loadModelSettings(), secrets);
+  return new RefactorPlanner({ repo, model });
 }

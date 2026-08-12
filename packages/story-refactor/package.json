@@ -1,0 +1,24 @@
+{
+  "name": "@jellytind/story-refactor",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Story Refactor: analyse the blast radius, plan the change, stage it, validate it, commit only on approval.",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "sideEffects": false,
+  "dependencies": {
+    "@jellytind/agent-runtime": "workspace:*",
+    "@jellytind/context-compiler": "workspace:*",
+    "@jellytind/domain": "workspace:*",
+    "@jellytind/model-router": "workspace:*",
+    "@jellytind/shared": "workspace:*",
+    "@jellytind/story-causality": "workspace:*",
+    "@jellytind/story-compiler": "workspace:*",
+    "@jellytind/story-repository": "workspace:*",
+    "@jellytind/story-state": "workspace:*"
+  }
+}

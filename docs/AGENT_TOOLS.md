@@ -210,3 +210,20 @@ between the agent and the record.
 All three carry `read_canon`. **No tool applies an intervention.** The debugger
 diagnoses; acting on a diagnosis is an editorial decision that stays with a
 human. See [STORY_DEBUGGER.md](STORY_DEBUGGER.md).
+
+## Story Refactor tool (Phase 20)
+
+```
+analyse_story_refactor — what a structural change would reach: entities,
+                         blast radius, manuscript references, recorded risks
+```
+
+`read_canon`, and **analysis only**. There is deliberately no
+`stage_story_refactor` and no `apply_story_refactor`: a refactor rewrites a
+novel's architecture across files the writer is not looking at, and that
+decision belongs to the person whose book it is.
+
+The port reflects this — `ProjectAccess` exposes `analyseStoryRefactor` and
+nothing that stages or applies. When agents are trusted with more, it will be
+through the approval workflow rather than by widening this tool. See
+[STORY_REFACTOR.md](STORY_REFACTOR.md).

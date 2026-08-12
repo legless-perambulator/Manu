@@ -75,3 +75,4 @@ export { BuildStore } from "./build-store";
 export { TestStore } from "./test-store";
 export { DebugStore } from "./debug-store";
 export { DependencyStore } from "./dependency-store";
+export { RefactorStore } from "./refactor-store";

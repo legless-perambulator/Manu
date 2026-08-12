@@ -23,6 +23,7 @@
     "@jellytind/shared": "workspace:*",
     "@jellytind/story-causality": "workspace:*",
     "@jellytind/story-debugger": "workspace:*",
+    "@jellytind/story-refactor": "workspace:*",
     "@jellytind/story-repository": "workspace:*",
     "@jellytind/story-state": "workspace:*",
     "@tauri-apps/api": "^2.1.1",

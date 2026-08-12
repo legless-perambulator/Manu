@@ -60,7 +60,12 @@ import {
   locationDescendants,
   locationPath,
 } from "@jellytind/domain";
-import { normalizeProjectPath, type ProjectStore, type ProjectIndex } from "@jellytind/persistence";
+import {
+  InMemoryProjectStore,
+  normalizeProjectPath,
+  type ProjectStore,
+  type ProjectIndex,
+} from "@jellytind/persistence";
 import type { SearchHit, SearchQuery } from "@jellytind/search";
 import type { AgentStore } from "@jellytind/agent-runtime";
 import {
@@ -143,6 +148,7 @@ import { BuildStore } from "./build-store";
 import { TestStore } from "./test-store";
 import { DebugStore } from "./debug-store";
 import { DependencyStore } from "./dependency-store";
+import { RefactorStore } from "./refactor-store";
 import { ProjectSearch } from "./project-search";
 import {
   scenesByCharacter,
@@ -267,6 +273,7 @@ export class StoryRepository {
   private readonly tests: TestStore;
   private readonly debugReports: DebugStore;
   private readonly dependencies: DependencyStore;
+  private readonly refactors: RefactorStore;
   private manifest: ProjectManifest;
   private ids: SequentialIdGenerator;
 
@@ -301,6 +308,9 @@ export class StoryRepository {
     // Journaled: a registered dependency is the author's claim about how their
     // story holds together, as authored as a plot thread.
     this.dependencies = new DependencyStore(this.store);
+    // Not journaled: the refactor's *change* is a change set; the record of it
+    // is an audit trail, and recording that too would double every entry.
+    this.refactors = new RefactorStore(rawStore);
   }
 
   // ── Lifecycle ────────────────────────────────────────────────────────────
@@ -1386,6 +1396,42 @@ export class StoryRepository {
     const previous =
       previousSummary === undefined ? undefined : await this.builds.get(previousSummary.id);
     return compareBuilds(previous ?? undefined, build);
+  }
+
+  // ── Story Refactor ──────────────────────────────────────────────────────────
+
+  /** The ID the next refactor run will carry. */
+  nextRefactorId(): Promise<string> {
+    return this.refactors.nextId();
+  }
+
+  /** Save or update a refactor's audit record. Idempotent by ID. */
+  saveRefactorRun(run: {
+    id: string;
+    kind: string;
+    status: string;
+    instruction: string;
+    createdAt: string;
+    introduced: ReadonlyArray<{ severity: string }>;
+  }): Promise<void> {
+    return this.refactors.save(run);
+  }
+
+  listRefactorRuns(limit?: number): Promise<
+    Array<{
+      id: string;
+      kind: string;
+      status: string;
+      instruction: string;
+      createdAt: string;
+      introducedErrors: number;
+    }>
+  > {
+    return this.refactors.list(limit);
+  }
+
+  getRefactorRun<T>(id: string): Promise<T | null> {
+    return this.refactors.get<T>(id);
   }
 
   // ── Causality and dependencies ──────────────────────────────────────────────
@@ -2617,6 +2663,61 @@ export class StoryRepository {
       },
       summary,
     );
+  }
+
+  /**
+   * Build and test the project **as it would be** if a transaction committed,
+   * without committing it.
+   *
+   * The whole project is copied into memory, the staged writes applied on top,
+   * and a second repository opened over the copy. Nothing on disk moves.
+   *
+   * This is what lets "validate, then commit only after approval" be literally
+   * true rather than "commit, validate, revert if it went badly". A writer
+   * being shown diagnostics for a change that has already happened is being
+   * shown a fait accompli (docs/STORY_REFACTOR.md).
+   */
+  async validateStaged(tx: StagedTransaction): Promise<{
+    build: StoryBuild;
+    tests: TestRunSummary;
+  }> {
+    const seed: Record<string, string> = {};
+    for (const path of await this.store.list()) {
+      const content = await this.store.readFile(path);
+      if (content !== null) seed[path] = content;
+    }
+    for (const change of await tx.preview()) {
+      if (change.after === null) delete seed[change.path];
+      else seed[change.path] = change.after;
+    }
+
+    const shadow = await StoryRepository.openProject({ store: new InMemoryProjectStore(seed) });
+    const [build, tests] = await Promise.all([
+      shadow.buildStory({ persist: false }),
+      shadow.runStoryTests(),
+    ]);
+    return { build, tests };
+  }
+
+  /**
+   * Stage an entity update as a file write, without performing it.
+   *
+   * Reads through the transaction, so several patches to entities sharing one
+   * JSON collection compose instead of overwriting each other. Codec knowledge
+   * stays here, where the storage layout lives.
+   */
+  async stageEntityUpdate<T extends HasId>(
+    tx: StagedTransaction,
+    id: string,
+    patch: Partial<T>,
+  ): Promise<void> {
+    const kind = kindOf(id);
+    if (kind === null) throw new RepositoryError("entity_not_found", `Unknown entity id: ${id}`);
+    const staged = await this.graph.stageUpdate(kind, id, patch, (path) => tx.readFile(path));
+    if (staged === null) {
+      throw new RepositoryError("entity_not_found", `No ${kind} with id ${id}.`);
+    }
+    tx.writeFile(staged.path, staged.content).note({ id, kind, change: "updated" });
   }
 
   /** Re-read in-memory state (manifest, id counters, search) after a revert. */

@@ -14,7 +14,7 @@ This is **not** a chatbot with a writing editor attached. It lets AI agents insp
 
 ## Status
 
-**Phase 19 complete.** Implemented and tested so far:
+**Phase 20 complete.** Implemented and tested so far:
 
 - **Phase 0** — monorepo, tooling, stable branded entity IDs, persistence and
   model-provider boundaries, Tauri + React desktop shell.
@@ -97,6 +97,13 @@ This is **not** a chatbot with a writing editor attached. It lets AI agents insp
   explains every affected element with the path that reaches it, traversal is
   cycle-safe, deletion warns first, and a model may propose links but never
   register them.
+- **Phase 20** — Story Refactor V1: _make Marcus Elias's childhood friend
+  instead_ becomes an analysed, planned, staged and validated change. The
+  system finds what it reaches through the structured systems and the search
+  index, names the risks, plans the edits, takes a checkpoint, stages them, and
+  runs the Story Build and the writer's own story tests **against a shadow copy
+  of the project** — then commits one revertible change set only when the
+  writer approves. Stable IDs never move, and the whole operation is recorded.
 
 Implementation proceeds as vertical slices — see
 [`docs/ROADMAP.md`](docs/ROADMAP.md) and
@@ -107,9 +114,10 @@ Implementation proceeds as vertical slices — see
 ```
 apps/desktop/            Tauri + React desktop shell
 packages/                domain, persistence, model-router, story-compiler,
-                         story-debugger, story-causality, agent-runtime,
-                         context-compiler, editing, search, story-repository,
-                         story-state, shared, providers/anthropic
+                         story-debugger, story-causality, story-refactor,
+                         agent-runtime, context-compiler, editing, search,
+                         story-repository, story-state, shared,
+                         providers/anthropic
 docs/                    living architecture documentation
 ```
 

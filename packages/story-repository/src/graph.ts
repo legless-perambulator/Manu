@@ -123,6 +123,26 @@ export class EntityGraph {
     return this.stores[kind];
   }
 
+  /**
+   * The file write an entity patch implies, without performing it.
+   *
+   * `id` and kind are immutable, as they are on the live path: a refactor may
+   * change everything about a character except which character they are
+   * (docs/STORY_REFACTOR.md — stable IDs).
+   */
+  async stageUpdate(
+    kind: GraphKind,
+    id: string,
+    patch: Record<string, unknown>,
+    read: (path: string) => Promise<string | null>,
+  ): Promise<{ path: string; content: string } | null> {
+    const store = this.stores[kind];
+    const current = await store.get(id);
+    if (current === null) return null;
+    const next = { ...(current as unknown as Record<string, unknown>), ...patch, id } as HasId;
+    return store.stage(next, read);
+  }
+
   static kinds(): GraphKind[] {
     return [
       "chapter",

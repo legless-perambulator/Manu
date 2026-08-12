@@ -155,3 +155,13 @@ Large operations behave transactionally. For _"rewrite Chapter 12 and update aff
 - Checkpoints exist before every large operation.
 - Staged edits commit atomically or not at all.
 - Hidden chain-of-thought is never surfaced; action summaries and provenance are.
+
+## Story Refactor uses all of it
+
+A refactor is the operation the versioning layer was built for: it takes a
+**checkpoint**, prepares its edits in a **staged transaction**, validates them
+against a shadow copy, and commits exactly **one change set** on approval — so
+a structural change to a novel is one revertible entry, not eleven. Its audit
+record lives under `.writer/refactors/` rather than in the journal, because the
+change is the change set and recording the record of it would double every
+entry. See [STORY_REFACTOR.md](STORY_REFACTOR.md).

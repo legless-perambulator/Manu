@@ -10,7 +10,7 @@ Versioned delivery plan. Implementation proceeds **vertically**: finish a cohere
 (Context Compiler V1), 9 (controlled AI manuscript editing), 10 (Story State V1)
 11 (knowledge & belief graph), 12 (dynamic relationship state), 13 (Story
 Timeline Engine), 14 (object continuity), 15 (narrative threads), 16 (Story
-Compiler V1), 17 (Story Tests), 18 (Story Debugger V1) and 19 (causality graph) complete.** AI can inspect a project through
+Compiler V1), 17 (Story Tests), 18 (Story Debugger V1), 19 (causality graph) and 20 (Story Refactor V1) complete.** AI can inspect a project through
 typed tools, receive explicit attributed context — including who is where, who
 knows what, and who believes something false at a named scene boundary — and
 propose targeted prose edits and state changes that a human reviews before
@@ -595,6 +595,48 @@ Story Refactor is built on.
   columns; click to re-centre; filter by relation kind.
 
 See [CAUSALITY.md](CAUSALITY.md).
+
+## Phase 20 — Story Refactor V1 ✅
+
+The operation every earlier system was building towards: a structural request
+turned into an analysed, planned, staged and validated change that commits only
+on approval.
+
+- **The order is the product claim**: analyse → plan → checkpoint → stage →
+  validate → present → commit or discard. Everything before `commit` is
+  reversible by doing nothing.
+- **Validation runs against a shadow copy** — the project in memory with the
+  staged writes applied, opened as a second repository — so "commit only after
+  approval" is literally true rather than "commit, then revert if it went
+  badly".
+- **Four bounded classes**: rename an entity, change a relationship, change a
+  character attribute, move a scene between chapters. Not arbitrary change: a
+  refactor engine that accepts anything produces plans nobody can review.
+- **Stable IDs never move.** A refactor may change everything about a character
+  except which character they are.
+- **Analysis is found, not guessed**: the entity graph for references, the
+  causality graph for blast radius, story-state for knowledge, the search index
+  for prose, the test store for assertions. A model is never asked what is
+  affected.
+- **The hop that matters**: a relationship and a plot thread meet in the scenes
+  both appear in, so the analysis expands from a target's scenes to what those
+  scenes carry — without it, changing a relationship would report no threads.
+- **Risks carry their source**, `RECORDED` or `MODEL JUDGEMENT`.
+- **The model does two things**: consequences arithmetic cannot see, and
+  sentence rewrites — which must quote the original **verbatim** or be rejected
+  with the reason. A model that cannot quote the sentence it wants to change
+  does not get to change it.
+- **Specific before general**: sentence rewrites apply before blanket
+  substitutions, or every quotation stops matching.
+- **`manual` steps**: what the refactor will _not_ do for you, said out loud.
+- **One change set, preceded by a checkpoint**, and a full audit trail under
+  `.writer/refactors/`: request, analysis, plan, models, staged edits,
+  diagnostics before and after, approval, revision.
+- **A dedicated Refactor workspace** rather than a chat message.
+- **Agent tool** `analyse_story_refactor` — analysis only. Nothing stages or
+  applies a refactor on an agent's say-so.
+
+See [STORY_REFACTOR.md](STORY_REFACTOR.md).
 
 ## V1 (remaining) — Writing IDE
 
