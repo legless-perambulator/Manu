@@ -26,7 +26,7 @@ const KIND_LABELS: Record<TransitionKind, string> = {
   object_owner: "object owned by",
   object_location: "object is at",
   fact_established: "fact becomes true",
-  knowledge_gained: "character learns",
+  knowledge_changed: "character's position on a fact",
 };
 
 /**
@@ -181,9 +181,12 @@ export function StatePanel({ repo, secrets, refreshToken, onChanged }: Props) {
                 <ul className="state__knowledge">
                   {c.knowledge.map((k) => (
                     <li key={k.factId}>
-                      knows {label(k.factId)}{" "}
+                      {k.state} {label(k.factId)}{" "}
                       <span className="ctx__why">
-                        ({k.howLearned}, certainty {k.certainty}, learned in {k.learnedInSceneId})
+                        ({k.sourceType}
+                        {k.sourceEntityId === undefined ? "" : ` by ${label(k.sourceEntityId)}`}
+                        {k.acquiredAtSceneId === undefined ? "" : `, since ${k.acquiredAtSceneId}`}
+                        {k.certainty === undefined ? "" : `, certainty ${String(k.certainty)}`})
                       </span>
                     </li>
                   ))}

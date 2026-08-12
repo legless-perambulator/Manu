@@ -6,10 +6,13 @@ Versioned delivery plan. Implementation proceeds **vertically**: finish a cohere
 
 **Phases 0 (foundation), 1 (Story Repository), 3 (fiction-domain entities), 4
 (search & retrieval), 5 (revision history, checkpoints & diffs), 6
-(provider-independent model layer) and 7 (agent runtime & read-only tool system)
-complete.** AI can now _inspect_ a project through typed tools; agent-driven
-_edits_ and the Context Compiler are next, on top of the safety layer that
-already exists.
+(provider-independent model layer), 7 (agent runtime & read-only tool system), 8
+(Context Compiler V1), 9 (controlled AI manuscript editing), 10 (Story State V1)
+and 11 (knowledge & belief graph) complete.** AI can inspect a project through
+typed tools, receive explicit attributed context — including who is where, who
+knows what, and who believes something false at a named scene boundary — and
+propose targeted prose edits and state changes that a human reviews before
+anything becomes canon.
 
 ## Vertical-slice method
 
@@ -267,6 +270,44 @@ manuscript to work out who is where and who knows what.
 
 Narrative ordering moved into `@jellytind/domain`, since the compiler, the
 timeline and the Story Compiler must agree on what "the previous scene" means.
+
+See [STORY_STATE.md](STORY_STATE.md).
+
+## Phase 11 — Character knowledge & belief graph ✅
+
+Time-aware information state: what is true, what a character knows, what they
+believe, what they wrongly believe, how sure they are, and how they found out.
+
+- **Facts are propositions.** `Fact.objectiveTruth` says whether a statement
+  holds in the story world, so a false proposition is a first-class entity that
+  characters can believe. A belief never mutates the fact it points at.
+- **Five knowledge states** — `unknown`, `suspected`, `believed`, `known`,
+  `disbelieved` — with `disbelieved` distinct from never having met the idea.
+  Certainty is optional analytical metadata, not objective psychology.
+- **Eight acquisition sources** — witnessed, told, read, inferred, remembered,
+  assumed, deceived, unknown — with `sourceEntityId` naming the source, which is
+  what makes transfer traceable without a separate transfer record.
+- **Integrated with Story State, not bolted beside it**: knowledge is carried by
+  the same scene-anchored transitions as location and possessions, so it is
+  time-aware by construction. `knowledge_gained` from Phase 10 is read as the new
+  shape, so existing projects migrate themselves.
+- **Queries**: knowledge before/after a scene, whether a character holds a fact,
+  who holds it by a given point, one character's history with one fact, a fact's
+  whole timeline, and `traceAcquisition` to follow a chain back to its first-hand
+  source.
+- **The knowledge graph**: everyone's position on one proposition at one moment,
+  including who has none — plus false beliefs in both directions and information
+  asymmetries among a scene's cast.
+- **Deterministic violation checks** as a reusable API: telling what you never
+  held, knowing a fact before the story establishes it, contradictory
+  transitions, and a scene referencing what its POV does not hold. **Deception is
+  exempt** — a liar conveying what they know to be false is the point, not a bug.
+- **AI extraction** extended to propose states, sources and sources' identities,
+  still validated and still `proposed` until a human confirms.
+- **Context Compiler** carries selected knowledge — false beliefs, asymmetries,
+  and positions on the facts a scene references — never a dump of everything.
+- `Scene.factIds` records the facts a scene puts on the page, the deterministic
+  signal behind the reference check.
 
 See [STORY_STATE.md](STORY_STATE.md).
 

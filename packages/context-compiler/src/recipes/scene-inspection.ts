@@ -3,7 +3,7 @@ import { PRIORITY, type Candidate } from "../candidate";
 import type { ProjectReader } from "../reader";
 import { adjacentScenes } from "../sequence";
 import { CompileError } from "../errors";
-import { buildTimeline, involvedCharacters, stateCandidates } from "./state";
+import { buildTimeline, involvedCharacters, knowledgeCandidates, stateCandidates } from "./state";
 import {
   byId,
   characterCandidate,
@@ -156,6 +156,7 @@ export async function gatherSceneInspection(
       becauseOf: scene.id,
     }),
   );
+  candidates.push(...knowledgeCandidates({ timeline, facts, scene }));
 
   candidates.push(...worldRuleCandidates(snap.worldRules, scene.id));
 

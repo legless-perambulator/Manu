@@ -7,7 +7,7 @@ north-star spec see [`../MASTER_BUILD.md`](../MASTER_BUILD.md).
 
 ## Status
 
-**Phases 1 & 3–10 implemented.** On the Phase-0 foundation: the persistent Story
+**Phases 1 & 3–11 implemented.** On the Phase-0 foundation: the persistent Story
 Repository, the fiction-domain **entity graph** with referential integrity,
 deterministic **search & retrieval** (`@jellytind/search`), **revision history**
 — journaled change sets, checkpoints, diffs, revert, and a staging transaction —
@@ -19,9 +19,10 @@ settings, the agent panel and the context inspector. On top of that sits the
 for every model operation, and **controlled AI manuscript editing**: targeted,
 staged, reviewable prose edits that only a human decision commits, and **Story
 State V1**: deterministic, time-aware state reconstructable at any scene
-boundary. The remaining subsystem packages are typed interfaces marked
-**PLANNED**; features continue as
-vertical slices (see [`ROADMAP.md`](ROADMAP.md)).
+boundary, including a character knowledge and belief graph that keeps objective
+truth, knowledge and belief separate. The remaining subsystem packages are typed
+interfaces marked **PLANNED**; features continue as vertical slices (see
+[`ROADMAP.md`](ROADMAP.md)).
 
 ## Repository layout
 
@@ -78,20 +79,21 @@ Each layer may depend only on layers below it. The package graph enforces this.
 
 ### Dependency edges (current)
 
-| Package              | Depends on                                                                                                   |
-| -------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `shared`             | —                                                                                                            |
-| `domain`             | `shared`                                                                                                     |
-| `persistence`        | `shared`, `domain`                                                                                           |
-| `story-repository`   | `shared`, `domain`, `persistence`, `search`, `agent-runtime`                                                 |
-| `model-router`       | `shared`                                                                                                     |
-| `provider-anthropic` | `shared`, `model-router`                                                                                     |
-| `search`             | `shared`, `domain`                                                                                           |
-| `story-compiler`     | `shared`, `domain`                                                                                           |
-| `context-compiler`   | `shared`, `domain`                                                                                           |
-| `agent-runtime`      | `shared`, `domain`, `model-router`, `persistence`, `search`                                                  |
-| `editing`            | `shared`, `domain`, `story-repository`, `context-compiler`, `model-router`, `agent-runtime`                  |
-| `apps/desktop`       | `domain`, `persistence`, `story-repository`, `model-router`, `provider-anthropic`, `agent-runtime`, `shared` |
+| Package              | Depends on                                                                                                                                                 |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `shared`             | —                                                                                                                                                          |
+| `domain`             | `shared`                                                                                                                                                   |
+| `persistence`        | `shared`, `domain`                                                                                                                                         |
+| `story-repository`   | `shared`, `domain`, `persistence`, `search`, `agent-runtime`, `story-state`                                                                                |
+| `model-router`       | `shared`                                                                                                                                                   |
+| `provider-anthropic` | `shared`, `model-router`                                                                                                                                   |
+| `search`             | `shared`, `domain`                                                                                                                                         |
+| `story-compiler`     | `shared`, `domain`                                                                                                                                         |
+| `story-state`        | `shared`, `domain`                                                                                                                                         |
+| `context-compiler`   | `shared`, `domain`, `search`, `story-state`                                                                                                                |
+| `agent-runtime`      | `shared`, `domain`, `model-router`, `persistence`, `search`                                                                                                |
+| `editing`            | `shared`, `domain`, `story-repository`, `context-compiler`, `model-router`, `agent-runtime`, `story-state`                                                 |
+| `apps/desktop`       | `domain`, `persistence`, `story-repository`, `story-state`, `model-router`, `provider-anthropic`, `agent-runtime`, `context-compiler`, `editing`, `shared` |
 
 There are no cycles. `shared` is a sink; the UI is a source.
 
@@ -129,6 +131,9 @@ root-confined Rust commands (see [`STORY_REPOSITORY.md`](STORY_REPOSITORY.md)).
   obtains its working context from `@jellytind/context-compiler` by naming a
   recipe and a target. No caller reads project files and pastes them into a
   prompt. See [`CONTEXT_COMPILER.md`](CONTEXT_COMPILER.md).
+- **Truth, knowledge and belief never share a field.** A fact carries the
+  world's verdict; what a character holds lives in the timeline. A belief never
+  mutates the fact it points at. See [`STORY_STATE.md`](STORY_STATE.md).
 - **State is derived, never cached.** Story state is reconstructed by replaying
   scene-anchored transitions, so no component may hold a "current state"
   snapshot. See [`STORY_STATE.md`](STORY_STATE.md).

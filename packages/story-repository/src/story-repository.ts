@@ -31,15 +31,23 @@ import {
   type LocationId,
   type ObjectId,
   type PlotThreadId,
+  type FactId,
   orderScenes,
 } from "@jellytind/domain";
 import { normalizeProjectPath, type ProjectStore, type ProjectIndex } from "@jellytind/persistence";
 import type { SearchHit, SearchQuery } from "@jellytind/search";
 import type { AgentStore } from "@jellytind/agent-runtime";
 import {
+  checkKnowledgeViolations,
+  factKnowledgeGraph,
+  falseBeliefsAt,
   StoryTimeline,
   validateTransition,
+  type FactKnowledgeGraph,
+  type KnowledgeViolation,
+  type StateBoundary,
   type StateTransition,
+  type TimelineView,
   type TransitionDraft,
 } from "@jellytind/story-state";
 import { RepositoryError } from "./errors";
@@ -129,6 +137,11 @@ export interface TransactionMeta {
   readonly taskId?: string;
   readonly modelId?: string;
   readonly ai?: AiProvenance;
+}
+
+/** True when a transition names this entity anywhere. */
+function citesEntity(t: StateTransition, id: string): boolean {
+  return t.subjectId === id || t.value === id || t.sourceEntityId === id;
 }
 
 const nowIso = (): string => new Date().toISOString();
@@ -360,6 +373,7 @@ export class StoryRepository {
     characterIds?: readonly CharacterId[];
     plotThreadIds?: readonly PlotThreadId[];
     objectIds?: readonly ObjectId[];
+    factIds?: readonly FactId[];
     purpose?: readonly string[];
     status?: SceneStatus;
   }): Promise<Scene> {
@@ -373,6 +387,7 @@ export class StoryRepository {
       characterIds: input.characterIds ?? [],
       plotThreadIds: input.plotThreadIds ?? [],
       objectIds: input.objectIds ?? [],
+      factIds: input.factIds ?? [],
       purpose: input.purpose ?? [],
       status: input.status ?? "planned",
     };
@@ -485,6 +500,8 @@ export class StoryRepository {
   async addFact(input: {
     statement: string;
     status?: FactStatus;
+    /** Whether the proposition is true in the story world. Defaults to true. */
+    objectiveTruth?: boolean;
     source?: string;
     notes?: string;
   }): Promise<Fact> {
@@ -493,6 +510,7 @@ export class StoryRepository {
       id,
       statement: input.statement,
       status: input.status ?? "canonical",
+      objectiveTruth: input.objectiveTruth ?? true,
       ...(input.source !== undefined ? { source: input.source } : {}),
       ...(input.notes !== undefined ? { notes: input.notes } : {}),
     };
@@ -667,7 +685,9 @@ export class StoryRepository {
         subjectId: draft.subjectId,
         value: draft.value,
         ...(draft.certainty !== undefined ? { certainty: draft.certainty } : {}),
-        ...(draft.howLearned !== undefined ? { howLearned: draft.howLearned } : {}),
+        ...(draft.knowledgeState !== undefined ? { knowledgeState: draft.knowledgeState } : {}),
+        ...(draft.sourceType !== undefined ? { sourceType: draft.sourceType } : {}),
+        ...(draft.sourceEntityId !== undefined ? { sourceEntityId: draft.sourceEntityId } : {}),
         ...(draft.note !== undefined ? { note: draft.note } : {}),
         source: options.source ?? "author",
         confirmationStatus: status,
@@ -778,7 +798,7 @@ export class StoryRepository {
 
   /** Every ID a transition names must exist in the project. */
   private async requireEntities(draft: TransitionDraft): Promise<void> {
-    const ids = [draft.sceneId, draft.subjectId, draft.value].filter(
+    const ids = [draft.sceneId, draft.subjectId, draft.value, draft.sourceEntityId ?? ""].filter(
       (id) => id !== "" && entityKindOf(id) !== null,
     );
     for (const id of ids) {
@@ -789,6 +809,52 @@ export class StoryRepository {
         );
       }
     }
+  }
+
+  /**
+   * Everyone's position on one proposition at a boundary — the knowledge graph
+   * for a fact (docs/STORY_STATE.md).
+   */
+  async getFactKnowledgeGraph(
+    factId: string,
+    asOf: StateBoundary,
+    view: TimelineView = {},
+  ): Promise<FactKnowledgeGraph> {
+    const [timeline, fact] = await Promise.all([
+      this.getStoryTimeline(),
+      this.getEntity<Fact>(factId),
+    ]);
+    if (fact === null) {
+      throw new RepositoryError("entity_not_found", `No fact with id ${factId}.`);
+    }
+    return factKnowledgeGraph(timeline, fact, asOf, {
+      characterIds: (await this.listCharacters()).map((c) => c.id as string),
+      view,
+    });
+  }
+
+  /** Positions the story world contradicts, at a boundary. */
+  async getFalseBeliefs(asOf: StateBoundary, view: TimelineView = {}) {
+    const [timeline, facts] = await Promise.all([this.getStoryTimeline(), this.listFacts()]);
+    return falseBeliefsAt(timeline, new Map(facts.map((f) => [f.id as string, f])), asOf, { view });
+  }
+
+  /**
+   * Deterministic information-state checks across the project — the reusable
+   * foundation the Story Compiler builds on.
+   */
+  async checkKnowledge(view: TimelineView = {}): Promise<KnowledgeViolation[]> {
+    const [timeline, scenes, facts] = await Promise.all([
+      this.getStoryTimeline(),
+      this.listScenes(),
+      this.listFacts(),
+    ]);
+    return checkKnowledgeViolations({
+      timeline,
+      scenes,
+      facts: new Map(facts.map((f) => [f.id as string, f])),
+      view,
+    });
   }
 
   // ── Search & retrieval ──────────────────────────────────────────────────────
@@ -895,6 +961,20 @@ export class StoryRepository {
     const referrers = await this.graph.findReferrers(id);
     let unlinked: string[] = [];
 
+    // Story-state transitions are references too. Deleting a fact that a
+    // character's belief points at would leave the timeline citing something
+    // that no longer exists, so it is refused on the same terms.
+    const citing = (await this.transitions.list()).filter((t) => citesEntity(t, id));
+    if (citing.length > 0 && mode === "prevent") {
+      throw new RepositoryError(
+        "has_references",
+        `${id} is referenced by ${String(citing.length)} story-state transition(s) (${citing
+          .map((t) => t.id)
+          .join(", ")}). Delete them first or delete with mode "unlink".`,
+        { details: { transitions: citing.map((t) => t.id) } },
+      );
+    }
+
     if (referrers.length > 0 && mode === "prevent") {
       throw new RepositoryError(
         "has_references",
@@ -916,6 +996,9 @@ export class StoryRepository {
         entitiesChanged,
       },
       async () => {
+        for (const transition of citing) {
+          await this.transitions.remove(transition.id);
+        }
         if (referrers.length > 0) {
           unlinked = await this.graph.unlinkReferences(id);
           for (const otherId of unlinked) {

@@ -1,8 +1,9 @@
 import type { CharacterStatus } from "@jellytind/domain";
 import { AppError } from "@jellytind/shared";
+import { holdsAsTrue, type AcquisitionStep, type KnowledgeRecord } from "./knowledge";
+import { foldKnowledge, normaliseTransition } from "./normalise";
 import type {
   CharacterState,
-  KnowledgeEntry,
   ObjectState,
   StateBoundary,
   StateTransition,
@@ -41,11 +42,13 @@ export class StoryTimeline {
    */
   constructor(sceneOrder: readonly string[], transitions: readonly StateTransition[]) {
     this.order = new Map(sceneOrder.map((id, i) => [id, i]));
-    this.transitions = [...transitions].sort(
-      (a, b) =>
-        (this.order.get(a.sceneId) ?? Number.MAX_SAFE_INTEGER) -
-          (this.order.get(b.sceneId) ?? Number.MAX_SAFE_INTEGER) || a.id.localeCompare(b.id),
-    );
+    this.transitions = transitions
+      .map(normaliseTransition)
+      .sort(
+        (a, b) =>
+          (this.order.get(a.sceneId) ?? Number.MAX_SAFE_INTEGER) -
+            (this.order.get(b.sceneId) ?? Number.MAX_SAFE_INTEGER) || a.id.localeCompare(b.id),
+      );
   }
 
   /** Scene IDs in story order. */
@@ -108,7 +111,7 @@ export class StoryTimeline {
     const effective = this.inEffect(asOf, view);
     let locationId: string | undefined;
     let status: CharacterStatus = DEFAULT_STATUS;
-    const knowledge = new Map<string, KnowledgeEntry>();
+    const knowledge = new Map<string, KnowledgeRecord>();
     const owned = new Map<string, string>(); // objectId -> owner
 
     for (const t of effective) {
@@ -119,14 +122,9 @@ export class StoryTimeline {
         case "character_status":
           if (t.subjectId === characterId) status = t.value as CharacterStatus;
           break;
-        case "knowledge_gained":
+        case "knowledge_changed":
           if (t.subjectId === characterId) {
-            knowledge.set(t.value, {
-              factId: t.value,
-              certainty: t.certainty ?? 1,
-              howLearned: t.howLearned ?? "witnessed",
-              learnedInSceneId: t.sceneId,
-            });
+            knowledge.set(t.value, foldKnowledge(knowledge.get(t.value), t, characterId));
           }
           break;
         case "object_owner":
@@ -145,17 +143,22 @@ export class StoryTimeline {
         .filter(([, owner]) => owner === characterId)
         .map(([objectId]) => objectId)
         .sort(),
-      knowledge: [...knowledge.values()].sort((a, b) => a.factId.localeCompare(b.factId)),
+      // A position of `unknown` is the absence of a position, not a record.
+      knowledge: [...knowledge.values()]
+        .filter((record) => record.state !== "unknown")
+        .sort((a, b) => a.factId.localeCompare(b.factId)),
       asOf,
     };
   }
 
-  /** Just the knowledge, for the common "does she know this yet?" question. */
+  // ── Knowledge and belief ─────────────────────────────────────────────────
+
+  /** Every position a character holds entering a scene. */
   characterKnowledgeBeforeScene(
     characterId: string,
     sceneId: string,
     view: TimelineView = {},
-  ): KnowledgeEntry[] {
+  ): KnowledgeRecord[] {
     return [...this.characterStateBeforeScene(characterId, sceneId, view).knowledge];
   }
 
@@ -163,20 +166,161 @@ export class StoryTimeline {
     characterId: string,
     sceneId: string,
     view: TimelineView = {},
-  ): KnowledgeEntry[] {
+  ): KnowledgeRecord[] {
     return [...this.characterStateAfterScene(characterId, sceneId, view).knowledge];
   }
 
-  /** Whether a character knows a fact at a boundary, and how they learned it. */
+  /**
+   * A character's position on one proposition at a boundary, or `null` if they
+   * have none. Returns the record rather than a boolean, because "does Mara
+   * know?" and "what does Mara think, and how did she come to?" are the same
+   * question asked at different depths.
+   */
   knows(
     characterId: string,
     factId: string,
     asOf: StateBoundary,
     view: TimelineView = {},
-  ): KnowledgeEntry | null {
+  ): KnowledgeRecord | null {
     return (
       this.characterStateAt(characterId, asOf, view).knowledge.find((k) => k.factId === factId) ??
       null
+    );
+  }
+
+  /** Whether the character treats the proposition as true at that point. */
+  doesCharacterKnowFactAtScene(
+    characterId: string,
+    factId: string,
+    asOf: StateBoundary,
+    view: TimelineView = {},
+  ): boolean {
+    const record = this.knows(characterId, factId, asOf, view);
+    return record !== null && holdsAsTrue(record.state);
+  }
+
+  /** Everyone who has ever held a position on any proposition. */
+  knownCharacterIds(view: TimelineView = {}): string[] {
+    const ids = new Set<string>();
+    for (const t of this.visible(view)) {
+      if (t.kind === "knowledge_changed") ids.add(t.subjectId);
+      if (t.kind === "character_location" || t.kind === "character_status") ids.add(t.subjectId);
+    }
+    return [...ids].sort();
+  }
+
+  /** Every proposition anyone has ever held a position on. */
+  knownFactIds(view: TimelineView = {}): string[] {
+    const ids = new Set<string>();
+    for (const t of this.visible(view)) {
+      if (t.kind === "knowledge_changed") ids.add(t.value);
+      if (t.kind === "fact_established") ids.add(t.value);
+    }
+    return [...ids].sort();
+  }
+
+  /** Characters holding a proposition as true at a boundary. */
+  charactersWhoKnowFactAtScene(
+    factId: string,
+    asOf: StateBoundary,
+    view: TimelineView = {},
+  ): KnowledgeRecord[] {
+    return this.knownCharacterIds(view)
+      .map((characterId) => this.knows(characterId, factId, asOf, view))
+      .filter((record): record is KnowledgeRecord => record !== null && holdsAsTrue(record.state));
+  }
+
+  /**
+   * Every change to one character's position on one proposition, in story
+   * order — the answer to "when did Elias first learn about the vault, and has
+   * he ever doubted it since?".
+   */
+  knowledgeHistory(
+    characterId: string,
+    factId: string,
+    view: TimelineView = {},
+  ): AcquisitionStep[] {
+    return this.visible(view)
+      .filter(
+        (t) => t.kind === "knowledge_changed" && t.subjectId === characterId && t.value === factId,
+      )
+      .map((t) => this.stepOf(t));
+  }
+
+  /** Every change to anyone's position on one proposition, in story order. */
+  factKnowledgeTimeline(factId: string, view: TimelineView = {}): AcquisitionStep[] {
+    return this.visible(view)
+      .filter((t) => t.kind === "knowledge_changed" && t.value === factId)
+      .map((t) => this.stepOf(t));
+  }
+
+  /**
+   * Follow a position back through whoever passed it on.
+   *
+   * Elias believes the vault exists because Mara told him in SCENE_0042; Mara
+   * knows because she witnessed it in SCENE_0041. Chains stop at a first-hand
+   * source, an unknown one, or a cycle.
+   */
+  traceAcquisition(
+    characterId: string,
+    factId: string,
+    asOf: StateBoundary,
+    view: TimelineView = {},
+  ): AcquisitionStep[] {
+    const chain: AcquisitionStep[] = [];
+    const seen = new Set<string>();
+    let current = characterId;
+    let boundary = asOf;
+
+    for (;;) {
+      if (seen.has(current)) break;
+      seen.add(current);
+      const record = this.knows(current, factId, boundary, view);
+      if (record === null) break;
+
+      chain.push({
+        characterId: current,
+        factId,
+        state: record.state,
+        sourceType: record.sourceType,
+        ...(record.sourceEntityId !== undefined ? { sourceEntityId: record.sourceEntityId } : {}),
+        sceneId: record.acquiredAtSceneId ?? boundary.sceneId,
+      });
+
+      const from = record.sourceEntityId;
+      if (
+        from === undefined ||
+        !from.startsWith("CHAR_") ||
+        record.acquiredAtSceneId === undefined
+      ) {
+        break;
+      }
+      // The teller must have held it entering the scene where they told it.
+      current = from;
+      boundary = { sceneId: record.acquiredAtSceneId, position: "before" };
+    }
+    return chain;
+  }
+
+  private stepOf(t: StateTransition): AcquisitionStep {
+    return {
+      characterId: t.subjectId,
+      factId: t.value,
+      state: t.knowledgeState ?? "known",
+      sourceType: t.sourceType ?? "unknown",
+      ...(t.sourceEntityId !== undefined ? { sourceEntityId: t.sourceEntityId } : {}),
+      sceneId: t.sceneId,
+    };
+  }
+
+  /** Transitions honoured under a view, regardless of boundary. */
+  private visible(view: TimelineView): StateTransition[] {
+    const allowProposed = view.include === "with_proposed";
+    return this.transitions.filter(
+      (t) =>
+        t.confirmationStatus !== "rejected" &&
+        (t.confirmationStatus !== "proposed" || allowProposed) &&
+        this.order.has(t.sceneId),
     );
   }
 
@@ -235,7 +379,7 @@ export class StoryTimeline {
       if (t.kind === "character_location" || t.kind === "character_status") {
         characterIds.add(t.subjectId);
       }
-      if (t.kind === "knowledge_gained") characterIds.add(t.subjectId);
+      if (t.kind === "knowledge_changed") characterIds.add(t.subjectId);
       if (t.kind === "object_owner") {
         objectIds.add(t.subjectId);
         if (t.value !== "") characterIds.add(t.value);

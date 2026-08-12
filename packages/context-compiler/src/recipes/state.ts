@@ -1,6 +1,13 @@
 import { orderScenes } from "@jellytind/domain";
 import type { Chapter, Fact, Scene } from "@jellytind/domain";
-import { StoryTimeline, type CharacterState, type ObjectState } from "@jellytind/story-state";
+import {
+  falseBeliefsAt,
+  holdsAsTrue,
+  informationAsymmetriesAt,
+  StoryTimeline,
+  type CharacterState,
+  type ObjectState,
+} from "@jellytind/story-state";
 import { PRIORITY, type Candidate } from "../candidate";
 import type { ProjectReader } from "../reader";
 import { provenance } from "./shared";
@@ -36,16 +43,24 @@ function renderCharacterState(state: CharacterState, facts: ReadonlyMap<string, 
     `carrying: ${state.inventory.length === 0 ? "nothing recorded" : state.inventory.join(", ")}`,
   ];
   if (state.knowledge.length === 0) {
-    lines.push("knows: nothing recorded");
+    lines.push("holds: nothing recorded");
   } else {
-    lines.push("knows:");
+    lines.push("holds:");
     for (const entry of state.knowledge) {
-      const statement = facts.get(entry.factId)?.statement ?? "(fact not found)";
-      lines.push(
-        `  - ${entry.factId}: ${statement} [${entry.howLearned}, certainty ${String(
-          entry.certainty,
-        )}, learned in ${entry.learnedInSceneId}]`,
-      );
+      const fact = facts.get(entry.factId);
+      const statement = fact?.statement ?? "(fact not found)";
+      const via =
+        entry.sourceEntityId === undefined
+          ? entry.sourceType
+          : `${entry.sourceType} by ${entry.sourceEntityId}`;
+      const where =
+        entry.acquiredAtSceneId === undefined ? "" : `, since ${entry.acquiredAtSceneId}`;
+      // Say plainly when a character holds something the world contradicts.
+      const truth =
+        fact !== undefined && !fact.objectiveTruth && holdsAsTrue(entry.state)
+          ? " — FALSE BELIEF: this is not true in the story world"
+          : "";
+      lines.push(`  - ${entry.state} ${entry.factId}: ${statement} [${via}${where}]${truth}`);
     }
   }
   return [`STATE OF ${state.characterId} ${boundaryWords(state.asOf)}`, ...lines].join("\n");
@@ -145,6 +160,125 @@ export function stateCandidates(input: StateCandidateInput): Candidate[] {
         ),
       ].join("\n"),
       summary: `Established facts ${boundaryWords(asOf)}: ${established.join(", ")}`,
+    });
+  }
+
+  return out;
+}
+
+/**
+ * Knowledge candidates for a scene: the information picture the writer actually
+ * needs, not a dump of everything everyone knows.
+ *
+ * Three things are selected, each because a drafting or inspecting operation
+ * would be wrong without it:
+ *
+ * - **false beliefs** held by anyone in the scene — a character acting on
+ *   something untrue is a plot mechanism, and a model that does not know will
+ *   quietly correct it;
+ * - **information asymmetries** among the people present — who is holding
+ *   something the others are not is where the tension lives;
+ * - **the facts the scene itself references**, with everyone's position on them.
+ *
+ * Everything else is left out on purpose. Selecting the relevant subset is the
+ * whole job (docs/CONTEXT_COMPILER.md).
+ */
+export function knowledgeCandidates(input: {
+  readonly timeline: StoryTimeline;
+  readonly facts: ReadonlyMap<string, Fact>;
+  readonly scene: Scene;
+  readonly maxAsymmetries?: number;
+}): Candidate[] {
+  const { timeline, facts, scene } = input;
+  try {
+    timeline.positionOf(scene.id);
+  } catch {
+    return [];
+  }
+
+  const asOf = { sceneId: scene.id as string, position: "before" } as const;
+  const present = involvedCharacters(scene);
+  const out: Candidate[] = [];
+
+  const statement = (id: string): string => facts.get(id)?.statement ?? "(fact not found)";
+
+  const beliefs = falseBeliefsAt(timeline, facts, asOf, { characterIds: present });
+  if (beliefs.length > 0) {
+    out.push({
+      id: `false-beliefs@${scene.id}`,
+      kind: "knowledge",
+      label: "False beliefs in play",
+      section: "storyState",
+      priority: PRIORITY.state + 3,
+      provenance: provenance(
+        "false_belief",
+        `beliefs held entering ${scene.id} that the story world contradicts`,
+        [scene.id as string],
+      ),
+      full: [
+        `FALSE BELIEFS ENTERING ${scene.id}`,
+        ...beliefs.map((b) =>
+          b.kind === "believes_false"
+            ? `- ${b.characterId} believes ${b.factId} ("${statement(b.factId)}"), which is NOT true in the story world.`
+            : `- ${b.characterId} rejects ${b.factId} ("${statement(b.factId)}"), which IS true in the story world.`,
+        ),
+      ].join("\n"),
+    });
+  }
+
+  const asymmetries = informationAsymmetriesAt(timeline, scene, asOf).slice(
+    0,
+    input.maxAsymmetries ?? 8,
+  );
+  if (asymmetries.length > 0) {
+    out.push({
+      id: `asymmetry@${scene.id}`,
+      kind: "knowledge",
+      label: "Information asymmetries",
+      section: "storyState",
+      priority: PRIORITY.state + 4,
+      provenance: provenance(
+        "information_asymmetry",
+        `what the characters in ${scene.id} do not share entering it`,
+        [scene.id as string],
+      ),
+      full: [
+        `INFORMATION ASYMMETRIES ENTERING ${scene.id}`,
+        ...asymmetries.map(
+          (a) =>
+            `- ${a.factId} ("${statement(a.factId)}"): held by ${a.holders.join(", ")}; not held by ${a.outsiders.join(", ")}`,
+        ),
+      ].join("\n"),
+    });
+  }
+
+  for (const factId of scene.factIds as readonly string[]) {
+    const positions = present.map((characterId) => {
+      const record = timeline.knows(characterId, factId, asOf);
+      return record === null
+        ? `${characterId}: no position`
+        : `${characterId}: ${record.state} (${record.sourceType}${
+            record.sourceEntityId === undefined ? "" : ` by ${record.sourceEntityId}`
+          })`;
+    });
+    const fact = facts.get(factId);
+    out.push({
+      id: `knowledge:${factId}@${scene.id}`,
+      kind: "knowledge",
+      label: `Who holds ${factId}`,
+      section: "storyState",
+      priority: PRIORITY.state + 5,
+      provenance: provenance(
+        "fact_knowledge",
+        `${scene.id} references ${factId}, so who holds it entering the scene matters`,
+        [scene.id as string, factId],
+      ),
+      full: [
+        `POSITIONS ON ${factId} ENTERING ${scene.id}`,
+        `statement: ${statement(factId)}`,
+        `objectively true in the story world: ${fact === undefined ? "unknown" : String(fact.objectiveTruth)}`,
+        ...positions.map((line) => `- ${line}`),
+      ].join("\n"),
     });
   }
 

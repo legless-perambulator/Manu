@@ -10,11 +10,44 @@ export { StoryTimeline, TimelineError } from "./timeline";
 export { validateTransition, describeTransition, TransitionError } from "./validate";
 export type { TransitionDraft } from "./validate";
 
-export { TRANSITION_KINDS } from "./types";
+export { TRANSITION_KINDS, LEGACY_TRANSITION_KINDS } from "./types";
+
+export {
+  KNOWLEDGE_STATES,
+  HOLDS_AS_TRUE,
+  ACQUISITION_SOURCES,
+  TRANSFER_SOURCES,
+  HONEST_TRANSFER_SOURCES,
+  requiresSourceKnowledge,
+  holdsAsTrue,
+  hasPosition,
+  isTransfer,
+  describeKnowledge,
+} from "./knowledge";
+export type {
+  AcquisitionSource,
+  AcquisitionStep,
+  FactKnowledgeGraph,
+  InformationAsymmetry,
+  KnowledgeHolder,
+  KnowledgeRecord,
+  KnowledgeState,
+} from "./knowledge";
+
+export { factKnowledgeGraph, falseBeliefsAt, informationAsymmetriesAt } from "./graph";
+
+export { checkKnowledgeViolations } from "./violations";
+export type {
+  CheckInput,
+  KnowledgeViolation,
+  ViolationKind,
+  ViolationSeverity,
+} from "./violations";
+
+export { normaliseTransition, foldKnowledge } from "./normalise";
 export type {
   CharacterState,
   ConfirmationStatus,
-  KnowledgeEntry,
   KnowledgeSource,
   ObjectState,
   StateBoundary,

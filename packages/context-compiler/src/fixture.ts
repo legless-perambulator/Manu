@@ -40,6 +40,7 @@ const scene = (
     characterIds: [],
     plotThreadIds: [],
     objectIds: [],
+    factIds: [],
     purpose: [],
     status: "drafted",
     ...fields,
@@ -196,7 +197,12 @@ export const FIXTURE_RELATIONSHIPS = [
 ] as unknown as Relationship[];
 
 export const FIXTURE_FACTS = [
-  { id: "FACT_0001", statement: "A vault lies beneath the manor.", status: "canonical" },
+  {
+    id: "FACT_0001",
+    statement: "A vault lies beneath the manor.",
+    status: "canonical",
+    objectiveTruth: true,
+  },
 ] as unknown as Fact[];
 
 /** A small timeline: Mara is at the manor and learns of the vault in SCENE_0001. */
@@ -224,11 +230,12 @@ export const FIXTURE_TRANSITIONS: StateTransition[] = [
   {
     id: "TRANS_0003",
     sceneId: "SCENE_0001",
-    kind: "knowledge_gained",
+    kind: "knowledge_changed",
     subjectId: "CHAR_0001",
     value: "FACT_0001",
     certainty: 1,
-    howLearned: "witnessed",
+    knowledgeState: "known",
+    sourceType: "witnessed",
     source: "author",
     confirmationStatus: "confirmed",
     createdAt: "2026-01-01T00:00:00.000Z",

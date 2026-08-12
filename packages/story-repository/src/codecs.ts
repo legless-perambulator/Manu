@@ -168,6 +168,7 @@ export function normalizeScene(raw: unknown): Scene | null {
     characterIds: idArray(d.characterIds, isCharacterId),
     plotThreadIds: idArray(d.plotThreadIds, isPlotThreadId),
     objectIds: idArray(d.objectIds, isObjectId),
+    factIds: idArray(d.factIds, isFactId),
     purpose: strArray(d.purpose),
     status: oneOf(d.status, SCENE_STATUSES, "planned"),
   };
@@ -200,6 +201,9 @@ export function normalizeFact(raw: unknown): Fact | null {
     id: d.id as Fact["id"],
     statement: str(d.statement),
     status: oneOf(d.status, FACT_STATUSES, "canonical"),
+    // Absent means true: a fact recorded before propositions could be false is
+    // a statement the author asserted, not one they marked as a lie.
+    objectiveTruth: d.objectiveTruth !== false,
     ...(optStr(d.source) !== undefined ? { source: optStr(d.source) } : {}),
     ...(optStr(d.notes) !== undefined ? { notes: optStr(d.notes) } : {}),
   };

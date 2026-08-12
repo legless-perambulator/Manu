@@ -1,6 +1,18 @@
 import { entityKindOf } from "@jellytind/domain";
 import { AppError } from "@jellytind/shared";
-import { TRANSITION_KINDS, type StateTransition, type TransitionKind } from "./types";
+import {
+  ACQUISITION_SOURCES,
+  KNOWLEDGE_STATES,
+  isTransfer,
+  type AcquisitionSource,
+  type KnowledgeState,
+} from "./knowledge";
+import {
+  LEGACY_TRANSITION_KINDS,
+  TRANSITION_KINDS,
+  type StateTransition,
+  type TransitionKind,
+} from "./types";
 
 export class TransitionError extends AppError {
   constructor(message: string, details?: Record<string, unknown>) {
@@ -15,7 +27,7 @@ const SHAPE: Readonly<Record<TransitionKind, { subject: string; value: string | 
   object_owner: { subject: "object", value: "character" },
   object_location: { subject: "object", value: "location" },
   fact_established: { subject: "fact", value: null },
-  knowledge_gained: { subject: "character", value: "fact" },
+  knowledge_changed: { subject: "character", value: "fact" },
 };
 
 const STATUSES = new Set(["active", "inactive", "deceased", "unknown"]);
@@ -26,6 +38,12 @@ export interface TransitionDraft {
   readonly subjectId: string;
   readonly value: string;
   readonly certainty?: number;
+  /** For `knowledge_changed`: the position now held. Defaults to `known`. */
+  readonly knowledgeState?: KnowledgeState;
+  readonly sourceType?: AcquisitionSource;
+  /** Who or what the information came from. */
+  readonly sourceEntityId?: string;
+  /** @deprecated Use `sourceType`. */
   readonly howLearned?: StateTransition["howLearned"];
   readonly note?: string;
 }
@@ -40,9 +58,11 @@ export interface TransitionDraft {
  * rules live.
  */
 export function validateTransition(draft: TransitionDraft): TransitionDraft {
-  if (!TRANSITION_KINDS.includes(draft.kind)) {
+  const kind = LEGACY_TRANSITION_KINDS[draft.kind] ?? draft.kind;
+  if (!TRANSITION_KINDS.includes(kind)) {
     throw new TransitionError(`Unknown transition kind "${draft.kind}".`, { kind: draft.kind });
   }
+  draft = draft.kind === kind ? draft : { ...draft, kind };
   if (entityKindOf(draft.sceneId) !== "scene") {
     throw new TransitionError(`A transition must be anchored to a scene, got "${draft.sceneId}".`, {
       sceneId: draft.sceneId,
@@ -93,12 +113,52 @@ export function validateTransition(draft: TransitionDraft): TransitionDraft {
     });
   }
 
+  if (draft.kind === "knowledge_changed") {
+    if (draft.knowledgeState !== undefined && !KNOWLEDGE_STATES.includes(draft.knowledgeState)) {
+      throw new TransitionError(
+        `"${draft.knowledgeState}" is not a knowledge state (${KNOWLEDGE_STATES.join(", ")}).`,
+        { knowledgeState: draft.knowledgeState },
+      );
+    }
+    if (draft.sourceType !== undefined && !ACQUISITION_SOURCES.includes(draft.sourceType)) {
+      throw new TransitionError(
+        `"${draft.sourceType}" is not an acquisition source (${ACQUISITION_SOURCES.join(", ")}).`,
+        { sourceType: draft.sourceType },
+      );
+    }
+    if (draft.sourceEntityId !== undefined && entityKindOf(draft.sourceEntityId) === null) {
+      throw new TransitionError(
+        `"${draft.sourceEntityId}" is not a valid entity ID for an information source.`,
+        { sourceEntityId: draft.sourceEntityId },
+      );
+    }
+    // A character cannot be told something by themselves.
+    if (draft.sourceEntityId === draft.subjectId && isTransfer(draft.sourceType ?? "unknown")) {
+      throw new TransitionError(
+        `${draft.subjectId} cannot be the source of their own information.`,
+        { subjectId: draft.subjectId },
+      );
+    }
+  } else if (draft.knowledgeState !== undefined || draft.sourceEntityId !== undefined) {
+    throw new TransitionError(`"${draft.kind}" does not take knowledge fields.`, {
+      kind: draft.kind,
+    });
+  }
+
   return draft;
 }
 
+const STATE_VERBS: Readonly<Record<KnowledgeState, string>> = {
+  unknown: "no longer holds",
+  suspected: "suspects",
+  believed: "believes",
+  known: "learns",
+  disbelieved: "rejects",
+};
+
 /** A one-line description of a transition, for logs and the inspector. */
 export function describeTransition(
-  t: Pick<StateTransition, "kind" | "subjectId" | "value">,
+  t: Pick<StateTransition, "kind" | "subjectId" | "value" | "knowledgeState">,
 ): string {
   switch (t.kind) {
     case "character_location":
@@ -113,7 +173,7 @@ export function describeTransition(
       return `${t.subjectId} is at ${t.value}`;
     case "fact_established":
       return `${t.value} becomes true`;
-    case "knowledge_gained":
-      return `${t.subjectId} learns ${t.value}`;
+    case "knowledge_changed":
+      return `${t.subjectId} ${STATE_VERBS[t.knowledgeState ?? "known"]} ${t.value}`;
   }
 }

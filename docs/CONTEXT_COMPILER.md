@@ -190,6 +190,18 @@ Semantic retrieval augments this later, behind the `SemanticSearchProvider`
 abstraction ([SEARCH.md](SEARCH.md)); the deterministic layer is the foundation,
 not a fallback.
 
+## Story state and knowledge
+
+The `storyState` section carries reconstructed state at the target's **entry
+boundary**, and — separately — the information picture the operation needs:
+false beliefs held by anyone in the scene, information asymmetries among the
+cast, and everyone's position on the facts the scene itself references.
+
+Selection is the point. Dumping every fact every character holds would defeat the
+compiler; these three are chosen because an operation is _wrong_ without them —
+a model that does not know a character is meant to be mistaken will quietly
+correct them. See [STORY_STATE.md](STORY_STATE.md).
+
 ## Rendering
 
 `renderContextPackage(pkg)` turns a package into the text a model call receives —
@@ -214,11 +226,11 @@ did the AI actually see?".
 
 Implemented: entity references · scene/chapter adjacency · plot threads ·
 character participation · locations · world rules · style and voice material ·
-user-pinned context · derived structural summaries.
+user-pinned context · derived structural summaries · story state at a named
+boundary · character knowledge, false beliefs and information asymmetries.
 
-Planned: current character state · character knowledge and reader knowledge ·
-object state · timeline proximity · foreshadowing · pacing · scene specifications
-· stored hierarchical summaries · semantic search.
+Planned: reader knowledge · timeline proximity · foreshadowing · pacing · scene
+specifications · stored hierarchical summaries · semantic search.
 
 ## Relationship to other subsystems
 

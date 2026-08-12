@@ -39,21 +39,24 @@ async function novel() {
     { sceneId: s41.id, kind: "fact_established", subjectId: vault.id, value: vault.id },
     {
       sceneId: s41.id,
-      kind: "knowledge_gained",
+      kind: "knowledge_changed",
       subjectId: mara.id,
       value: vault.id,
       certainty: 1,
-      howLearned: "witnessed",
+      knowledgeState: "known",
+      sourceType: "witnessed",
     },
     { sceneId: s42.id, kind: "character_location", subjectId: elias.id, value: manor.id },
     { sceneId: s42.id, kind: "object_owner", subjectId: key.id, value: elias.id },
     {
       sceneId: s42.id,
-      kind: "knowledge_gained",
+      kind: "knowledge_changed",
       subjectId: elias.id,
       value: vault.id,
       certainty: 0.8,
-      howLearned: "told",
+      knowledgeState: "believed",
+      sourceType: "told",
+      sourceEntityId: mara.id,
     },
     { sceneId: s43.id, kind: "character_location", subjectId: mara.id, value: london.id },
   ]);
@@ -119,7 +122,7 @@ describe("historical queries through the repository", () => {
 
     expect(timeline.knows(mara.id, vault.id, { sceneId: s41.id, position: "before" })).toBeNull();
     expect(timeline.knows(mara.id, vault.id, { sceneId: s41.id, position: "after" })).toMatchObject(
-      { certainty: 1, howLearned: "witnessed" },
+      { certainty: 1, state: "known", sourceType: "witnessed" },
     );
     expect(timeline.knows(elias.id, vault.id, { sceneId: s42.id, position: "before" })).toBeNull();
     expect(
@@ -178,11 +181,12 @@ describe("proposed state is not canon", () => {
       [
         {
           sceneId: s43.id,
-          kind: "knowledge_gained",
+          kind: "knowledge_changed",
           subjectId: elias.id,
           value: vault.id,
           certainty: 0.3,
-          howLearned: "inferred",
+          knowledgeState: "suspected",
+          sourceType: "inferred",
         },
       ],
       { source: "agent", confirmationStatus: "proposed", modelId: "mock:test" },
@@ -196,9 +200,9 @@ describe("proposed state is not canon", () => {
     expect(
       timeline.transitionsAtScene(s43.id).filter((t) => t.confirmationStatus === "proposed"),
     ).toHaveLength(1);
-    expect(timeline.characterStateAfterScene(elias.id, s43.id).knowledge[0]?.learnedInSceneId).toBe(
-      (await repo.listScenes())[2]?.id,
-    );
+    expect(
+      timeline.characterStateAfterScene(elias.id, s43.id).knowledge[0]?.acquiredAtSceneId,
+    ).toBe((await repo.listScenes())[2]?.id);
 
     await repo.setTransitionStatus(proposed?.id ?? "", "confirmed");
     const stored = (await repo.listStateTransitions()).find((t) => t.id === proposed?.id);
@@ -219,5 +223,195 @@ describe("proposed state is not canon", () => {
       modelId: "mock:test",
     });
     expect(t?.createdAt).toBeDefined();
+  });
+});
+
+// ── Knowledge and belief ────────────────────────────────────────────────────
+
+describe("knowledge through the repository", () => {
+  /** Mara witnesses the truth; Elias is lied to about a false proposition. */
+  async function beliefs() {
+    const f = await novel();
+    const { repo, mara, elias, s42, s43 } = f;
+    const marcus = await repo.addCharacter({ name: "Marcus", role: "suspect" });
+    const lie = await repo.addFact({
+      statement: "Marcus is the killer.",
+      objectiveTruth: false,
+    });
+    await repo.addStateTransitions([
+      {
+        sceneId: s43.id,
+        kind: "knowledge_changed",
+        subjectId: elias.id,
+        value: lie.id,
+        knowledgeState: "believed",
+        sourceType: "deceived",
+        sourceEntityId: mara.id,
+        certainty: 0.9,
+      },
+    ]);
+    return { ...f, marcus, lie, s42, s43 };
+  }
+
+  it("keeps objective truth separate from what a character believes", async () => {
+    const { repo, elias, lie, s43 } = await beliefs();
+    const fact = await repo.getEntity<{ objectiveTruth: boolean }>(lie.id);
+    expect(fact?.objectiveTruth).toBe(false);
+
+    const timeline = await repo.getStoryTimeline();
+    const held = timeline.knows(elias.id, lie.id, { sceneId: s43.id, position: "after" });
+    expect(held).toMatchObject({ state: "believed", sourceType: "deceived", certainty: 0.9 });
+    // Believing it changed nothing about the world.
+    expect((await repo.getEntity<{ objectiveTruth: boolean }>(lie.id))?.objectiveTruth).toBe(false);
+  });
+
+  it("reports a false belief", async () => {
+    const { repo, elias, lie, s43 } = await beliefs();
+    expect(await repo.getFalseBeliefs({ sceneId: s43.id, position: "after" })).toEqual([
+      { characterId: elias.id, factId: lie.id, kind: "believes_false" },
+    ]);
+  });
+
+  it("builds the knowledge graph for a fact, including who has no position", async () => {
+    const { repo, mara, elias, marcus, vault, s42 } = await beliefs();
+    const graph = await repo.getFactKnowledgeGraph(vault.id, {
+      sceneId: s42.id,
+      position: "after",
+    });
+    expect(graph.objectiveTruth).toBe(true);
+    const byId = new Map(graph.holders.map((h) => [h.characterId, h]));
+    expect(byId.get(mara.id)).toMatchObject({ state: "known", sourceType: "witnessed" });
+    expect(byId.get(elias.id)).toMatchObject({ state: "believed", sourceEntityId: mara.id });
+    expect(byId.get(marcus.id)).toMatchObject({ state: "unknown" });
+  });
+
+  it("traces how a character came by information", async () => {
+    const { repo, mara, elias, vault, s42 } = await beliefs();
+    const timeline = await repo.getStoryTimeline();
+    expect(
+      timeline
+        .traceAcquisition(elias.id, vault.id, { sceneId: s42.id, position: "after" })
+        .map((step) => `${step.characterId}:${step.sourceType}`),
+    ).toEqual([`${elias.id}:told`, `${mara.id}:witnessed`]);
+  });
+
+  it("answers who holds a fact by a given point", async () => {
+    const { repo, mara, elias, vault, s41, s42 } = await beliefs();
+    const timeline = await repo.getStoryTimeline();
+    expect(
+      timeline
+        .charactersWhoKnowFactAtScene(vault.id, { sceneId: s41.id, position: "after" })
+        .map((r) => r.characterId),
+    ).toEqual([mara.id]);
+    expect(
+      timeline
+        .charactersWhoKnowFactAtScene(vault.id, { sceneId: s42.id, position: "after" })
+        .map((r) => r.characterId)
+        .sort(),
+    ).toEqual([mara.id, elias.id].sort());
+  });
+
+  it("runs deterministic knowledge checks over the project", async () => {
+    const { repo } = await beliefs();
+    // The fixture is consistent — a deceiver need not hold what they tell.
+    expect((await repo.checkKnowledge()).filter((v) => v.severity === "error")).toEqual([]);
+  });
+
+  it("catches a character passing on what they never held", async () => {
+    const { repo, marcus, elias, vault, s43 } = await beliefs();
+    await repo.addStateTransitions([
+      {
+        sceneId: s43.id,
+        kind: "knowledge_changed",
+        subjectId: marcus.id,
+        value: vault.id,
+        knowledgeState: "known",
+        sourceType: "told",
+        sourceEntityId: elias.id,
+      },
+    ]);
+    void elias;
+    const found = await repo.checkKnowledge();
+    expect(found.map((v) => v.kind)).not.toContain("told_without_knowing");
+
+    // Now one that genuinely cannot hold: Marcus is the source, and he holds nothing.
+    await repo.addStateTransitions([
+      {
+        sceneId: s43.id,
+        kind: "knowledge_changed",
+        subjectId: elias.id,
+        value: vault.id,
+        knowledgeState: "known",
+        sourceType: "told",
+        sourceEntityId: marcus.id,
+      },
+    ]);
+    expect((await repo.checkKnowledge()).map((v) => v.kind)).toContain("told_without_knowing");
+  });
+});
+
+describe("fact deletion safety", () => {
+  it("refuses to delete a fact a belief points at", async () => {
+    const { repo, vault } = await novel();
+    await expect(repo.deleteEntity(vault.id)).rejects.toThrow(/story-state transition/);
+    expect(await repo.getEntity(vault.id)).not.toBeNull();
+  });
+
+  it("removes the citing transitions when unlinking", async () => {
+    const { repo, vault } = await novel();
+    const before = (await repo.listStateTransitions()).length;
+    await repo.deleteEntity(vault.id, { mode: "unlink" });
+
+    const after = await repo.listStateTransitions();
+    expect(after.length).toBeLessThan(before);
+    expect(after.some((t) => t.value === vault.id || t.subjectId === vault.id)).toBe(false);
+    // The timeline stays answerable, with no dangling citation.
+    const timeline = await repo.getStoryTimeline();
+    expect(timeline.knownFactIds()).not.toContain(vault.id);
+  });
+
+  it("refuses to delete a character named as an information source", async () => {
+    const { repo, mara } = await novel();
+    await expect(repo.deleteEntity(mara.id)).rejects.toThrow(/story-state transition/);
+  });
+});
+
+describe("revision persistence of knowledge", () => {
+  it("reverting a change set restores the earlier information state", async () => {
+    const { repo, elias, mara, vault, s43 } = await novel();
+    const timeline = await repo.getStoryTimeline();
+    expect(
+      timeline.knows(elias.id, vault.id, { sceneId: s43.id, position: "after" }),
+    ).not.toBeNull();
+
+    await repo.addStateTransitions([
+      {
+        sceneId: s43.id,
+        kind: "knowledge_changed",
+        subjectId: elias.id,
+        value: vault.id,
+        knowledgeState: "unknown",
+        sourceType: "unknown",
+      },
+    ]);
+    const forgotten = await repo.getStoryTimeline();
+    expect(forgotten.knows(elias.id, vault.id, { sceneId: s43.id, position: "after" })).toBeNull();
+
+    await repo.revertChangeSet((await repo.listChangeSets())[0]?.id ?? "");
+    const restored = await repo.getStoryTimeline();
+    expect(
+      restored.knows(elias.id, vault.id, { sceneId: s43.id, position: "after" }),
+    ).not.toBeNull();
+    void mara;
+  });
+
+  it("survives reopening the project", async () => {
+    const { store, repo, elias, vault, s42 } = await novel();
+    const reopened = await StoryRepository.openProject({ store });
+    const timeline = await reopened.getStoryTimeline();
+    expect(
+      timeline.knows(elias.id, vault.id, { sceneId: s42.id, position: "after" }),
+    ).toMatchObject({ state: "believed", sourceType: "told" });
+    void repo;
   });
 });

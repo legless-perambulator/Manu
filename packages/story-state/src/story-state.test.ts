@@ -44,25 +44,29 @@ function fixture(): StoryTimeline {
     t("SCENE_0040", "character_location", MARA, MANOR),
     t("SCENE_0040", "object_owner", KEY, MARA),
     t("SCENE_0041", "fact_established", VAULT_EXISTS, VAULT_EXISTS),
-    t("SCENE_0041", "knowledge_gained", MARA, VAULT_EXISTS, {
+    t("SCENE_0041", "knowledge_changed", MARA, VAULT_EXISTS, {
       certainty: 1,
-      howLearned: "witnessed",
+      knowledgeState: "known",
+      sourceType: "witnessed",
     }),
     t("SCENE_0042", "character_location", ELIAS, MANOR),
-    t("SCENE_0042", "knowledge_gained", ELIAS, VAULT_EXISTS, {
+    t("SCENE_0042", "knowledge_changed", ELIAS, VAULT_EXISTS, {
       certainty: 0.8,
-      howLearned: "told",
+      knowledgeState: "believed",
+      sourceType: "told",
+      sourceEntityId: MARA,
     }),
     t("SCENE_0042", "object_owner", KEY, ELIAS),
     t("SCENE_0043", "character_location", MARA, LONDON),
     t("SCENE_0043", "object_location", KEY, MANOR),
     // Not canon: proposed by a model, not yet confirmed.
-    t("SCENE_0043", "knowledge_gained", ELIAS, MARA_SPIES, {
+    t("SCENE_0043", "knowledge_changed", ELIAS, MARA_SPIES, {
       confirmationStatus: "proposed",
       source: "agent",
       modelId: "mock:test",
       certainty: 0.4,
-      howLearned: "inferred",
+      knowledgeState: "suspected",
+      sourceType: "inferred",
     }),
     // Considered and dismissed.
     t("SCENE_0043", "character_status", MARA, "deceased", {
@@ -95,14 +99,24 @@ describe("historical reconstruction", () => {
     });
     expect(known).toMatchObject({
       certainty: 1,
-      howLearned: "witnessed",
-      learnedInSceneId: "SCENE_0041",
+      state: "known",
+      sourceType: "witnessed",
+      acquiredAtSceneId: "SCENE_0041",
     });
 
     // Elias does not know it before 42, and knows it with less certainty after.
     expect(timeline.characterKnowledgeBeforeScene(ELIAS, "SCENE_0042")).toHaveLength(0);
     expect(timeline.characterKnowledgeAfterScene(ELIAS, "SCENE_0042")).toEqual([
-      { factId: VAULT_EXISTS, certainty: 0.8, howLearned: "told", learnedInSceneId: "SCENE_0042" },
+      {
+        id: `${ELIAS}:${VAULT_EXISTS}`,
+        characterId: ELIAS,
+        factId: VAULT_EXISTS,
+        state: "believed",
+        certainty: 0.8,
+        sourceType: "told",
+        sourceEntityId: MARA,
+        acquiredAtSceneId: "SCENE_0042",
+      },
     ]);
   });
 
@@ -190,7 +204,7 @@ describe("world state", () => {
       fixture()
         .transitionsAtScene("SCENE_0042")
         .map((t) => t.kind),
-    ).toEqual(["character_location", "knowledge_gained", "object_owner"]);
+    ).toEqual(["character_location", "knowledge_changed", "object_owner"]);
   });
 });
 
@@ -233,7 +247,7 @@ describe("transition validation", () => {
 
   it("accepts well-formed transitions", () => {
     expect(() => validateTransition(draft("character_location", ELIAS, MANOR))).not.toThrow();
-    expect(() => validateTransition(draft("knowledge_gained", MARA, VAULT_EXISTS))).not.toThrow();
+    expect(() => validateTransition(draft("knowledge_changed", MARA, VAULT_EXISTS))).not.toThrow();
     expect(() => validateTransition(draft("object_owner", KEY, ""))).not.toThrow();
     expect(() => validateTransition(draft("character_status", ELIAS, "deceased"))).not.toThrow();
   });
@@ -245,7 +259,7 @@ describe("transition validation", () => {
     expect(() => validateTransition(draft("character_location", ELIAS, VAULT_EXISTS))).toThrow(
       /needs a location value/,
     );
-    expect(() => validateTransition(draft("knowledge_gained", MARA, MANOR))).toThrow(
+    expect(() => validateTransition(draft("knowledge_changed", MARA, MANOR))).toThrow(
       /needs a fact value/,
     );
     expect(() => validateTransition(draft("character_status", ELIAS, "sleepy"))).toThrow(
@@ -258,13 +272,13 @@ describe("transition validation", () => {
       validateTransition({ ...draft("character_location", ELIAS, MANOR), sceneId: "CHAPTER_0001" }),
     ).toThrow(/anchored to a scene/);
     expect(() =>
-      validateTransition({ ...draft("knowledge_gained", MARA, VAULT_EXISTS), certainty: 1.5 }),
+      validateTransition({ ...draft("knowledge_changed", MARA, VAULT_EXISTS), certainty: 1.5 }),
     ).toThrow(/between 0 and 1/);
   });
 
   it("describes transitions in plain language", () => {
     expect(
-      describeTransition({ kind: "knowledge_gained", subjectId: MARA, value: VAULT_EXISTS }),
+      describeTransition({ kind: "knowledge_changed", subjectId: MARA, value: VAULT_EXISTS }),
     ).toBe("CHAR_0002 learns FACT_0001");
     expect(describeTransition({ kind: "object_owner", subjectId: KEY, value: ELIAS })).toBe(
       "CHAR_0001 takes possession of OBJECT_0001",

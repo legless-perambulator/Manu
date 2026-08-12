@@ -4,7 +4,10 @@ The fiction domain model is the authoritative representation of story data. UI c
 
 - **Package:** `@jellytind/domain`
 - **Depends on:** `@jellytind/shared`
-- **Status:** Identity foundation (IDs) **implemented and tested**. The foundational fiction-domain entities are **implemented** (Phase 3): `Project`, `Chapter`, `Scene`, `Character`, `Location`, `StoryObject`, `PlotThread`, `Fact`, `WorldRule`, `StoryEvent`, `Relationship`, plus the `ProjectManifest`. Belief/knowledge semantics and numeric relationship state remain **PLANNED**.
+- **Status:** Identity foundation (IDs) **implemented and tested**. The foundational fiction-domain entities are **implemented** (Phase 3): `Project`, `Chapter`, `Scene`, `Character`, `Location`, `StoryObject`, `PlotThread`, `Fact`, `WorldRule`, `StoryEvent`, `Relationship`, plus the `ProjectManifest`. Belief and knowledge semantics are **implemented** (Phase 11): facts carry an
+  objective truth value, scenes list the facts they reference, and per-character
+  positions live in the story-state timeline. Numeric relationship state remains
+  **PLANNED**.
 
 ## Implemented: stable entity IDs
 
@@ -62,7 +65,7 @@ All cross-entity references are by **stable ID**.
 | `Location`     | name, aliases, description, notes                          | `parentLocationId?` → location                                                          |
 | `StoryObject`  | name, aliases, description, status                         | —                                                                                       |
 | `PlotThread`   | name, description, status                                  | `introducedSceneId?`, `resolvedSceneId?`, `relatedSceneIds[]` → scene                   |
-| `Fact`         | statement, status, source?, notes?                         | —                                                                                       |
+| `Fact`         | statement, status, objectiveTruth, source?, notes?         | —                                                                                       |
 | `WorldRule`    | name, description, severity (`hard`/`soft`/`style`), scope | —                                                                                       |
 | `StoryEvent`   | name, description, storyTime?                              | `sceneId?`, `locationId?`, `characterIds[]`                                             |
 | `Relationship` | type, description                                          | `characterAId`, `characterBId` (required)                                               |
@@ -71,7 +74,10 @@ All cross-entity references are by **stable ID**.
 
 Status vocabularies are exported as constant arrays (`CHARACTER_STATUSES`,
 `PLOT_THREAD_STATUSES`, `WORLD_RULE_SEVERITIES`, …) so the UI and validation stay
-in sync. Fact/knowledge here is a plain canonical statement — **belief and
+in sync. A `Fact` is a **proposition**, not a truth: `objectiveTruth` says
+whether it holds in the fictional world, so a false statement is still a
+first-class entity that characters can believe. Per-character position lives in
+the story-state timeline, never on the fact — **belief and
 per-character knowledge semantics are deliberately deferred** (a later phase).
 
 **Renaming never changes identity:** display names live in the record; the ID is
@@ -164,7 +170,11 @@ word_count: 2381
 - **Foreshadowing** — setups and payoffs are _linked_ entities with visibility and reader-interpretation metadata; detect setup-without-payoff and payoff-without-setup. Supports multi-stage foreshadowing.
 - **Object** — important objects are entities tracking ownership, location, condition, appearances, transfers, destruction and knowledge, enabling inventory-continuity checks.
 - **WorldRule** — structured, queryable hard/soft rules (e.g. `RULE_MAGIC_001: resurrection impossible`) consulted during drafting, continuity, timeline, refactor and simulation.
-- **Fact / Belief / Knowledge** — objective truth, per-character belief, and reader knowledge are **separate** representations and must never be conflated. See [STORY_STATE.md](STORY_STATE.md).
+- **Fact / Belief / Knowledge** — objective truth (`Fact.objectiveTruth`),
+  per-character belief (the knowledge graph in the story-state timeline) and
+  reader knowledge are **separate** representations and must never be conflated.
+  Implemented for the first two; reader knowledge is **PLANNED**. See
+  [STORY_STATE.md](STORY_STATE.md).
 - **Clue** — mystery support: source, first appearance, discoverer, reader exposure, interpretations, true/false meaning, related suspects, dependencies, payoff.
 - **Revision / Branch** — see [VERSIONING.md](VERSIONING.md).
 

@@ -8,10 +8,13 @@ import { ContextCompiler, renderContextPackage } from "@jellytind/context-compil
 import { ModelError, type LanguageModel, type OutputSchema } from "@jellytind/model-router";
 import type { StoryRepository } from "@jellytind/story-repository";
 import {
+  ACQUISITION_SOURCES,
   describeTransition,
+  KNOWLEDGE_STATES,
   TRANSITION_KINDS,
   validateTransition,
-  type KnowledgeSource,
+  type AcquisitionSource,
+  type KnowledgeState,
   type StateTransition,
   type TransitionDraft,
   type TransitionKind,
@@ -65,12 +68,20 @@ const EXTRACTION_SCHEMA: OutputSchema<RawExtraction> = {
 
 const SYSTEM_PROMPT = `You extract story-state changes from a scene in a fiction project.
 
-You are given the scene's structured record, its prose, and the state of the story as it stood entering the scene. Report what the scene *changes*, and nothing else.
+You are given the scene's structured record, its prose, and the state of the story as it stood entering the scene — including what each character already knows or believes. Report what the scene *changes*, and nothing else.
 
 Rules:
 - Only report changes the scene actually shows or states. Do not infer offstage events.
 - Use the entity IDs given in the context. Never invent an ID; if the change involves something with no ID, leave it out.
 - Do not repeat state that was already true entering the scene.
+- For information, distinguish carefully:
+  - "known" — the character has it first-hand or beyond doubt;
+  - "believed" — they accept it, but could be wrong;
+  - "suspected" — they entertain it without accepting it;
+  - "disbelieved" — they actively reject it;
+  - "unknown" — they no longer hold it at all.
+- Say how they came by it: witnessed, told, read, inferred, remembered, assumed, deceived, or unknown. When another character is the source, name them in sourceEntityId.
+- A character can be told something false. Record what they now hold, not what is true; use "deceived" when they are being lied to.
 - Give each change a confidence between 0 and 1 and quote the phrase that supports it.
 - You are proposing, not deciding. A human confirms every change.`;
 
@@ -83,7 +94,9 @@ const FORMAT = `Reply with JSON only, matching:
       "value": "the new value: LOC_ for a location, CHAR_ for an owner, FACT_ for knowledge or a fact, or one of active/inactive/deceased/unknown for a status",
       "confidence": 0.0,
       "evidence": "the phrase in the scene that supports this",
-      "howLearned": "witnessed | told | inferred — only for knowledge_gained",
+      "knowledgeState": "${KNOWLEDGE_STATES.join(" | ")} — only for knowledge_changed",
+      "sourceType": "${ACQUISITION_SOURCES.join(" | ")} — only for knowledge_changed",
+      "sourceEntityId": "CHAR_ or OBJECT_ the information came from, when there is one",
       "certainty": 1.0
     }
   ]
@@ -242,7 +255,11 @@ export class StateExtractor {
         confidence: clamp(entry.confidence),
         evidence: typeof entry.evidence === "string" ? entry.evidence : "",
         ...(typeof entry.certainty === "number" ? { certainty: clamp(entry.certainty) } : {}),
-        ...(isKnowledgeSource(entry.howLearned) ? { howLearned: entry.howLearned } : {}),
+        ...(isKnowledgeState(entry.knowledgeState) ? { knowledgeState: entry.knowledgeState } : {}),
+        ...(isAcquisitionSource(entry.sourceType) ? { sourceType: entry.sourceType } : {}),
+        ...(typeof entry.sourceEntityId === "string" && entry.sourceEntityId !== ""
+          ? { sourceEntityId: entry.sourceEntityId }
+          : {}),
         note: typeof entry.evidence === "string" ? `Evidence: ${entry.evidence}` : undefined,
       };
 
@@ -280,6 +297,10 @@ function clamp(value: unknown): number {
   return Math.min(1, Math.max(0, n));
 }
 
-function isKnowledgeSource(value: unknown): value is KnowledgeSource {
-  return value === "witnessed" || value === "told" || value === "inferred";
+function isKnowledgeState(value: unknown): value is KnowledgeState {
+  return typeof value === "string" && (KNOWLEDGE_STATES as readonly string[]).includes(value);
+}
+
+function isAcquisitionSource(value: unknown): value is AcquisitionSource {
+  return typeof value === "string" && (ACQUISITION_SOURCES as readonly string[]).includes(value);
 }

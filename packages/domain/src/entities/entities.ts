@@ -139,11 +139,22 @@ export interface PlotThread {
   readonly relatedSceneIds: readonly SceneId[];
 }
 
-/** A canonical statement of fact, e.g. "The vault exists beneath Blackthorn Manor." */
+/**
+ * A proposition about the story world, e.g. "The vault exists beneath Blackthorn
+ * Manor."
+ *
+ * A fact is a *statement*, not a truth: `objectiveTruth` says whether it holds in
+ * the fictional world. A false proposition is still a first-class entity, because
+ * characters can believe it — `FACT_KILLER_IS_MARCUS` with `objectiveTruth: false`
+ * is exactly what a false belief points at. Never mutate a fact to represent what
+ * a character thinks (docs/STORY_STATE.md — "Truth, belief and knowledge").
+ */
 export interface Fact {
   readonly id: FactId;
   readonly statement: string;
   readonly status: FactStatus;
+  /** Whether the statement is true in the story world. Defaults to true. */
+  readonly objectiveTruth: boolean;
   readonly source?: string;
   readonly notes?: string;
 }
@@ -191,6 +202,12 @@ export interface Scene {
   readonly characterIds: readonly CharacterId[];
   readonly plotThreadIds: readonly PlotThreadId[];
   readonly objectIds: readonly ObjectId[];
+  /**
+   * Facts this scene puts on the page — stated, referenced or relied upon. The
+   * deterministic signal behind "this character references information they have
+   * not acquired" (docs/STORY_STATE.md — knowledge violations).
+   */
+  readonly factIds: readonly FactId[];
   /** What the scene is for (goals/beats), as short lines. */
   readonly purpose: readonly string[];
   readonly status: SceneStatus;

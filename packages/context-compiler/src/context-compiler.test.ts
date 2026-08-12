@@ -366,7 +366,7 @@ describe("story state in context", () => {
     const state = section(first, "storyState");
     const mara = state?.items.find((i) => i.id.startsWith("CHAR_0001"));
     expect(mara?.text).toContain("location: unrecorded");
-    expect(mara?.text).toContain("knows: nothing recorded");
+    expect(mara?.text).toContain("holds: nothing recorded");
   });
 
   it("carries state into the rendered context a model receives", async () => {

@@ -14,8 +14,9 @@ import { AgentPanel } from "./AgentPanel";
 import { ContextPanel } from "./ContextPanel";
 import { ProposalReview } from "./ProposalReview";
 import { StatePanel } from "./StatePanel";
+import { KnowledgePanel } from "./KnowledgePanel";
 
-type LeftTab = "files" | "entities" | "search" | "state" | "history";
+type LeftTab = "files" | "entities" | "search" | "state" | "knowledge" | "history";
 type RightTab = "inspector" | "agent" | "context";
 
 interface WorkspaceProps {
@@ -109,6 +110,12 @@ export function Workspace({ repo, secrets, onClose, onOpenSettings }: WorkspaceP
               State
             </button>
             <button
+              className={`tab${tab === "knowledge" ? " tab--active" : ""}`}
+              onClick={() => setTab("knowledge")}
+            >
+              Knowledge
+            </button>
+            <button
               className={`tab${tab === "history" ? " tab--active" : ""}`}
               onClick={() => setTab("history")}
             >
@@ -152,6 +159,7 @@ export function Workspace({ repo, secrets, onClose, onOpenSettings }: WorkspaceP
               onChanged={refresh}
             />
           )}
+          {tab === "knowledge" && <KnowledgePanel repo={repo} refreshToken={refreshToken} />}
           {tab === "history" && (
             <HistoryPanel
               repo={repo}

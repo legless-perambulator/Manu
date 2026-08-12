@@ -1,4 +1,5 @@
 import type { CharacterStatus } from "@jellytind/domain";
+import type { AcquisitionSource, KnowledgeRecord, KnowledgeState } from "./knowledge";
 
 /**
  * Story State V1.
@@ -25,8 +26,12 @@ export type TransitionKind =
   | "object_location"
   /** A fact becomes true in the story world. `value` is the fact ID. */
   | "fact_established"
-  /** A character learns a fact. `value` is the fact ID. */
-  | "knowledge_gained";
+  /**
+   * A character's position on a fact changes. `value` is the fact ID and
+   * `knowledgeState` says what they now hold — which covers learning it,
+   * suspecting it, rejecting it, and forgetting it again.
+   */
+  | "knowledge_changed";
 
 export const TRANSITION_KINDS: readonly TransitionKind[] = [
   "character_location",
@@ -34,10 +39,23 @@ export const TRANSITION_KINDS: readonly TransitionKind[] = [
   "object_owner",
   "object_location",
   "fact_established",
-  "knowledge_gained",
+  "knowledge_changed",
 ];
 
-/** How a character came by a piece of knowledge. */
+/**
+ * Transition kinds written by earlier versions of the format, and what they mean
+ * now. `knowledge_gained` predates states: it always meant "now knows".
+ * Normalised on read so existing projects keep working without a rewrite
+ * (AGENTS.md — "add migration logic where required").
+ */
+export const LEGACY_TRANSITION_KINDS: Readonly<Record<string, TransitionKind>> = {
+  knowledge_gained: "knowledge_changed",
+};
+
+/**
+ * How a character came by a piece of knowledge.
+ * @deprecated Superseded by `AcquisitionSource`, which this is a subset of.
+ */
 export type KnowledgeSource = "witnessed" | "told" | "inferred";
 
 /** Who proposed a transition. */
@@ -63,7 +81,16 @@ export interface StateTransition {
   readonly value: string;
   /** For knowledge: 0–1 confidence the character holds. */
   readonly certainty?: number;
-  /** For knowledge: how they learned it. */
+  /** For `knowledge_changed`: the position the character now holds. */
+  readonly knowledgeState?: KnowledgeState;
+  /** For knowledge: how they came by it. */
+  readonly sourceType?: AcquisitionSource;
+  /** For knowledge acquired from someone or something: which entity. */
+  readonly sourceEntityId?: string;
+  /**
+   * Legacy field for how a character learned something.
+   * @deprecated Use `sourceType`.
+   */
   readonly howLearned?: KnowledgeSource;
   readonly source: TransitionSource;
   readonly confirmationStatus: ConfirmationStatus;
@@ -77,21 +104,18 @@ export interface StateTransition {
 
 // ── Reconstructed state ─────────────────────────────────────────────────────
 
-export interface KnowledgeEntry {
-  readonly factId: string;
-  readonly certainty: number;
-  readonly howLearned: KnowledgeSource;
-  /** Where they learned it — the basis for "does she know this yet?". */
-  readonly learnedInSceneId: string;
-}
-
 export interface CharacterState {
   readonly characterId: string;
   readonly locationId?: string;
   readonly status: CharacterStatus;
   /** Objects this character owns at this point. */
   readonly inventory: readonly string[];
-  readonly knowledge: readonly KnowledgeEntry[];
+  /**
+   * Every proposition this character has a position on. Positions of `unknown`
+   * are omitted — not having met an idea is the absence of a record, not a
+   * record of absence.
+   */
+  readonly knowledge: readonly KnowledgeRecord[];
   /** The boundary this state describes. */
   readonly asOf: StateBoundary;
 }

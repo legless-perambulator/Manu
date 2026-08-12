@@ -29,6 +29,9 @@ export type SelectionRule =
   | "character_state"
   | "object_state"
   | "established_fact"
+  | "false_belief"
+  | "information_asymmetry"
+  | "fact_knowledge"
   | "lexical_search"
   | "pinned";
 

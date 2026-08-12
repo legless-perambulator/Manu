@@ -14,7 +14,7 @@ This is **not** a chatbot with a writing editor attached. It lets AI agents insp
 
 ## Status
 
-**Phase 10 complete.** Implemented and tested so far:
+**Phase 11 complete.** Implemented and tested so far:
 
 - **Phase 0** — monorepo, tooling, stable branded entity IDs, persistence and
   model-provider boundaries, Tauri + React desktop shell.
@@ -48,6 +48,10 @@ This is **not** a chatbot with a writing editor attached. It lets AI agents insp
   _did Mara know about the vault yet?_ without re-reading the manuscript — with
   manual correction, AI extraction that proposes rather than canonises, and
   state carried into compiled context.
+- **Phase 11** — the character knowledge and belief graph: objective truth,
+  knowledge, belief and false belief kept separate, with acquisition sources,
+  traceable information chains, deterministic continuity checks, and selected
+  knowledge carried into compiled context.
 
 Implementation proceeds as vertical slices — see
 [`docs/ROADMAP.md`](docs/ROADMAP.md) and
