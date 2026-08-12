@@ -1,4 +1,5 @@
 mod project_fs;
+mod secrets;
 
 use serde::Serialize;
 
@@ -25,6 +26,7 @@ fn app_info() -> AppInfo {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_http::init())
         .invoke_handler(tauri::generate_handler![
             app_info,
             project_fs::project_read_text,
@@ -33,6 +35,10 @@ pub fn run() {
             project_fs::project_mkdir,
             project_fs::project_remove,
             project_fs::project_list,
+            secrets::secret_backend,
+            secrets::secret_set,
+            secrets::secret_get,
+            secrets::secret_delete,
         ])
         .run(tauri::generate_context!())
         .expect("error while running JellyTind desktop application");

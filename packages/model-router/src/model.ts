@@ -1,8 +1,10 @@
-import { ValidationError } from "@jellytind/shared";
+import { ModelError } from "./errors";
 import type {
   GenerateRequest,
   GenerateResult,
+  ModelCapabilities,
   OutputSchema,
+  RequestOptions,
   StreamEvent,
   StructuredRequest,
   ToolCallRequest,
@@ -13,47 +15,59 @@ import type {
  * The single abstraction every model provider implements. Application code,
  * agents and the Context Compiler depend only on this interface — never on a
  * concrete provider SDK (docs/MODEL_ROUTER.md).
+ *
+ * A provider need not support every capability; unsupported calls fail with a
+ * typed `ModelError` of code `"unsupported"`. Inspect {@link capabilities}
+ * before calling optional methods.
  */
 export interface LanguageModel {
   /** Stable identifier for logging / cost attribution, e.g. "anthropic:claude-x". */
   readonly id: string;
 
-  /** Single-shot generation. */
-  generate(request: GenerateRequest): Promise<GenerateResult>;
+  readonly capabilities: ModelCapabilities;
 
-  /** Token/'event'-level streaming. */
-  stream(request: GenerateRequest): AsyncIterable<StreamEvent>;
+  /** Single-shot text generation. */
+  generateText(request: GenerateRequest, options?: RequestOptions): Promise<GenerateResult>;
 
-  /** Generate and validate structured output against a schema. */
-  generateStructured<T>(request: StructuredRequest<T>): Promise<T>;
+  /** Token/event-level streaming. */
+  streamText(request: GenerateRequest, options?: RequestOptions): AsyncIterable<StreamEvent>;
 
-  /** Tool-calling turn. Planned; Phase-0 stubs may throw NotImplementedError. */
-  generateWithTools(request: ToolCallRequest): Promise<ToolCallResult>;
+  /** Generate and schema-validate structured output. */
+  generateStructured<T>(request: StructuredRequest<T>, options?: RequestOptions): Promise<T>;
+
+  /** A tool-calling turn. */
+  runWithTools(request: ToolCallRequest, options?: RequestOptions): Promise<ToolCallResult>;
 }
 
 /**
  * Parse-and-validate raw model text as structured output of type `T`.
  *
- * This is the reusable guard that stands between a model and the project:
- * malformed JSON or schema violations become a {@link ValidationError} rather
- * than corrupt data. Reuse it in every `generateStructured` implementation.
+ * The reusable guard between a model and the project: malformed JSON or schema
+ * violations become a `ModelError("invalid_output")` rather than corrupt data,
+ * so malformed output can never mutate project state (AGENTS.md — "Structured
+ * LLM Output"). Reuse it in every `generateStructured` implementation.
  */
 export function parseModelJson<T>(schema: OutputSchema<T>, rawText: string): T {
   let json: unknown;
   try {
     json = JSON.parse(rawText);
   } catch (cause) {
-    throw new ValidationError(`Model output for "${schema.name}" was not valid JSON.`, {
-      cause,
-      details: { rawText },
-    });
+    throw new ModelError(
+      "invalid_output",
+      `Model output for "${schema.name}" was not valid JSON.`,
+      {
+        cause,
+        details: { rawText },
+      },
+    );
   }
   try {
     return schema.parse(json);
   } catch (cause) {
-    throw new ValidationError(`Model output for "${schema.name}" failed schema validation.`, {
-      cause,
-      details: { json },
-    });
+    throw new ModelError(
+      "invalid_output",
+      `Model output for "${schema.name}" failed schema validation.`,
+      { cause, details: { json } },
+    );
   }
 }

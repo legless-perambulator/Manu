@@ -26,6 +26,9 @@ export type ObjectId = Brand<string, "ObjectId">;
 export type EventId = Brand<string, "EventId">;
 export type WorldRuleId = Brand<string, "WorldRuleId">;
 export type RelationshipId = Brand<string, "RelationshipId">;
+export type SetupId = Brand<string, "SetupId">;
+export type DecisionId = Brand<string, "DecisionId">;
+export type TestId = Brand<string, "TestId">;
 
 /**
  * Any identifier for an entity *within* a project. A project's own ID
@@ -42,7 +45,10 @@ export type EntityId =
   | ObjectId
   | EventId
   | WorldRuleId
-  | RelationshipId;
+  | RelationshipId
+  | SetupId
+  | DecisionId
+  | TestId;
 
 /** Any identifier this system mints, including the project container. */
 export type AnyId = StoryProjectId | EntityId;
@@ -60,6 +66,9 @@ export interface IdTypeByKind {
   event: EventId;
   world_rule: WorldRuleId;
   relationship: RelationshipId;
+  setup: SetupId;
+  decision: DecisionId;
+  test: TestId;
 }
 
 export type IdFor<K extends EntityKind> = IdTypeByKind[K];
@@ -149,6 +158,9 @@ export const isObjectId = makeKindGuard("object");
 export const isEventId = makeKindGuard("event");
 export const isWorldRuleId = makeKindGuard("world_rule");
 export const isRelationshipId = makeKindGuard("relationship");
+export const isSetupId = makeKindGuard("setup");
+export const isDecisionId = makeKindGuard("decision");
+export const isTestId = makeKindGuard("test");
 
 /**
  * Mint a project ID. The suffix is opaque and does not derive from the project

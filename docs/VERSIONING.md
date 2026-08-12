@@ -3,7 +3,7 @@
 Every AI mutation must be reversible, attributable and auditable. This document covers revisions, diffs, checkpoints, branches, transactional edits and the audit trail.
 
 - **Package:** `@jellytind/story-repository` (change sets, history, checkpoints, diffs, revert, staging)
-- **Status (Phase 5):** **Implemented and tested.** Every significant mutation is captured as a reviewable, reversible **change set**; checkpoints snapshot the whole project; a line diff drives a diff viewer; single change sets and whole-checkpoint reverts work; and a staging transaction is ready for future AI operations. Branching remains **PLANNED**.
+- **Status (Phase 5, extended in Phase 9):** **Implemented and tested.** Every significant mutation is captured as a reviewable, reversible **change set**; checkpoints snapshot the whole project; a line diff drives a diff viewer; single change sets and whole-checkpoint reverts work; and a staging transaction is ready for future AI operations. Branching remains **PLANNED**.
 
 This is the safety layer that must exist **before** unrestricted AI editing: it is
 difficult for any operation — human or agent — to irreversibly damage a project.
@@ -28,11 +28,17 @@ A `ChangeSet` records:
 
 ```
 id · timestamp · actor (human | agent | system | import) · operation
-taskId? · modelId? · summary · status (committed | reverted | failed)
+taskId? · modelId? · ai? · summary · status (committed | reverted | failed)
 filesChanged[]     — path + before/after content (before=null → created, after=null → deleted)
 entitiesChanged[]  — { id, kind, change: created | updated | deleted }
 revertsChangeSetId? — set when this change reverts another
 ```
+
+`ai` is present when an AI proposed the change and a human approved it, carrying
+the operation, target, instruction, context recipe and token count, model, task,
+approval (`accepted` or `partially_accepted`) and how many hunks the reviewer
+took. It lives on the change set rather than in a separate log so it can never
+drift from the before/after it describes. See [AI_EDITING.md](AI_EDITING.md).
 
 `filesChanged` captures **everything** — manuscript prose, entity files, and the
 structured state files (manifest, catalog, id-sequences, collection JSON) — so
@@ -47,6 +53,13 @@ compact `ChangeSetSummary` (no content) drives fast history listing;
 each line as **context / add / remove** (a modification is a remove + add); the
 diff viewer renders additions, deletions and modifications per file with
 `+`/`−` counts. Any change set — including a revert — is fully inspectable.
+
+`buildHunks` groups a diff's changed lines into addressable hunks, and
+`applyHunks(before, after, ids)` rebuilds the text that results from accepting
+only some of them — accepting all returns `after` byte-for-byte, accepting none
+returns `before`. This is what makes _partial_ acceptance of an AI edit possible:
+a reviewer takes the two sentences that improved the scene and leaves the
+paragraph that did not.
 
 ## Checkpoints
 
@@ -142,3 +155,13 @@ Large operations behave transactionally. For _"rewrite Chapter 12 and update aff
 - Checkpoints exist before every large operation.
 - Staged edits commit atomically or not at all.
 - Hidden chain-of-thought is never surfaced; action summaries and provenance are.
+
+## Story Refactor uses all of it
+
+A refactor is the operation the versioning layer was built for: it takes a
+**checkpoint**, prepares its edits in a **staged transaction**, validates them
+against a shadow copy, and commits exactly **one change set** on approval — so
+a structural change to a novel is one revertible entry, not eleven. Its audit
+record lives under `.writer/refactors/` rather than in the journal, because the
+change is the change set and recording the record of it would double every
+entry. See [STORY_REFACTOR.md](STORY_REFACTOR.md).

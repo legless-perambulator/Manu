@@ -17,6 +17,15 @@ import {
   type WorldRule,
   type StoryEvent,
   type Relationship,
+  type Setup,
+  type Decision,
+  type Dependency,
+  type DependencyKind,
+  type DependencySource,
+  type DependencyStatus,
+  DEPENDENCY_NODE_KINDS,
+  isDependencyNode,
+  type Subtlety,
   type ChapterStatus,
   type SceneStatus,
   type CharacterStatus,
@@ -31,10 +40,115 @@ import {
   type LocationId,
   type ObjectId,
   type PlotThreadId,
+  type FactId,
+  type StoryTime,
+  type StoryDuration,
+  type TemporalLink,
+  type TemporalRelation,
+  type TravelRule,
+  type Assertion,
+  type StoryTest,
+  type TestScope,
+  type TestSeverity,
+  orderScenes,
+  normaliseStoryTime,
+  assertionEntities,
+  isDeterministicAssertion,
+  DEFAULT_TEST_SEVERITY,
+  indexLocations,
+  isWithin,
+  locationDescendants,
+  locationPath,
 } from "@jellytind/domain";
-import { normalizeProjectPath, type ProjectStore, type ProjectIndex } from "@jellytind/persistence";
+import {
+  InMemoryProjectStore,
+  normalizeProjectPath,
+  type ProjectStore,
+  type ProjectIndex,
+} from "@jellytind/persistence";
 import type { SearchHit, SearchQuery } from "@jellytind/search";
+import type { AgentStore } from "@jellytind/agent-runtime";
+import {
+  checkContinuity,
+  checkKnowledgeViolations,
+  checkNarrative,
+  checkTimeline,
+  isOpen,
+  isRunning,
+  openSetupsBefore,
+  setupsForScene,
+  factKnowledgeGraph,
+  falseBeliefsAt,
+  StoryChronology,
+  StoryTimeline,
+  timelineNodes,
+  validateTransition,
+  type CharacterState,
+  type CharacterTimelineEntry,
+  type ContinuityViolation,
+  type FactKnowledgeGraph,
+  type ObjectChange,
+  type ObjectState,
+  type ObjectTransfer,
+  type KnowledgeViolation,
+  type ManuscriptMetrics,
+  type NarrativeFinding,
+  type ThreadDormancy,
+  type ThreadState,
+  type ThreadStep,
+  type RelationshipChange,
+  type RelationshipState,
+  type StateBoundary,
+  type StateTransition,
+  type TimelineNode,
+  type TimelinePoint,
+  type TimelineView,
+  type TimelineViolation,
+  type TransitionDraft,
+} from "@jellytind/story-state";
+import {
+  buildStory,
+  compareBuilds,
+  runStoryTests,
+  CORE_RULES,
+  type BuildComparison,
+  type BuildConfig,
+  type BuildContext,
+  type BuildInputKind,
+  type BuildSummary,
+  type StoryBuild,
+  type TestRunSummary,
+} from "@jellytind/story-compiler";
+import {
+  parseDebugCommand,
+  traceProblem,
+  tracedEntities,
+  type DebugReport,
+  type DebugReportSummary,
+  type DebugRequest,
+  type DebugRequestInput,
+  type DebugTrace,
+  type Diagnosis,
+  type Intervention,
+  type ParsedCommand,
+} from "@jellytind/story-debugger";
+import {
+  CausalityGraph,
+  checkDependencies,
+  type BlastRadius,
+  type DependencyFinding,
+  type DependencyPath,
+  type TraversalOptions,
+} from "@jellytind/story-causality";
 import { RepositoryError } from "./errors";
+import { RepositoryAgentStore } from "./agent-store";
+import { TransitionStore } from "./state-store";
+import { TimelineStore } from "./timeline-store";
+import { BuildStore } from "./build-store";
+import { TestStore } from "./test-store";
+import { DebugStore } from "./debug-store";
+import { DependencyStore } from "./dependency-store";
+import { RefactorStore } from "./refactor-store";
 import { ProjectSearch } from "./project-search";
 import {
   scenesByCharacter,
@@ -66,7 +180,14 @@ import {
 import type { HasId } from "./stores";
 import { JournaledProjectStore } from "./journaled-store";
 import { HistoryStore, type SnapshotFile } from "./history-store";
-import type { Actor, ChangeSet, ChangeSetSummary, Checkpoint, EntityChange } from "./history";
+import type {
+  Actor,
+  AiProvenance,
+  ChangeSet,
+  ChangeSetSummary,
+  Checkpoint,
+  EntityChange,
+} from "./history";
 import { StagedTransaction, type StagedFileOp } from "./transaction";
 
 const HISTORY_PREFIX = ".writer/revisions/";
@@ -105,7 +226,34 @@ export interface DeleteResult {
   readonly unlinked: readonly string[];
 }
 
+/** Attribution for a staged transaction's resulting change set. */
+export interface TransactionMeta {
+  readonly actor?: Actor;
+  readonly operation?: string;
+  readonly taskId?: string;
+  readonly modelId?: string;
+  readonly ai?: AiProvenance;
+}
+
+/** True when a transition names this entity anywhere. */
+function citesEntity(t: StateTransition, id: string): boolean {
+  return t.subjectId === id || t.value === id || t.sourceEntityId === id;
+}
+
 const nowIso = (): string => new Date().toISOString();
+
+/** The scene or chapter IDs a test scope names. */
+function scopeAnchors(scope: TestScope): string[] {
+  if (scope.kind === "always") return [];
+  return scope.kind === "between" ? [scope.anchorId, scope.untilId] : [scope.anchorId];
+}
+
+/** Words in a chapter file, front matter excluded. */
+function countWords(raw: string): number {
+  const body = raw.replace(/^---\n[\s\S]*?\n---\n?/, "");
+  const words = body.trim().match(/\S+/g);
+  return words === null ? 0 : words.length;
+}
 
 /**
  * The Story Repository service: the authoritative gateway to a fiction project.
@@ -118,6 +266,14 @@ export class StoryRepository {
   private readonly history: HistoryStore;
   private readonly graph: EntityGraph;
   private readonly search: ProjectSearch;
+  private readonly agentStore: RepositoryAgentStore;
+  private readonly transitions: TransitionStore;
+  private readonly timeline: TimelineStore;
+  private readonly builds: BuildStore;
+  private readonly tests: TestStore;
+  private readonly debugReports: DebugStore;
+  private readonly dependencies: DependencyStore;
+  private readonly refactors: RefactorStore;
   private manifest: ProjectManifest;
   private ids: SequentialIdGenerator;
 
@@ -135,6 +291,26 @@ export class StoryRepository {
     this.ids = ids;
     this.graph = new EntityGraph(this.store);
     this.search = new ProjectSearch(this.store, this.graph);
+    this.agentStore = new RepositoryAgentStore(rawStore);
+    // Journaled: a state transition is canon, so changing it is a change set.
+    this.transitions = new TransitionStore(this.store);
+    // Likewise chronology: "this happens before that" is an authored claim.
+    this.timeline = new TimelineStore(this.store);
+    // Not journaled: a build is derived analysis, and running one changes
+    // nothing about the story.
+    this.builds = new BuildStore(rawStore);
+    // Journaled: a story test is the writer's stated intention, and as authored
+    // as any other piece of canon.
+    this.tests = new TestStore(this.store);
+    // Not journaled, for the same reason as builds: investigating a problem is
+    // not a change to the story.
+    this.debugReports = new DebugStore(rawStore);
+    // Journaled: a registered dependency is the author's claim about how their
+    // story holds together, as authored as a plot thread.
+    this.dependencies = new DependencyStore(this.store);
+    // Not journaled: the refactor's *change* is a change set; the record of it
+    // is an audit trail, and recording that too would double every entry.
+    this.refactors = new RefactorStore(rawStore);
   }
 
   // ── Lifecycle ────────────────────────────────────────────────────────────
@@ -329,19 +505,27 @@ export class StoryRepository {
     characterIds?: readonly CharacterId[];
     plotThreadIds?: readonly PlotThreadId[];
     objectIds?: readonly ObjectId[];
+    factIds?: readonly FactId[];
     purpose?: readonly string[];
     status?: SceneStatus;
+    /** Where the scene sits in story-world time — not where it sits in the book. */
+    storyTime?: StoryTime | string;
+    duration?: StoryDuration;
   }): Promise<Scene> {
     const id = this.ids.next("scene");
+    const storyTime = normaliseStoryTime(input.storyTime);
     const scene: Scene = {
       id,
       title: input.title,
+      ...(storyTime !== undefined ? { storyTime } : {}),
+      ...(input.duration !== undefined ? { duration: input.duration } : {}),
       ...(input.chapterId !== undefined ? { chapterId: input.chapterId } : {}),
       ...(input.pov !== undefined ? { pov: input.pov } : {}),
       ...(input.locationId !== undefined ? { locationId: input.locationId } : {}),
       characterIds: input.characterIds ?? [],
       plotThreadIds: input.plotThreadIds ?? [],
       objectIds: input.objectIds ?? [],
+      factIds: input.factIds ?? [],
       purpose: input.purpose ?? [],
       status: input.status ?? "planned",
     };
@@ -357,6 +541,7 @@ export class StoryRepository {
     aliases?: readonly string[];
     description?: string;
     role?: string;
+    goals?: readonly string[];
     notes?: string;
     status?: CharacterStatus;
   }): Promise<Character> {
@@ -367,6 +552,7 @@ export class StoryRepository {
       aliases: input.aliases ?? [],
       description: input.description ?? "",
       role: input.role ?? "",
+      goals: input.goals ?? [],
       notes: input.notes ?? "",
       status: input.status ?? "active",
       filePath: characterFilePath(id),
@@ -414,7 +600,7 @@ export class StoryRepository {
       name: input.name,
       aliases: input.aliases ?? [],
       description: input.description ?? "",
-      status: input.status ?? "intact",
+      status: input.status ?? "exists",
       filePath: objectFilePath(id),
     };
     await this.persistEntity("object", object, object.name, object.filePath, {
@@ -454,6 +640,8 @@ export class StoryRepository {
   async addFact(input: {
     statement: string;
     status?: FactStatus;
+    /** Whether the proposition is true in the story world. Defaults to true. */
+    objectiveTruth?: boolean;
     source?: string;
     notes?: string;
   }): Promise<Fact> {
@@ -462,6 +650,7 @@ export class StoryRepository {
       id,
       statement: input.statement,
       status: input.status ?? "canonical",
+      objectiveTruth: input.objectiveTruth ?? true,
       ...(input.source !== undefined ? { source: input.source } : {}),
       ...(input.notes !== undefined ? { notes: input.notes } : {}),
     };
@@ -496,20 +685,26 @@ export class StoryRepository {
   async addEvent(input: {
     name: string;
     description?: string;
-    storyTime?: string;
+    /** Accepts a structured story time, or free-form text to be interpreted. */
+    storyTime?: StoryTime | string;
+    duration?: StoryDuration;
     sceneId?: SceneId;
     locationId?: LocationId;
     characterIds?: readonly CharacterId[];
+    plotThreadIds?: readonly PlotThreadId[];
   }): Promise<StoryEvent> {
     const id = this.ids.next("event");
+    const storyTime = normaliseStoryTime(input.storyTime);
     const event: StoryEvent = {
       id,
       name: input.name,
       description: input.description ?? "",
-      ...(input.storyTime !== undefined ? { storyTime: input.storyTime } : {}),
+      ...(storyTime !== undefined ? { storyTime } : {}),
+      ...(input.duration !== undefined ? { duration: input.duration } : {}),
       ...(input.sceneId !== undefined ? { sceneId: input.sceneId } : {}),
       ...(input.locationId !== undefined ? { locationId: input.locationId } : {}),
       characterIds: input.characterIds ?? [],
+      plotThreadIds: input.plotThreadIds ?? [],
     };
     await this.persistEntity("event", event, event.name, undefined, {
       operation: "add_event",
@@ -522,6 +717,8 @@ export class StoryRepository {
     characterAId: CharacterId;
     characterBId: CharacterId;
     type: string;
+    /** Starting status. How it evolves is recorded as state transitions. */
+    status?: string;
     description?: string;
   }): Promise<Relationship> {
     const id = this.ids.next("relationship");
@@ -530,6 +727,7 @@ export class StoryRepository {
       characterAId: input.characterAId,
       characterBId: input.characterBId,
       type: input.type,
+      status: input.status ?? "",
       description: input.description ?? "",
     };
     await this.persistEntity("relationship", rel, rel.type, undefined, {
@@ -537,6 +735,82 @@ export class StoryRepository {
       change: "created",
     });
     return rel;
+  }
+
+  /**
+   * Register a promise the story makes.
+   *
+   * A setup connects scenes that nothing in the prose connects, so it is
+   * recorded rather than inferred. All three cardinalities work: one planting to
+   * one payoff, several plantings to one, or one planting paid off repeatedly
+   * (docs/NARRATIVE_THREADS.md).
+   */
+  async addSetup(input: {
+    description: string;
+    setupSceneIds?: readonly SceneId[];
+    payoffSceneIds?: readonly SceneId[];
+    payoffDescription?: string;
+    subtlety?: Subtlety;
+    intendedInterpretation?: string;
+    /** Author-only. Never reaches a reader-facing context. */
+    trueMeaning?: string;
+    targetThreadId?: PlotThreadId;
+    targetRevealId?: FactId;
+    notes?: string;
+  }): Promise<Setup> {
+    const id = this.ids.next("setup");
+    const setup: Setup = {
+      id,
+      description: input.description,
+      setupSceneIds: input.setupSceneIds ?? [],
+      payoffSceneIds: input.payoffSceneIds ?? [],
+      ...(input.payoffDescription !== undefined
+        ? { payoffDescription: input.payoffDescription }
+        : {}),
+      subtlety: input.subtlety ?? "subtle",
+      ...(input.intendedInterpretation !== undefined
+        ? { intendedInterpretation: input.intendedInterpretation }
+        : {}),
+      ...(input.trueMeaning !== undefined ? { trueMeaning: input.trueMeaning } : {}),
+      ...(input.targetThreadId !== undefined ? { targetThreadId: input.targetThreadId } : {}),
+      ...(input.targetRevealId !== undefined ? { targetRevealId: input.targetRevealId } : {}),
+      ...(input.notes !== undefined ? { notes: input.notes } : {}),
+    };
+    await this.persistEntity("setup", setup, setup.description, undefined, {
+      operation: "add_setup",
+      change: "created",
+    });
+    return setup;
+  }
+
+  /**
+   * Record a choice a character makes.
+   *
+   * Optional and deliberate: a story does not need every decision written
+   * down, it needs the ones later decisions rest on
+   * (docs/STORY_REFACTOR.md — causality).
+   */
+  async addDecision(input: {
+    description: string;
+    characterId: CharacterId;
+    sceneId?: SceneId;
+    reason?: string;
+    notes?: string;
+  }): Promise<Decision> {
+    const id = this.ids.next("decision");
+    const decision: Decision = {
+      id,
+      description: input.description,
+      characterId: input.characterId,
+      ...(input.sceneId !== undefined ? { sceneId: input.sceneId } : {}),
+      ...(input.reason !== undefined ? { reason: input.reason } : {}),
+      ...(input.notes !== undefined ? { notes: input.notes } : {}),
+    };
+    await this.persistEntity("decision", decision, decision.description, undefined, {
+      operation: "add_decision",
+      change: "created",
+    });
+    return decision;
   }
 
   // ── Entity reads ───────────────────────────────────────────────────────────
@@ -551,6 +825,8 @@ export class StoryRepository {
   listWorldRules = (): Promise<WorldRule[]> => this.listOf<WorldRule>("world_rule");
   listEvents = (): Promise<StoryEvent[]> => this.listOf<StoryEvent>("event");
   listRelationships = (): Promise<Relationship[]> => this.listOf<Relationship>("relationship");
+  listSetups = (): Promise<Setup[]> => this.listOf<Setup>("setup");
+  listDecisions = (): Promise<Decision[]> => this.listOf<Decision>("decision");
 
   private async listOf<T>(kind: GraphKind): Promise<T[]> {
     return (await this.graph.store(kind).list()) as unknown as T[];
@@ -571,6 +847,1473 @@ export class StoryRepository {
       kind,
       name: displayName(kind, entity),
     }));
+  }
+
+  // ── Agent tasks & activity ──────────────────────────────────────────────────
+
+  /**
+   * Persistent agent task and activity storage (`.writer/agents/`). Reading the
+   * project is not a story mutation, so these writes bypass the change-set
+   * journal and never appear in the manuscript's revision history.
+   */
+  get agents(): AgentStore {
+    return this.agentStore;
+  }
+
+  // ── Story state ─────────────────────────────────────────────────────────────
+
+  /** Every recorded transition, confirmed or otherwise. */
+  listStateTransitions(): Promise<StateTransition[]> {
+    return this.transitions.list();
+  }
+
+  /**
+   * The story-state timeline for this project: scene order plus every
+   * transition, ready to answer state questions at any scene boundary
+   * (docs/STORY_STATE.md).
+   */
+  async getStoryTimeline(): Promise<StoryTimeline> {
+    const [scenes, chapters, transitions] = await Promise.all([
+      this.listScenes(),
+      this.listChapters(),
+      this.transitions.list(),
+    ]);
+    return new StoryTimeline(
+      orderScenes(scenes, chapters).map((scene) => scene.id as string),
+      transitions,
+    );
+  }
+
+  /**
+   * Record state transitions. Every draft is shape-validated and its references
+   * checked against the project, so neither an author nor a model can record a
+   * transition about an entity that does not exist.
+   */
+  async addStateTransitions(
+    drafts: readonly TransitionDraft[],
+    options: {
+      source?: StateTransition["source"];
+      confirmationStatus?: StateTransition["confirmationStatus"];
+      modelId?: string;
+      taskId?: string;
+      summary?: string;
+    } = {},
+  ): Promise<StateTransition[]> {
+    const now = this.clock();
+    const status = options.confirmationStatus ?? "confirmed";
+    const prepared: Array<Omit<StateTransition, "id">> = [];
+
+    for (const draft of drafts) {
+      validateTransition(draft);
+      await this.requireEntities(draft);
+      prepared.push({
+        sceneId: draft.sceneId,
+        kind: draft.kind,
+        subjectId: draft.subjectId,
+        value: draft.value,
+        ...(draft.certainty !== undefined ? { certainty: draft.certainty } : {}),
+        ...(draft.knowledgeState !== undefined ? { knowledgeState: draft.knowledgeState } : {}),
+        ...(draft.sourceType !== undefined ? { sourceType: draft.sourceType } : {}),
+        ...(draft.sourceEntityId !== undefined ? { sourceEntityId: draft.sourceEntityId } : {}),
+        ...(draft.movement !== undefined ? { movement: draft.movement } : {}),
+        ...(draft.dimension !== undefined ? { dimension: draft.dimension } : {}),
+        ...(draft.level !== undefined ? { level: draft.level } : {}),
+        ...(draft.magnitude !== undefined ? { magnitude: draft.magnitude } : {}),
+        ...(draft.note !== undefined ? { note: draft.note } : {}),
+        source: options.source ?? "author",
+        confirmationStatus: status,
+        ...(options.modelId !== undefined ? { modelId: options.modelId } : {}),
+        createdAt: now,
+        ...(status === "confirmed" ? { confirmedAt: now } : {}),
+      });
+    }
+
+    let stored: StateTransition[] = [];
+    await this.recordChange(
+      {
+        actor: options.source === "agent" ? "agent" : "human",
+        operation: status === "proposed" ? "propose_state" : "record_state",
+        summary:
+          options.summary ??
+          `${status === "proposed" ? "Propose" : "Record"} ${String(prepared.length)} state transition(s)`,
+        ...(options.taskId !== undefined ? { taskId: options.taskId } : {}),
+        ...(options.modelId !== undefined ? { modelId: options.modelId } : {}),
+      },
+      async () => {
+        stored = await this.transitions.append(prepared);
+        await this.touch();
+      },
+    );
+    return stored;
+  }
+
+  /** Correct a transition. Re-validated, so a correction cannot break the rules. */
+  async updateStateTransition(
+    id: string,
+    patch: Partial<TransitionDraft>,
+  ): Promise<StateTransition> {
+    const existing = await this.transitions.get(id);
+    if (existing === null) {
+      throw new RepositoryError("entity_not_found", `No state transition with id ${id}.`);
+    }
+    const merged: TransitionDraft = {
+      sceneId: patch.sceneId ?? existing.sceneId,
+      kind: patch.kind ?? existing.kind,
+      subjectId: patch.subjectId ?? existing.subjectId,
+      value: patch.value ?? existing.value,
+      ...((patch.certainty ?? existing.certainty) !== undefined
+        ? { certainty: patch.certainty ?? existing.certainty }
+        : {}),
+      ...((patch.howLearned ?? existing.howLearned) !== undefined
+        ? { howLearned: patch.howLearned ?? existing.howLearned }
+        : {}),
+    };
+    validateTransition(merged);
+    await this.requireEntities(merged);
+
+    let updated: StateTransition | null = null;
+    await this.recordChange(
+      { actor: "human", operation: "update_state", summary: `Correct state transition ${id}` },
+      async () => {
+        updated = await this.transitions.update(id, {
+          ...merged,
+          ...(patch.note !== undefined ? { note: patch.note } : {}),
+        });
+        await this.touch();
+      },
+    );
+    if (updated === null) {
+      throw new RepositoryError("entity_not_found", `No state transition with id ${id}.`);
+    }
+    return updated;
+  }
+
+  /** Confirm or reject a proposed transition. Only confirmation makes it canon. */
+  async setTransitionStatus(
+    id: string,
+    status: StateTransition["confirmationStatus"],
+  ): Promise<StateTransition> {
+    const now = this.clock();
+    let updated: StateTransition | null = null;
+    await this.recordChange(
+      {
+        actor: "human",
+        operation: `${status}_state`,
+        summary: `Mark state transition ${id} ${status}`,
+      },
+      async () => {
+        updated = await this.transitions.update(id, {
+          confirmationStatus: status,
+          ...(status === "confirmed" ? { confirmedAt: now } : {}),
+        });
+        await this.touch();
+      },
+    );
+    if (updated === null) {
+      throw new RepositoryError("entity_not_found", `No state transition with id ${id}.`);
+    }
+    return updated;
+  }
+
+  async deleteStateTransition(id: string): Promise<void> {
+    await this.recordChange(
+      { actor: "human", operation: "delete_state", summary: `Delete state transition ${id}` },
+      async () => {
+        if (!(await this.transitions.remove(id))) {
+          throw new RepositoryError("entity_not_found", `No state transition with id ${id}.`);
+        }
+        await this.touch();
+      },
+    );
+  }
+
+  /** Every ID a transition names must exist in the project. */
+  private async requireEntities(draft: TransitionDraft): Promise<void> {
+    const ids = [draft.sceneId, draft.subjectId, draft.value, draft.sourceEntityId ?? ""].filter(
+      (id) => id !== "" && entityKindOf(id) !== null,
+    );
+    for (const id of ids) {
+      if ((await this.getEntity(id)) === null) {
+        throw new RepositoryError(
+          "entity_not_found",
+          `State transition references "${id}", which does not exist in this project.`,
+        );
+      }
+    }
+  }
+
+  /**
+   * Everyone's position on one proposition at a boundary — the knowledge graph
+   * for a fact (docs/STORY_STATE.md).
+   */
+  async getFactKnowledgeGraph(
+    factId: string,
+    asOf: StateBoundary,
+    view: TimelineView = {},
+  ): Promise<FactKnowledgeGraph> {
+    const [timeline, fact] = await Promise.all([
+      this.getStoryTimeline(),
+      this.getEntity<Fact>(factId),
+    ]);
+    if (fact === null) {
+      throw new RepositoryError("entity_not_found", `No fact with id ${factId}.`);
+    }
+    return factKnowledgeGraph(timeline, fact, asOf, {
+      characterIds: (await this.listCharacters()).map((c) => c.id as string),
+      view,
+    });
+  }
+
+  // ── Relationships over time ─────────────────────────────────────────────────
+
+  /**
+   * A relationship as it stood at a story moment.
+   *
+   * "Elias and Mara are allies" is not an answer; this is. Identity comes from
+   * the entity, everything mutable is replayed from transitions up to the
+   * boundary, so an earlier scene never sees a later scene's state
+   * (docs/STORY_STATE.md).
+   */
+  async getRelationshipAt(
+    relationshipId: string,
+    asOf: StateBoundary,
+    view: TimelineView = {},
+  ): Promise<RelationshipState> {
+    const [timeline, rel] = await Promise.all([
+      this.getStoryTimeline(),
+      this.getEntity<Relationship>(relationshipId),
+    ]);
+    if (rel === null) {
+      throw new RepositoryError("entity_not_found", `No relationship with id ${relationshipId}.`);
+    }
+    return timeline.relationshipStateAt(rel, asOf, view);
+  }
+
+  getRelationshipBeforeScene(
+    relationshipId: string,
+    sceneId: string,
+    view: TimelineView = {},
+  ): Promise<RelationshipState> {
+    return this.getRelationshipAt(relationshipId, { sceneId, position: "before" }, view);
+  }
+
+  getRelationshipAfterScene(
+    relationshipId: string,
+    sceneId: string,
+    view: TimelineView = {},
+  ): Promise<RelationshipState> {
+    return this.getRelationshipAt(relationshipId, { sceneId, position: "after" }, view);
+  }
+
+  /** Every recorded change to one relationship, in story order. */
+  async getRelationshipHistory(
+    relationshipId: string,
+    view: TimelineView = {},
+  ): Promise<RelationshipChange[]> {
+    return (await this.getStoryTimeline()).relationshipHistory(relationshipId, view);
+  }
+
+  /** Every relationship a character is part of, as it stood at a boundary. */
+  async getRelationshipsForCharacter(
+    characterId: string,
+    asOf: StateBoundary,
+    view: TimelineView = {},
+  ): Promise<RelationshipState[]> {
+    const [timeline, relationships] = await Promise.all([
+      this.getStoryTimeline(),
+      this.listRelationships(),
+    ]);
+    return relationships
+      .filter((r) => r.characterAId === characterId || r.characterBId === characterId)
+      .map((r) => timeline.relationshipStateAt(r, asOf, view));
+  }
+
+  /** Relationship changes recorded anywhere in a chapter. */
+  async getRelationshipChangesInChapter(
+    chapterId: string,
+    view: TimelineView = {},
+  ): Promise<RelationshipChange[]> {
+    const [timeline, scenes] = await Promise.all([this.getStoryTimeline(), this.listScenes()]);
+    return timeline.relationshipChangesInScenes(
+      scenes.filter((s) => s.chapterId === chapterId).map((s) => s.id as string),
+      view,
+    );
+  }
+
+  // ── Story tests ─────────────────────────────────────────────────────────────
+
+  /** Every story test, enabled or not. */
+  listStoryTests(): Promise<StoryTest[]> {
+    return this.tests.list();
+  }
+
+  getStoryTest(id: string): Promise<StoryTest | null> {
+    return this.tests.get(id);
+  }
+
+  /**
+   * Record a story test.
+   *
+   * Every entity the assertion names must exist: a test about a character the
+   * project does not have asserts nothing, and would fail forever for the wrong
+   * reason (docs/STORY_TESTS.md).
+   */
+  async addStoryTest(input: {
+    name: string;
+    assertion: Assertion;
+    description?: string;
+    scope?: TestScope;
+    severity?: TestSeverity;
+    enabled?: boolean;
+  }): Promise<StoryTest> {
+    const type = isDeterministicAssertion(input.assertion) ? "deterministic" : "semantic";
+    for (const id of assertionEntities(input.assertion)) {
+      if ((await this.getEntity(id)) === null) {
+        throw new RepositoryError(
+          "entity_not_found",
+          `This test references "${id}", which does not exist in this project.`,
+          { details: { id } },
+        );
+      }
+    }
+
+    const scope = input.scope ?? { kind: "always" };
+    for (const anchor of scopeAnchors(scope)) {
+      if ((await this.getEntity(anchor)) === null) {
+        throw new RepositoryError(
+          "entity_not_found",
+          `This test's scope references "${anchor}", which does not exist in this project.`,
+          { details: { id: anchor } },
+        );
+      }
+    }
+
+    let stored: StoryTest[] = [];
+    await this.recordChange(
+      { actor: "human", operation: "add_story_test", summary: `Add story test "${input.name}"` },
+      async () => {
+        stored = await this.tests.append([
+          {
+            name: input.name,
+            description: input.description ?? "",
+            type,
+            scope,
+            enabled: input.enabled ?? true,
+            severity: input.severity ?? DEFAULT_TEST_SEVERITY,
+            assertion: input.assertion,
+            createdAt: this.clock(),
+          },
+        ]);
+        await this.touch();
+      },
+    );
+    return stored[0] as StoryTest;
+  }
+
+  /** Enable or disable a test. A disabled test is kept and reported as skipped. */
+  async setStoryTestEnabled(id: string, enabled: boolean): Promise<StoryTest> {
+    let updated: StoryTest | null = null;
+    await this.recordChange(
+      {
+        actor: "human",
+        operation: enabled ? "enable_story_test" : "disable_story_test",
+        summary: `${enabled ? "Enable" : "Disable"} story test ${id}`,
+      },
+      async () => {
+        updated = await this.tests.update(id, { enabled });
+        await this.touch();
+      },
+    );
+    if (updated === null) {
+      throw new RepositoryError("entity_not_found", `No story test with id ${id}.`);
+    }
+    return updated;
+  }
+
+  async deleteStoryTest(id: string): Promise<void> {
+    await this.recordChange(
+      { actor: "human", operation: "delete_story_test", summary: `Delete story test ${id}` },
+      async () => {
+        if (!(await this.tests.remove(id))) {
+          throw new RepositoryError("entity_not_found", `No story test with id ${id}.`);
+        }
+        await this.touch();
+      },
+    );
+  }
+
+  /**
+   * Run the story tests without running a whole build.
+   *
+   * The build runs them too; this is for the test builder, where a writer wants
+   * to see whether the assertion they just wrote holds before committing to it.
+   */
+  async runStoryTests(): Promise<TestRunSummary> {
+    const [tests, timeline, scenes, chapters, relationships] = await Promise.all([
+      this.tests.list(),
+      this.getStoryTimeline(),
+      this.listScenes(),
+      this.listChapters(),
+      this.listRelationships(),
+    ]);
+    return runStoryTests({ tests, timeline, scenes, chapters, relationships });
+  }
+
+  // ── The Story Build ─────────────────────────────────────────────────────────
+
+  /**
+   * Everything the compiler's rules read, gathered once.
+   *
+   * The repository assembles this because it is the only thing that owns all of
+   * it; the compiler stays below it in the layering and depends on nothing here
+   * (docs/STORY_COMPILER.md).
+   */
+  async getBuildContext(): Promise<Omit<BuildContext, "config">> {
+    const [
+      scenes,
+      chapters,
+      characters,
+      locations,
+      objects,
+      threads,
+      facts,
+      worldRules,
+      events,
+      setups,
+      relationships,
+      storyTests,
+      dependencies,
+      decisions,
+      transitions,
+      temporalLinks,
+      travelRules,
+      integrity,
+      metrics,
+    ] = await Promise.all([
+      this.listScenes(),
+      this.listChapters(),
+      this.listCharacters(),
+      this.listLocations(),
+      this.listObjects(),
+      this.listPlotThreads(),
+      this.listFacts(),
+      this.listWorldRules(),
+      this.listEvents(),
+      this.listSetups(),
+      this.listRelationships(),
+      this.tests.list(),
+      this.dependencies.list(),
+      this.listDecisions(),
+      this.transitions.list(),
+      this.timeline.listLinks(),
+      this.timeline.listTravelRules(),
+      this.checkIntegrity(),
+      this.getManuscriptMetrics(),
+    ]);
+
+    return {
+      scenes,
+      chapters,
+      characters,
+      locations,
+      objects,
+      threads,
+      facts,
+      worldRules,
+      events,
+      setups,
+      relationships,
+      storyTests,
+      dependencies,
+      decisions,
+      transitions,
+      temporalLinks,
+      travelRules,
+      timeline: new StoryTimeline(
+        orderScenes(scenes, chapters).map((s) => s.id as string),
+        transitions,
+      ),
+      chronology: new StoryChronology(timelineNodes({ scenes, chapters, events }), temporalLinks),
+      metrics,
+      danglingReferences: integrity.dangling.map((edge) => ({
+        fromId: edge.fromId,
+        fromKind: edge.fromKind,
+        field: edge.field,
+        toId: edge.toId,
+      })),
+    };
+  }
+
+  /**
+   * Build the story: run every enabled rule over the project's structured state
+   * and record the result.
+   *
+   * The build is deterministic and involves no model. Its findings come from the
+   * subsystems that already own them — the entity graph, the timeline, the
+   * chronology, the narrative checks — so there is one implementation of
+   * continuity in this codebase, not two.
+   */
+  async buildStory(
+    options: { config?: BuildConfig; only?: readonly BuildInputKind[]; persist?: boolean } = {},
+  ): Promise<StoryBuild> {
+    const [context, number] = await Promise.all([this.getBuildContext(), this.builds.nextNumber()]);
+
+    const build = await buildStory(CORE_RULES, context, {
+      number,
+      now: this.clock,
+      ...(options.config !== undefined ? { config: options.config } : {}),
+      ...(options.only !== undefined ? { only: options.only } : {}),
+    });
+
+    return options.persist === false ? build : this.builds.append(build);
+  }
+
+  /** Build summaries, newest first. */
+  listBuilds(limit?: number): Promise<BuildSummary[]> {
+    return this.builds.list(limit);
+  }
+
+  getBuild(id: string): Promise<StoryBuild | null> {
+    return this.builds.get(id);
+  }
+
+  getLatestBuild(): Promise<StoryBuild | null> {
+    return this.builds.latest();
+  }
+
+  /**
+   * What changed between a build and the one before it — new, resolved and
+   * persistent diagnostics.
+   */
+  async compareToPreviousBuild(buildId: string): Promise<BuildComparison> {
+    const build = await this.builds.get(buildId);
+    if (build === null) {
+      throw new RepositoryError("entity_not_found", `No build with id ${buildId}.`);
+    }
+    const history = await this.builds.list();
+    const at = history.findIndex((b) => b.id === buildId);
+    const previousSummary = at === -1 ? undefined : history[at + 1];
+    const previous =
+      previousSummary === undefined ? undefined : await this.builds.get(previousSummary.id);
+    return compareBuilds(previous ?? undefined, build);
+  }
+
+  // ── Story Refactor ──────────────────────────────────────────────────────────
+
+  /** The ID the next refactor run will carry. */
+  nextRefactorId(): Promise<string> {
+    return this.refactors.nextId();
+  }
+
+  /** Save or update a refactor's audit record. Idempotent by ID. */
+  saveRefactorRun(run: {
+    id: string;
+    kind: string;
+    status: string;
+    instruction: string;
+    createdAt: string;
+    introduced: ReadonlyArray<{ severity: string }>;
+  }): Promise<void> {
+    return this.refactors.save(run);
+  }
+
+  listRefactorRuns(limit?: number): Promise<
+    Array<{
+      id: string;
+      kind: string;
+      status: string;
+      instruction: string;
+      createdAt: string;
+      introducedErrors: number;
+    }>
+  > {
+    return this.refactors.list(limit);
+  }
+
+  getRefactorRun<T>(id: string): Promise<T | null> {
+    return this.refactors.get<T>(id);
+  }
+
+  // ── Causality and dependencies ──────────────────────────────────────────────
+
+  listDependencies(): Promise<Dependency[]> {
+    return this.dependencies.list();
+  }
+
+  getDependency(id: string): Promise<Dependency | null> {
+    return this.dependencies.get(id);
+  }
+
+  /**
+   * Register a cause-and-effect link.
+   *
+   * Both endpoints must exist and must be kinds that can participate — a
+   * dependency naming a location or a deleted scene is a claim about nothing,
+   * and one recorded now would silently poison every blast radius later.
+   *
+   * A human's link is `confirmed`; a model's arrives `proposed` and stays out
+   * of the graph until someone accepts it (AGENTS.md — "Canon vs Inference").
+   */
+  async addDependencies(
+    drafts: ReadonlyArray<{
+      kind: DependencyKind;
+      fromId: string;
+      toId: string;
+      description?: string;
+      evidence?: string;
+    }>,
+    options: {
+      source?: DependencySource;
+      status?: DependencyStatus;
+      modelId?: string;
+      summary?: string;
+    } = {},
+  ): Promise<Dependency[]> {
+    const source = options.source ?? "human";
+    const status = options.status ?? (source === "human" ? "confirmed" : "proposed");
+    const existing = await this.graph.existingIds();
+
+    for (const draft of drafts) {
+      for (const endpoint of [draft.fromId, draft.toId]) {
+        if (!isDependencyNode(endpoint)) {
+          throw new RepositoryError(
+            "invalid_reference",
+            `${endpoint} cannot take part in a dependency. Dependencies link ${DEPENDENCY_NODE_KINDS.join(", ")}.`,
+            { details: { endpoint } },
+          );
+        }
+        if (!existing.has(endpoint)) {
+          throw new RepositoryError(
+            "invalid_reference",
+            `${endpoint} does not exist in this project.`,
+            { details: { endpoint } },
+          );
+        }
+      }
+      if (draft.fromId === draft.toId) {
+        throw new RepositoryError(
+          "invalid_reference",
+          `A dependency cannot link ${draft.fromId} to itself.`,
+          { details: { endpoint: draft.fromId } },
+        );
+      }
+    }
+
+    const now = this.clock();
+    const prepared = drafts.map((draft) => ({
+      kind: draft.kind,
+      fromId: draft.fromId,
+      toId: draft.toId,
+      ...(draft.description !== undefined ? { description: draft.description } : {}),
+      ...(draft.evidence !== undefined ? { evidence: draft.evidence } : {}),
+      status,
+      source,
+      ...(options.modelId !== undefined ? { modelId: options.modelId } : {}),
+      createdAt: now,
+    }));
+
+    let stored: Dependency[] = [];
+    await this.recordChange(
+      {
+        actor: source === "agent" ? "agent" : "human",
+        operation: "add_dependencies",
+        summary:
+          options.summary ??
+          `${status === "proposed" ? "Propose" : "Register"} ${String(drafts.length)} dependency(ies)`,
+        ...(options.modelId !== undefined ? { modelId: options.modelId } : {}),
+      },
+      async () => {
+        stored = await this.dependencies.append(prepared);
+        await this.touch();
+      },
+    );
+    return stored;
+  }
+
+  /** Accept or reject a proposal, or correct a link the writer already made. */
+  async updateDependency(
+    id: string,
+    patch: {
+      kind?: DependencyKind;
+      description?: string;
+      status?: DependencyStatus;
+    },
+  ): Promise<Dependency> {
+    const current = await this.dependencies.get(id);
+    if (current === null) {
+      throw new RepositoryError("entity_not_found", `No dependency with id ${id}.`);
+    }
+    let next: Dependency = current;
+    await this.recordChange(
+      {
+        actor: "human",
+        operation: "update_dependency",
+        summary: `Update dependency ${id}`,
+      },
+      async () => {
+        next = (await this.dependencies.update(id, patch)) as Dependency;
+        await this.touch();
+      },
+    );
+    return next;
+  }
+
+  async deleteDependency(id: string): Promise<void> {
+    if ((await this.dependencies.get(id)) === null) {
+      throw new RepositoryError("entity_not_found", `No dependency with id ${id}.`);
+    }
+    await this.recordChange(
+      { actor: "human", operation: "delete_dependency", summary: `Delete dependency ${id}` },
+      async () => {
+        await this.dependencies.remove([id]);
+        await this.touch();
+      },
+    );
+  }
+
+  /**
+   * The causality graph.
+   *
+   * Confirmed edges only, unless the caller is reviewing proposals — planning a
+   * refactor against a model's guess would be worse than planning against
+   * nothing (docs/STORY_REFACTOR.md).
+   */
+  async getCausalityGraph(options: { includeProposed?: boolean } = {}): Promise<CausalityGraph> {
+    return new CausalityGraph(await this.dependencies.list(), options);
+  }
+
+  /** What this entity rests on — one step upstream. */
+  async getDependenciesOf(entityId: string, options: TraversalOptions = {}) {
+    return (await this.getCausalityGraph()).getDependencies(entityId, options);
+  }
+
+  /** What rests on this entity — one step downstream. */
+  async getDependentsOf(entityId: string, options: TraversalOptions = {}) {
+    return (await this.getCausalityGraph()).getDependents(entityId, options);
+  }
+
+  async getTransitiveDependents(
+    entityId: string,
+    options: TraversalOptions = {},
+  ): Promise<string[]> {
+    return (await this.getCausalityGraph()).getTransitiveDependents(entityId, options);
+  }
+
+  async getDependencyPath(
+    fromId: string,
+    toId: string,
+    options: TraversalOptions = {},
+  ): Promise<DependencyPath | null> {
+    return (await this.getCausalityGraph()).getDependencyPath(fromId, toId, options);
+  }
+
+  /**
+   * What a change to this entity may reach.
+   *
+   * The acceptance question of the whole subsystem: *if I remove this scene,
+   * what later story elements depend on it?* — answered from persistent story
+   * architecture rather than by asking a model to guess.
+   */
+  async calculateBlastRadius(
+    entityId: string,
+    options: TraversalOptions = {},
+  ): Promise<BlastRadius> {
+    return (await this.getCausalityGraph()).calculateBlastRadius(entityId, options);
+  }
+
+  /** Deterministic checks over the registered graph. */
+  async checkDependencyGraph(): Promise<DependencyFinding[]> {
+    const [dependencies, existingIds, scenes, chapters, events, decisions] = await Promise.all([
+      this.dependencies.list(),
+      this.graph.existingIds(),
+      this.listScenes(),
+      this.listChapters(),
+      this.listEvents(),
+      this.listDecisions(),
+    ]);
+
+    // Non-scene nodes are placed by the scene they happen in, so an ordering
+    // check can compare a fact or a decision against a scene at all.
+    const sceneOf = new Map<string, string>();
+    for (const event of events) {
+      if (event.sceneId !== undefined) sceneOf.set(event.id as string, event.sceneId as string);
+    }
+    for (const decision of decisions) {
+      if (decision.sceneId !== undefined) {
+        sceneOf.set(decision.id as string, decision.sceneId as string);
+      }
+    }
+
+    return checkDependencies({
+      dependencies,
+      existingIds,
+      sceneOrder: orderScenes(scenes, chapters).map((s) => s.id as string),
+      sceneOf,
+    });
+  }
+
+  // ── Story Debugger ──────────────────────────────────────────────────────────
+
+  /**
+   * Investigate a narrative problem: scope, evidence, and traces through the
+   * systems that own the data.
+   *
+   * Deterministic and model-free. The interpretation of what comes back is a
+   * separate, clearly-labelled step (`DiagnosisAnalyst` in `@jellytind/editing`),
+   * which is why a project with no model configured can still debug
+   * (docs/STORY_DEBUGGER.md).
+   */
+  traceStoryProblem(request: DebugRequestInput | DebugRequest): Promise<DebugTrace> {
+    return traceProblem(request, this);
+  }
+
+  /** Parse a `/debug …` line against this project's entities. */
+  async parseDebugCommand(line: string): Promise<ParsedCommand> {
+    return parseDebugCommand(line, await this.listEntitySummaries());
+  }
+
+  /**
+   * Turn a trace into a stored report.
+   *
+   * The diagnosis and interventions are passed in rather than produced here:
+   * this layer knows nothing about models, and a report without them is a
+   * complete report.
+   */
+  async saveDebugReport(
+    trace: DebugTrace,
+    extras: {
+      durationMs: number;
+      diagnosis?: Diagnosis;
+      interventions?: readonly Intervention[];
+      modelId?: string;
+    },
+  ): Promise<DebugReport> {
+    const report: DebugReport = {
+      ...trace,
+      id: await this.debugReports.nextId(),
+      createdAt: this.clock(),
+      durationMs: extras.durationMs,
+      interventions: extras.interventions ?? [],
+      entities: tracedEntities(trace.evidence, trace.scope),
+      ...(extras.diagnosis !== undefined ? { diagnosis: extras.diagnosis } : {}),
+      ...(extras.modelId !== undefined ? { modelId: extras.modelId } : {}),
+    };
+    await this.debugReports.save(report);
+    return report;
+  }
+
+  /** Debug report summaries, newest first. */
+  listDebugReports(limit?: number): Promise<DebugReportSummary[]> {
+    return this.debugReports.list(limit);
+  }
+
+  getDebugReport(id: string): Promise<DebugReport | null> {
+    return this.debugReports.get(id);
+  }
+
+  // ── Plot threads, setups and payoffs ────────────────────────────────────────
+
+  /**
+   * Manuscript shape for dormancy measurement.
+   *
+   * Words live in chapter files, not scene files, so a chapter's count is
+   * attributed to its **first** scene and the rest of its scenes get zero. Every
+   * total across a span is therefore exact, while no per-scene number is
+   * invented — a distinction that matters, because a fabricated word count would
+   * look exactly like a real one (docs/NARRATIVE_THREADS.md).
+   */
+  async getManuscriptMetrics(): Promise<ManuscriptMetrics> {
+    const [scenes, chapters] = await Promise.all([this.listScenes(), this.listChapters()]);
+    const ordered = orderScenes(scenes, chapters);
+
+    const chapterBySceneId = new Map<string, string>();
+    for (const scene of ordered) {
+      if (scene.chapterId !== undefined) {
+        chapterBySceneId.set(scene.id as string, scene.chapterId as string);
+      }
+    }
+
+    const wordsBySceneId = new Map<string, number>(ordered.map((s) => [s.id as string, 0]));
+    for (const chapter of chapters) {
+      const first = ordered.find((s) => s.chapterId === chapter.id);
+      if (first === undefined) continue;
+      const raw = await this.readProjectFile(chapter.filePath);
+      wordsBySceneId.set(first.id as string, countWords(raw ?? ""));
+    }
+
+    return { chapterBySceneId, wordsBySceneId };
+  }
+
+  /** A thread's state at a boundary, reconstructed from its lifecycle. */
+  async getThreadState(
+    threadId: string,
+    asOf: StateBoundary,
+    view: TimelineView = {},
+  ): Promise<ThreadState> {
+    const [timeline, threads] = await Promise.all([
+      this.getStoryTimeline(),
+      this.listPlotThreads(),
+    ]);
+    const thread = threads.find((t) => t.id === threadId);
+    if (thread === undefined) {
+      throw new RepositoryError("entity_not_found", `No plot thread with id ${threadId}.`);
+    }
+    return timeline.threadStateAt(
+      { id: threadId, name: thread.name, status: thread.status },
+      asOf,
+      view,
+    );
+  }
+
+  /** Every recorded step in a thread's life, in story order. */
+  async getThreadHistory(threadId: string, view: TimelineView = {}): Promise<ThreadStep[]> {
+    const [timeline, threads] = await Promise.all([
+      this.getStoryTimeline(),
+      this.listPlotThreads(),
+    ]);
+    const thread = threads.find((t) => t.id === threadId);
+    return timeline.threadHistory(threadId, thread?.status ?? "planned", view);
+  }
+
+  /** How long a thread has been off the page. Measurements, never a verdict. */
+  async getThreadDormancy(
+    threadId: string,
+    asOf: StateBoundary,
+    view: TimelineView = {},
+  ): Promise<ThreadDormancy> {
+    const [timeline, metrics] = await Promise.all([
+      this.getStoryTimeline(),
+      this.getManuscriptMetrics(),
+    ]);
+    return timeline.threadDormancy(threadId, asOf, metrics, view);
+  }
+
+  /** Threads carrying the story forward at a scene — introduced, active or escalating. */
+  async getActiveThreadsAtScene(sceneId: string, view: TimelineView = {}): Promise<ThreadState[]> {
+    return (await this.threadStatesAt(sceneId, view)).filter((s) => isRunning(s.status));
+  }
+
+  /** Threads the story still owes but is not currently working on. */
+  async getDormantThreadsAtScene(sceneId: string, view: TimelineView = {}): Promise<ThreadState[]> {
+    return (await this.threadStatesAt(sceneId, view)).filter((s) => s.status === "dormant");
+  }
+
+  /**
+   * Threads first introduced within a set of chapters.
+   *
+   * Acts are not entities yet, so an act is named by the chapters that make it
+   * up. When acts become first-class this keeps the same shape.
+   */
+  async getThreadsIntroducedInAct(
+    chapterIds: readonly string[],
+    view: TimelineView = {},
+  ): Promise<ThreadState[]> {
+    const [scenes, states] = await Promise.all([
+      this.listScenes(),
+      this.threadStatesAt(undefined, view),
+    ]);
+    const inAct = new Set(
+      scenes
+        .filter((s) => s.chapterId !== undefined && chapterIds.includes(s.chapterId as string))
+        .map((s) => s.id as string),
+    );
+    return states.filter(
+      (state) => state.introducedSceneId !== undefined && inAct.has(state.introducedSceneId),
+    );
+  }
+
+  /** Threads the story has not finished with — including ones never introduced. */
+  async getUnresolvedThreads(view: TimelineView = {}): Promise<ThreadState[]> {
+    return (await this.threadStatesAt(undefined, view)).filter((s) => isOpen(s.status));
+  }
+
+  /** Every thread's state at a scene, or at the end of the book when unspecified. */
+  private async threadStatesAt(
+    sceneId: string | undefined,
+    view: TimelineView,
+  ): Promise<ThreadState[]> {
+    const [timeline, threads] = await Promise.all([
+      this.getStoryTimeline(),
+      this.listPlotThreads(),
+    ]);
+    const boundary = sceneId ?? timeline.sceneOrder.at(-1);
+    if (boundary === undefined) return [];
+    const asOf = { sceneId: boundary, position: "after" } as const;
+    return threads.map((thread) =>
+      timeline.threadStateAt(
+        { id: thread.id as string, name: thread.name, status: thread.status },
+        asOf,
+        view,
+      ),
+    );
+  }
+
+  /** Setups a scene plants, and setups it keeps. */
+  async getSetupsForScene(sceneId: string): Promise<{ planted: Setup[]; paidOff: Setup[] }> {
+    return setupsForScene(await this.listSetups(), sceneId);
+  }
+
+  /** Promises made before a scene and not yet kept — what the reader is holding. */
+  async getOpenSetupsBeforeScene(sceneId: string): Promise<Setup[]> {
+    const [setups, timeline] = await Promise.all([this.listSetups(), this.getStoryTimeline()]);
+    return openSetupsBefore(setups, timeline, sceneId);
+  }
+
+  /**
+   * Deterministic checks on the project's narrative promises.
+   *
+   * `dormantAfterScenes` is deliberately not defaulted: the right number for a
+   * thriller is wrong for a family saga, so dormancy is reported only when a
+   * caller names a threshold.
+   */
+  async checkNarrative(
+    options: { dormantAfterScenes?: number; view?: TimelineView } = {},
+  ): Promise<NarrativeFinding[]> {
+    const [timeline, scenes, threads, setups, metrics] = await Promise.all([
+      this.getStoryTimeline(),
+      this.listScenes(),
+      this.listPlotThreads(),
+      this.listSetups(),
+      this.getManuscriptMetrics(),
+    ]);
+    return checkNarrative({
+      timeline,
+      scenes,
+      threads,
+      setups,
+      metrics,
+      ...(options.dormantAfterScenes !== undefined
+        ? { dormantAfterScenes: options.dormantAfterScenes }
+        : {}),
+      ...(options.view !== undefined ? { view: options.view } : {}),
+    });
+  }
+
+  // ── Object continuity ───────────────────────────────────────────────────────
+
+  /** A character's state at a boundary: where they are, and whether they are there. */
+  async getCharacterState(
+    characterId: string,
+    asOf: StateBoundary,
+    view: TimelineView = {},
+  ): Promise<CharacterState> {
+    return (await this.getStoryTimeline()).characterStateAt(characterId, asOf, view);
+  }
+
+  /** An object's full state at a boundary: owner, holder, place, condition. */
+  async getObjectState(
+    objectId: string,
+    asOf: StateBoundary,
+    view: TimelineView = {},
+  ): Promise<ObjectState> {
+    return (await this.getStoryTimeline()).objectStateAt(objectId, asOf, view);
+  }
+
+  /** Every recorded step in an object's life, in story order. */
+  async getObjectHistory(objectId: string, view: TimelineView = {}): Promise<ObjectChange[]> {
+    return (await this.getStoryTimeline()).objectHistory(objectId, view);
+  }
+
+  /** An object's changes of hands and of place, as transfers. */
+  async getObjectTransfers(objectId: string, view: TimelineView = {}): Promise<ObjectTransfer[]> {
+    return (await this.getStoryTimeline()).objectTransfers(objectId, view);
+  }
+
+  /**
+   * Where an object effectively is, following whoever is carrying it.
+   *
+   * A held object is wherever its holder is; only a put-down object stays where
+   * it was left (docs/OBJECTS_LOCATIONS.md).
+   */
+  async getObjectLocation(
+    objectId: string,
+    asOf: StateBoundary,
+    view: TimelineView = {},
+  ): Promise<string | undefined> {
+    return (await this.getStoryTimeline()).objectLocationAt(objectId, asOf, view);
+  }
+
+  /**
+   * Record an object changing hands or place.
+   *
+   * A convenience over the transitions it writes, not a second store: transfers
+   * are *derived* from state, so there is only ever one version of where a thing
+   * is. Supplying `from` fields is optional and, when given, is checked against
+   * the state entering the scene — a caller asserting the key came from Mara
+   * when the timeline says it was in a drawer is stating something the project
+   * contradicts, and is told so rather than having it silently recorded.
+   */
+  async recordObjectTransfer(input: {
+    objectId: string;
+    sceneId: string;
+    fromCharacterId?: string;
+    toCharacterId?: string;
+    fromLocationId?: string;
+    toLocationId?: string;
+    reason?: string;
+    source?: StateTransition["source"];
+    confirmationStatus?: StateTransition["confirmationStatus"];
+    modelId?: string;
+  }): Promise<StateTransition[]> {
+    if (input.toCharacterId === undefined && input.toLocationId === undefined) {
+      throw new RepositoryError(
+        "invalid_reference",
+        "A transfer needs somewhere or someone to go to.",
+        { details: { objectId: input.objectId } },
+      );
+    }
+
+    const timeline = await this.getStoryTimeline();
+    const before = timeline.objectStateAt(input.objectId, {
+      sceneId: input.sceneId,
+      position: "before",
+    });
+
+    const disagreement =
+      input.fromCharacterId !== undefined && input.fromCharacterId !== before.holderId
+        ? `holder entering ${input.sceneId} is ${before.holderId ?? "nobody"}, not ${input.fromCharacterId}`
+        : input.fromLocationId !== undefined && input.fromLocationId !== before.locationId
+          ? `location entering ${input.sceneId} is ${before.locationId ?? "unrecorded"}, not ${input.fromLocationId}`
+          : undefined;
+    if (disagreement !== undefined) {
+      throw new RepositoryError(
+        "invalid_reference",
+        `This transfer disagrees with the recorded state of ${input.objectId}: ${disagreement}. Omit the "from" to record it against the state as it stands.`,
+        { details: { objectId: input.objectId, sceneId: input.sceneId } },
+      );
+    }
+
+    const drafts: TransitionDraft[] = [];
+    if (input.toCharacterId !== undefined) {
+      drafts.push({
+        sceneId: input.sceneId,
+        kind: "object_holder",
+        subjectId: input.objectId,
+        value: input.toCharacterId,
+        ...(input.reason !== undefined ? { note: input.reason } : {}),
+      });
+    }
+    if (input.toLocationId !== undefined) {
+      drafts.push({
+        sceneId: input.sceneId,
+        kind: "object_location",
+        subjectId: input.objectId,
+        value: input.toLocationId,
+        ...(input.reason !== undefined ? { note: input.reason } : {}),
+      });
+    }
+
+    return this.addStateTransitions(drafts, {
+      ...(input.source !== undefined ? { source: input.source } : {}),
+      ...(input.confirmationStatus !== undefined
+        ? { confirmationStatus: input.confirmationStatus }
+        : {}),
+      ...(input.modelId !== undefined ? { modelId: input.modelId } : {}),
+      summary: `Transfer ${input.objectId} at ${input.sceneId}`,
+    });
+  }
+
+  /**
+   * Deterministic physical-continuity checks across the project — objects that
+   * cannot be where they are, and characters who cannot be either.
+   */
+  async checkContinuity(view: TimelineView = {}): Promise<ContinuityViolation[]> {
+    const [timeline, scenes, locations] = await Promise.all([
+      this.getStoryTimeline(),
+      this.listScenes(),
+      this.listLocations(),
+    ]);
+    return checkContinuity({ timeline, scenes, locations, view });
+  }
+
+  /** A location and everything containing it, outermost first. */
+  async getLocationPath(locationId: string): Promise<string[]> {
+    return locationPath(indexLocations(await this.listLocations()), locationId).reverse();
+  }
+
+  /** Every location inside this one, at any depth. */
+  async getContainedLocations(locationId: string): Promise<string[]> {
+    return locationDescendants(indexLocations(await this.listLocations()), locationId);
+  }
+
+  /**
+   * Scenes set at a location **or anywhere inside it**.
+   *
+   * The containment-aware sibling of `getScenesByLocation`: asking for scenes at
+   * Blackthorn Manor should find the one set in the Hidden Vault.
+   */
+  async getScenesWithinLocation(locationId: string): Promise<Scene[]> {
+    const [scenes, locations] = await Promise.all([this.listScenes(), this.listLocations()]);
+    const index = indexLocations(locations);
+    return scenes.filter(
+      (scene) =>
+        scene.locationId !== undefined && isWithin(index, scene.locationId as string, locationId),
+    );
+  }
+
+  /** Positions the story world contradicts, at a boundary. */
+  async getFalseBeliefs(asOf: StateBoundary, view: TimelineView = {}) {
+    const [timeline, facts] = await Promise.all([this.getStoryTimeline(), this.listFacts()]);
+    return falseBeliefsAt(timeline, new Map(facts.map((f) => [f.id as string, f])), asOf, { view });
+  }
+
+  /**
+   * Deterministic information-state checks across the project — the reusable
+   * foundation the Story Compiler builds on.
+   */
+  async checkKnowledge(view: TimelineView = {}): Promise<KnowledgeViolation[]> {
+    const [timeline, scenes, facts] = await Promise.all([
+      this.getStoryTimeline(),
+      this.listScenes(),
+      this.listFacts(),
+    ]);
+    return checkKnowledgeViolations({
+      timeline,
+      scenes,
+      facts: new Map(facts.map((f) => [f.id as string, f])),
+      view,
+    });
+  }
+
+  // ── Story chronology ────────────────────────────────────────────────────────
+
+  /** Every authored temporal relation, confirmed or otherwise. */
+  listTemporalLinks(): Promise<TemporalLink[]> {
+    return this.timeline.listLinks();
+  }
+
+  /** Every declared travel time. Empty by default, and that is the safe default. */
+  listTravelRules(): Promise<TravelRule[]> {
+    return this.timeline.listTravelRules();
+  }
+
+  /**
+   * The story-world chronology: scenes and events ordered as they happen rather
+   * than as they are presented (docs/TIMELINE.md).
+   */
+  async getStoryChronology(view: TimelineView = {}): Promise<StoryChronology> {
+    const [scenes, chapters, events, links] = await Promise.all([
+      this.listScenes(),
+      this.listChapters(),
+      this.listEvents(),
+      this.timeline.listLinks(),
+    ]);
+    return new StoryChronology(timelineNodes({ scenes, chapters, events }), links, { view });
+  }
+
+  /**
+   * Record temporal relations.
+   *
+   * Both ends must exist as a scene or event: a chronology that references
+   * entities the project does not have is not a chronology, it is a guess.
+   */
+  async addTemporalLinks(
+    drafts: ReadonlyArray<{
+      fromId: string;
+      toId: string;
+      relation: TemporalRelation;
+      gap?: StoryDuration;
+      note?: string;
+    }>,
+    options: {
+      source?: TemporalLink["source"];
+      confirmationStatus?: TemporalLink["confirmationStatus"];
+      modelId?: string;
+      summary?: string;
+    } = {},
+  ): Promise<TemporalLink[]> {
+    const now = this.clock();
+    const prepared: Array<Omit<TemporalLink, "id">> = [];
+
+    for (const draft of drafts) {
+      if (draft.fromId === draft.toId) {
+        throw new RepositoryError(
+          "invalid_reference",
+          "A temporal relation must connect two different moments.",
+          { details: { fromId: draft.fromId } },
+        );
+      }
+      await this.requireTimelineNode(draft.fromId);
+      await this.requireTimelineNode(draft.toId);
+      prepared.push({
+        fromId: draft.fromId,
+        toId: draft.toId,
+        relation: draft.relation,
+        ...(draft.gap !== undefined ? { gap: draft.gap } : {}),
+        ...(draft.note !== undefined ? { note: draft.note } : {}),
+        source: options.source ?? "author",
+        confirmationStatus: options.confirmationStatus ?? "confirmed",
+        ...(options.modelId !== undefined ? { modelId: options.modelId } : {}),
+        createdAt: now,
+      });
+    }
+
+    let stored: TemporalLink[] = [];
+    await this.recordChange(
+      {
+        actor: options.source === "agent" ? "agent" : "human",
+        operation: "add_temporal_links",
+        summary: options.summary ?? `Record ${String(prepared.length)} temporal relation(s)`,
+        ...(options.modelId !== undefined ? { modelId: options.modelId } : {}),
+      },
+      async () => {
+        stored = await this.timeline.appendLinks(prepared);
+        await this.touch();
+      },
+    );
+    return stored;
+  }
+
+  /** Confirm or reject a proposed relation. Only confirmation makes it canon. */
+  async setTemporalLinkStatus(
+    id: string,
+    status: TemporalLink["confirmationStatus"],
+  ): Promise<TemporalLink> {
+    let updated: TemporalLink | null = null;
+    await this.recordChange(
+      {
+        actor: "human",
+        operation: `${status}_temporal_link`,
+        summary: `Mark temporal relation ${id} ${status}`,
+      },
+      async () => {
+        updated = await this.timeline.updateLink(id, { confirmationStatus: status });
+        await this.touch();
+      },
+    );
+    if (updated === null) {
+      throw new RepositoryError("entity_not_found", `No temporal relation with id ${id}.`);
+    }
+    return updated;
+  }
+
+  async deleteTemporalLink(id: string): Promise<void> {
+    await this.recordChange(
+      {
+        actor: "human",
+        operation: "delete_temporal_link",
+        summary: `Delete temporal relation ${id}`,
+      },
+      async () => {
+        if (!(await this.timeline.removeLink(id))) {
+          throw new RepositoryError("entity_not_found", `No temporal relation with id ${id}.`);
+        }
+        await this.touch();
+      },
+    );
+  }
+
+  /**
+   * Declare how long a journey takes.
+   *
+   * Nothing infers these. Until a writer states that Blackthorn to the city is
+   * four hours, no travel contradiction is reportable between them — the story
+   * may be set in any century, on any world.
+   */
+  async addTravelRules(
+    drafts: ReadonlyArray<{
+      fromLocationId: string;
+      toLocationId: string;
+      minimum: StoryDuration;
+      bidirectional?: boolean;
+      note?: string;
+    }>,
+  ): Promise<TravelRule[]> {
+    for (const draft of drafts) {
+      await this.requireEntityExists("location", draft.fromLocationId);
+      await this.requireEntityExists("location", draft.toLocationId);
+    }
+    let stored: TravelRule[] = [];
+    await this.recordChange(
+      {
+        actor: "human",
+        operation: "add_travel_rules",
+        summary: `Declare ${String(drafts.length)} travel time(s)`,
+      },
+      async () => {
+        stored = await this.timeline.appendTravelRules(drafts);
+        await this.touch();
+      },
+    );
+    return stored;
+  }
+
+  async deleteTravelRule(id: string): Promise<void> {
+    await this.recordChange(
+      { actor: "human", operation: "delete_travel_rule", summary: `Delete travel rule ${id}` },
+      async () => {
+        if (!(await this.timeline.removeTravelRule(id))) {
+          throw new RepositoryError("entity_not_found", `No travel rule with id ${id}.`);
+        }
+        await this.touch();
+      },
+    );
+  }
+
+  /** One character's story, in the order they lived it rather than read it. */
+  async getCharacterTimeline(
+    characterId: string,
+    view: TimelineView = {},
+  ): Promise<CharacterTimelineEntry[]> {
+    return (await this.getStoryChronology(view)).getCharacterTimeline(characterId);
+  }
+
+  /** Every event a character takes part in, in chronological order. */
+  async getEventsForCharacter(
+    characterId: string,
+    view: TimelineView = {},
+  ): Promise<TimelineNode[]> {
+    return (await this.getStoryChronology(view)).getEventsForCharacter(characterId);
+  }
+
+  /**
+   * Where a character was at a story moment.
+   *
+   * State is replayed in **chronological** order here, not manuscript order —
+   * which is the only way the answer is right in a story with flashbacks.
+   */
+  async getCharacterLocationAtTime(
+    characterId: string,
+    at: TimelinePoint,
+    view: TimelineView = {},
+  ): Promise<string | undefined> {
+    const [chronology, transitions] = await Promise.all([
+      this.getStoryChronology(view),
+      this.transitions.list(),
+    ]);
+    return chronology.getCharacterLocationAtTime(characterId, at, transitions, view);
+  }
+
+  /** Deterministic chronology checks across the project. */
+  async checkTimeline(view: TimelineView = {}): Promise<TimelineViolation[]> {
+    const [chronology, links, travel] = await Promise.all([
+      this.getStoryChronology(view),
+      this.timeline.listLinks(),
+      this.timeline.listTravelRules(),
+    ]);
+    return checkTimeline({ chronology, links, travel });
+  }
+
+  /** Reject anything that is not a scene or an event. */
+  private async requireTimelineNode(id: string): Promise<void> {
+    const kind = entityKindOf(id);
+    if (kind !== "scene" && kind !== "event") {
+      throw new RepositoryError(
+        "invalid_reference",
+        `"${id}" cannot take part in a temporal relation: only scenes and events sit on the timeline.`,
+        { details: { id } },
+      );
+    }
+    await this.requireEntityExists(kind, id);
+  }
+
+  /** The entity must exist, and be of the kind its ID claims. */
+  private async requireEntityExists(kind: string, id: string): Promise<void> {
+    if (entityKindOf(id) !== kind || (await this.getEntity(id)) === null) {
+      throw new RepositoryError("entity_not_found", `"${id}" is not a ${kind} in this project.`, {
+        details: { id, kind },
+      });
+    }
   }
 
   // ── Search & retrieval ──────────────────────────────────────────────────────
@@ -677,6 +2420,68 @@ export class StoryRepository {
     const referrers = await this.graph.findReferrers(id);
     let unlinked: string[] = [];
 
+    // Story-state transitions are references too. Deleting a fact that a
+    // character's belief points at would leave the timeline citing something
+    // that no longer exists, so it is refused on the same terms.
+    const citing = (await this.transitions.list()).filter((t) => citesEntity(t, id));
+    if (citing.length > 0 && mode === "prevent") {
+      throw new RepositoryError(
+        "has_references",
+        `${id} is referenced by ${String(citing.length)} story-state transition(s) (${citing
+          .map((t) => t.id)
+          .join(", ")}). Delete them first or delete with mode "unlink".`,
+        { details: { transitions: citing.map((t) => t.id) } },
+      );
+    }
+
+    // Temporal relations are references too: a chronology that orders something
+    // the project no longer has is a broken chronology.
+    const linked = (await this.timeline.listLinks()).filter(
+      (l) => l.fromId === id || l.toId === id,
+    );
+    if (linked.length > 0 && mode === "prevent") {
+      throw new RepositoryError(
+        "has_references",
+        `${id} is referenced by ${String(linked.length)} temporal relation(s) (${linked
+          .map((l) => l.id)
+          .join(", ")}). Delete them first or delete with mode "unlink".`,
+        { details: { temporalLinks: linked.map((l) => l.id) } },
+      );
+    }
+
+    // A story test naming a deleted entity would assert nothing and fail
+    // forever for the wrong reason.
+    const asserting = (await this.tests.list()).filter(
+      (test) =>
+        assertionEntities(test.assertion).includes(id) || scopeAnchors(test.scope).includes(id),
+    );
+    if (asserting.length > 0 && mode === "prevent") {
+      throw new RepositoryError(
+        "has_references",
+        `${id} is referenced by ${String(asserting.length)} story test(s) (${asserting
+          .map((t) => t.id as string)
+          .join(", ")}). Delete them first or delete with mode "unlink".`,
+        { details: { storyTests: asserting.map((t) => t.id as string) } },
+      );
+    }
+
+    // Registered causality is the strongest reason of all to hesitate: these
+    // are the links a writer told the project to warn them about.
+    const depending = await this.dependencies.touching(id);
+    if (depending.length > 0 && mode === "prevent") {
+      const radius = await this.calculateBlastRadius(id);
+      throw new RepositoryError(
+        "has_references",
+        `${id} takes part in ${String(depending.length)} registered dependency(ies), and ${String(radius.total)} story element(s) depend on it directly or transitively. Review them first or delete with mode "unlink".`,
+        {
+          details: {
+            dependencies: depending.map((d) => d.id),
+            blastRadius: radius.affected.map((a) => a.id),
+          },
+        },
+      );
+    }
+
     if (referrers.length > 0 && mode === "prevent") {
       throw new RepositoryError(
         "has_references",
@@ -698,6 +2503,12 @@ export class StoryRepository {
         entitiesChanged,
       },
       async () => {
+        for (const transition of citing) {
+          await this.transitions.remove(transition.id);
+        }
+        await this.timeline.removeLinksFor(id);
+        for (const test of asserting) await this.tests.remove(test.id as string);
+        await this.dependencies.remove(depending.map((d) => d.id));
         if (referrers.length > 0) {
           unlinked = await this.graph.unlinkReferences(id);
           for (const otherId of unlinked) {
@@ -825,12 +2636,21 @@ export class StoryRepository {
    * writes, `preview()` them, then `commit()` (records one change set) or
    * `discard()`. The primitive future AI workflows use to stay reversible.
    */
-  beginTransaction(summary = "Staged changes"): StagedTransaction {
+  beginTransaction(summary = "Staged changes", meta: TransactionMeta = {}): StagedTransaction {
     return new StagedTransaction(
       (path) => this.store.readFile(path),
-      async (ops: StagedFileOp[], entities: EntityChange[], sum: string) => {
+      async (ops: StagedFileOp[], entities: EntityChange[], sum: string, at?: TransactionMeta) => {
+        const final = { ...meta, ...at };
         const change = await this.recordChange(
-          { actor: "agent", operation: "transaction", summary: sum, entitiesChanged: entities },
+          {
+            actor: final.actor ?? "agent",
+            operation: final.operation ?? "transaction",
+            summary: sum,
+            entitiesChanged: entities,
+            ...(final.taskId !== undefined ? { taskId: final.taskId } : {}),
+            ...(final.modelId !== undefined ? { modelId: final.modelId } : {}),
+            ...(final.ai !== undefined ? { ai: final.ai } : {}),
+          },
           async () => {
             for (const op of ops) {
               if (op.content === null) await this.store.delete(op.path);
@@ -843,6 +2663,61 @@ export class StoryRepository {
       },
       summary,
     );
+  }
+
+  /**
+   * Build and test the project **as it would be** if a transaction committed,
+   * without committing it.
+   *
+   * The whole project is copied into memory, the staged writes applied on top,
+   * and a second repository opened over the copy. Nothing on disk moves.
+   *
+   * This is what lets "validate, then commit only after approval" be literally
+   * true rather than "commit, validate, revert if it went badly". A writer
+   * being shown diagnostics for a change that has already happened is being
+   * shown a fait accompli (docs/STORY_REFACTOR.md).
+   */
+  async validateStaged(tx: StagedTransaction): Promise<{
+    build: StoryBuild;
+    tests: TestRunSummary;
+  }> {
+    const seed: Record<string, string> = {};
+    for (const path of await this.store.list()) {
+      const content = await this.store.readFile(path);
+      if (content !== null) seed[path] = content;
+    }
+    for (const change of await tx.preview()) {
+      if (change.after === null) delete seed[change.path];
+      else seed[change.path] = change.after;
+    }
+
+    const shadow = await StoryRepository.openProject({ store: new InMemoryProjectStore(seed) });
+    const [build, tests] = await Promise.all([
+      shadow.buildStory({ persist: false }),
+      shadow.runStoryTests(),
+    ]);
+    return { build, tests };
+  }
+
+  /**
+   * Stage an entity update as a file write, without performing it.
+   *
+   * Reads through the transaction, so several patches to entities sharing one
+   * JSON collection compose instead of overwriting each other. Codec knowledge
+   * stays here, where the storage layout lives.
+   */
+  async stageEntityUpdate<T extends HasId>(
+    tx: StagedTransaction,
+    id: string,
+    patch: Partial<T>,
+  ): Promise<void> {
+    const kind = kindOf(id);
+    if (kind === null) throw new RepositoryError("entity_not_found", `Unknown entity id: ${id}`);
+    const staged = await this.graph.stageUpdate(kind, id, patch, (path) => tx.readFile(path));
+    if (staged === null) {
+      throw new RepositoryError("entity_not_found", `No ${kind} with id ${id}.`);
+    }
+    tx.writeFile(staged.path, staged.content).note({ id, kind, change: "updated" });
   }
 
   /** Re-read in-memory state (manifest, id counters, search) after a revert. */
@@ -868,6 +2743,7 @@ export class StoryRepository {
       revertsChangeSetId?: string;
       taskId?: string;
       modelId?: string;
+      ai?: AiProvenance;
     },
     body: () => Promise<void>,
   ): Promise<ChangeSet> {
@@ -892,6 +2768,7 @@ export class StoryRepository {
         : {}),
       ...(meta.taskId !== undefined ? { taskId: meta.taskId } : {}),
       ...(meta.modelId !== undefined ? { modelId: meta.modelId } : {}),
+      ...(meta.ai !== undefined ? { ai: meta.ai } : {}),
     });
   }
 

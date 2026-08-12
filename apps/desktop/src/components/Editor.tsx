@@ -1,18 +1,37 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { EditRequest } from "@jellytind/editing";
 import type { StoryRepository } from "@jellytind/story-repository";
+import { AiEditBar } from "./AiEditBar";
 
 interface Props {
   repo: StoryRepository;
   path: string | null;
   onSaved: () => void;
+  /** Scene the author is working in, used to pick the context recipe. */
+  sceneId?: string | null;
+  /** Run an AI edit against the current selection. */
+  onRunEdit?: (request: EditRequest) => void;
+  aiBusy?: boolean;
 }
 
-export function Editor({ repo, path, onSaved }: Props) {
+export function Editor({ repo, path, onSaved, sceneId = null, onRunEdit, aiBusy = false }: Props) {
   const [content, setContent] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selection, setSelection] = useState<{ text: string; start: number; end: number } | null>(
+    null,
+  );
+  const area = useRef<HTMLTextAreaElement | null>(null);
+
+  /** Track the selection so an AI edit can address exactly that range. */
+  function captureSelection() {
+    const el = area.current;
+    if (el === null) return;
+    const { selectionStart: start, selectionEnd: end } = el;
+    setSelection(start === end ? null : { text: el.value.slice(start, end), start, end });
+  }
 
   useEffect(() => {
     let active = true;
@@ -79,14 +98,28 @@ export function Editor({ repo, path, onSaved }: Props) {
         </button>
       </div>
       {error !== null && <p className="editor__error">{error}</p>}
+      {onRunEdit !== undefined && (
+        <AiEditBar
+          selection={selection}
+          path={path}
+          sceneId={sceneId}
+          busy={aiBusy}
+          dirty={dirty}
+          onRun={onRunEdit}
+        />
+      )}
       <textarea
+        ref={area}
         className="editor__area"
         value={content}
         spellCheck={false}
         disabled={!loaded}
+        onSelect={captureSelection}
+        onBlur={captureSelection}
         onChange={(e) => {
           setContent(e.target.value);
           setDirty(true);
+          setSelection(null);
         }}
         onKeyDown={(e) => {
           if ((e.metaKey || e.ctrlKey) && e.key === "s") {

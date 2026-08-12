@@ -6,6 +6,21 @@
  * internally (AGENTS.md — "Provider Independence"; docs/MODEL_ROUTER.md).
  */
 
+/** What a model can do. Providers need not support every capability. */
+export interface ModelCapabilities {
+  readonly streaming: boolean;
+  readonly structuredOutput: boolean;
+  readonly tools: boolean;
+}
+
+/** Per-call controls, provider-independent. */
+export interface RequestOptions {
+  /** Abort the request (maps to a `cancelled` failure). */
+  readonly signal?: AbortSignal;
+  /** Client-side timeout in milliseconds (maps to a `timeout` failure). */
+  readonly timeoutMs?: number;
+}
+
 export type MessageRole = "user" | "assistant";
 
 export interface ModelMessage {

@@ -5,6 +5,7 @@ export type {
   ProjectValidation,
   DeleteMode,
   DeleteResult,
+  TransactionMeta,
 } from "./story-repository";
 
 export { RepositoryError } from "./errors";
@@ -40,6 +41,7 @@ export type {
 
 export type {
   Actor,
+  AiProvenance,
   ChangeStatus,
   FileChange,
   EntityChange,
@@ -49,9 +51,28 @@ export type {
 } from "./history";
 export { StagedTransaction } from "./transaction";
 export type { StagedFileOp } from "./transaction";
-export { computeLineDiff, diffStat } from "./diff";
-export type { DiffLine, DiffOp, DiffStat } from "./diff";
+export { computeLineDiff, diffStat, buildHunks, applyHunks } from "./diff";
+export type { DiffLine, DiffOp, DiffStat, DiffHunk } from "./diff";
+
+export {
+  sceneMarker,
+  listSceneSpans,
+  findSceneSpan,
+  resolveSceneRange,
+  bodyOffset,
+} from "./scene-text";
+export type { SceneSpan, SpanResolution, ResolveOptions } from "./scene-text";
 
 export { parseFrontmatter, serializeFrontmatter } from "./frontmatter";
 
 export type { CatalogEntity } from "./catalog";
+
+export { RepositoryAgentStore } from "./agent-store";
+
+export { TransitionStore } from "./state-store";
+export { TimelineStore } from "./timeline-store";
+export { BuildStore } from "./build-store";
+export { TestStore } from "./test-store";
+export { DebugStore } from "./debug-store";
+export { DependencyStore } from "./dependency-store";
+export { RefactorStore } from "./refactor-store";

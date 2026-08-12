@@ -4,7 +4,22 @@ The fiction domain model is the authoritative representation of story data. UI c
 
 - **Package:** `@jellytind/domain`
 - **Depends on:** `@jellytind/shared`
-- **Status:** Identity foundation (IDs) **implemented and tested**. The foundational fiction-domain entities are **implemented** (Phase 3): `Project`, `Chapter`, `Scene`, `Character`, `Location`, `StoryObject`, `PlotThread`, `Fact`, `WorldRule`, `StoryEvent`, `Relationship`, plus the `ProjectManifest`. Belief/knowledge semantics and numeric relationship state remain **PLANNED**.
+- **Status:** Identity foundation (IDs) **implemented and tested**. The foundational fiction-domain entities are **implemented** (Phase 3): `Project`, `Chapter`, `Scene`, `Character`, `Location`, `StoryObject`, `PlotThread`, `Fact`, `WorldRule`, `StoryEvent`, `Relationship`, plus the `ProjectManifest`. Belief and knowledge semantics are **implemented** (Phase 11): facts carry an
+  objective truth value, scenes list the facts they reference, and per-character
+  positions live in the story-state timeline. Story-world time is **implemented**
+  (Phase 13): scenes and events carry an optional `StoryTime` at any precision,
+  and `TemporalRelation`/`TemporalLink`/`TravelRule` give the chronology its
+  vocabulary. Object continuity is **implemented** (Phase 14): object statuses
+  and visibility are first-class, and nested locations answer containment
+  questions in one place. Narrative promises are **implemented** (Phase 15): the
+  `Setup` entity, thread interactions and subtlety are first-class. Character
+  intent is **implemented** (Phase 18): `Character.goals` records what someone
+  is trying to do, the counterpart of a scene's `purpose`, so the debugger can
+  ask whether a decision serves it ([STORY_DEBUGGER.md](STORY_DEBUGGER.md)).
+  Causality is **implemented** (Phase 19): the `Decision` entity and the
+  `Dependency` vocabulary record why one part of a story exists because of
+  another ([CAUSALITY.md](CAUSALITY.md)). Numeric relationship state remains
+  **PLANNED**.
 
 ## Implemented: stable entity IDs
 
@@ -56,22 +71,26 @@ graph that links, persists and integrity-checks them lives in
 `@jellytind/story-repository` (see [STORY_REPOSITORY.md](STORY_REPOSITORY.md)).
 All cross-entity references are by **stable ID**.
 
-| Entity         | Key fields                                                 | References (by ID)                                                                      |
-| -------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `Character`    | name, aliases, description, role, notes, status            | —                                                                                       |
-| `Location`     | name, aliases, description, notes                          | `parentLocationId?` → location                                                          |
-| `StoryObject`  | name, aliases, description, status                         | —                                                                                       |
-| `PlotThread`   | name, description, status                                  | `introducedSceneId?`, `resolvedSceneId?`, `relatedSceneIds[]` → scene                   |
-| `Fact`         | statement, status, source?, notes?                         | —                                                                                       |
-| `WorldRule`    | name, description, severity (`hard`/`soft`/`style`), scope | —                                                                                       |
-| `StoryEvent`   | name, description, storyTime?                              | `sceneId?`, `locationId?`, `characterIds[]`                                             |
-| `Relationship` | type, description                                          | `characterAId`, `characterBId` (required)                                               |
-| `Scene`        | title, purpose[], status                                   | `chapterId?`, `pov?`, `locationId?`, `characterIds[]`, `plotThreadIds[]`, `objectIds[]` |
-| `Chapter`      | title, order, status                                       | —                                                                                       |
+| Entity         | Key fields                                                                          | References (by ID)                                                                      |
+| -------------- | ----------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `Character`    | name, aliases, description, role, goals, notes, status                              | —                                                                                       |
+| `Decision`     | description, characterId, sceneId?, reason?, notes?                                 | character, scene                                                                        |
+| `Location`     | name, aliases, description, notes                                                   | `parentLocationId?` → location (nesting; containment-aware)                             |
+| `StoryObject`  | name, aliases, description, status (`exists`/`lost`/`destroyed`/`hidden`/`unknown`) | —                                                                                       |
+| `PlotThread`   | name, description, status                                                           | `introducedSceneId?`, `resolvedSceneId?`, `relatedSceneIds[]` → scene                   |
+| `Fact`         | statement, status, objectiveTruth, source?, notes?                                  | —                                                                                       |
+| `WorldRule`    | name, description, severity (`hard`/`soft`/`style`), scope                          | —                                                                                       |
+| `StoryEvent`   | name, description, storyTime?, duration?                                            | `sceneId?`, `locationId?`, `characterIds[]`, `plotThreadIds[]?`                         |
+| `Relationship` | type, status, description (all _starting_ values)                                   | `characterAId`, `characterBId` (required)                                               |
+| `Scene`        | title, purpose[], status, storyTime?, duration?                                     | `chapterId?`, `pov?`, `locationId?`, `characterIds[]`, `plotThreadIds[]`, `objectIds[]` |
+| `Chapter`      | title, order, status                                                                | —                                                                                       |
 
 Status vocabularies are exported as constant arrays (`CHARACTER_STATUSES`,
 `PLOT_THREAD_STATUSES`, `WORLD_RULE_SEVERITIES`, …) so the UI and validation stay
-in sync. Fact/knowledge here is a plain canonical statement — **belief and
+in sync. A `Fact` is a **proposition**, not a truth: `objectiveTruth` says
+whether it holds in the fictional world, so a false statement is still a
+first-class entity that characters can believe. Per-character position lives in
+the story-state timeline, never on the fact — **belief and
 per-character knowledge semantics are deliberately deferred** (a later phase).
 
 **Renaming never changes identity:** display names live in the record; the ID is
@@ -159,12 +178,43 @@ word_count: 2381
 
 ## Selected entity notes
 
-- **Relationship** — a dynamic object, not a static label. Variables (trust, affection, fear, resentment, loyalty, dependency, suspicion, attraction, respect, power, knowledge_of_other) change with story events so progression can be inspected for whether it is _earned_. Use for analysis, not to mechanically dictate prose. See [STORY_STATE.md](STORY_STATE.md).
-- **PlotThread** — has a lifecycle: `planned → introduced → active → escalating → dormant → resolved → abandoned`. Tracks appearances. Dormancy can be flagged but is not automatically "bad".
+- **Relationship** — a dynamic object, not a static label. The entity carries
+  identity (which survives every change) and starting values; type, status, ten
+  optional analytical dimensions and milestone events evolve through
+  scene-anchored transitions, so any story moment can be reconstructed. Use for
+  analysis, not to mechanically dictate prose. See [STORY_STATE.md](STORY_STATE.md).
+- **PlotThread** — has a lifecycle: `planned → introduced → active → escalating → dormant → resolved → abandoned`, moved by scene-anchored transitions so any point in the book can be reconstructed. How a scene touches a thread is one of six interactions. Dormancy is measured, never graded. See [NARRATIVE_THREADS.md](NARRATIVE_THREADS.md).
+- **Setup** — a promise the story makes and the moment it keeps it, recorded
+  because nothing in the prose links the two scenes. Carries foreshadowing
+  metadata including `trueMeaning`, which is author-only. See
+  [NARRATIVE_THREADS.md](NARRATIVE_THREADS.md).
 - **Foreshadowing** — setups and payoffs are _linked_ entities with visibility and reader-interpretation metadata; detect setup-without-payoff and payoff-without-setup. Supports multi-stage foreshadowing.
-- **Object** — important objects are entities tracking ownership, location, condition, appearances, transfers, destruction and knowledge, enabling inventory-continuity checks.
+- **Object** — important objects are entities; ownership, holder, location,
+  condition, status and visibility are **time-aware state** rather than fields on
+  the entity, so an object can be traced through the whole story and physical
+  contradictions found deterministically. Owner and holder are separate: a stolen
+  revolver still belongs to its owner. See
+  [OBJECTS_LOCATIONS.md](OBJECTS_LOCATIONS.md).
+- **Location** — locations nest (`parentLocationId`), and containment is
+  honoured everywhere: someone in the Hidden Vault is at Blackthorn Manor. A
+  malformed tree is a continuity finding, not a crash. See
+  [OBJECTS_LOCATIONS.md](OBJECTS_LOCATIONS.md).
+- **StoryEvent** — a moment in the story world, not in the manuscript. It may be
+  dramatised in a scene, happen off the page, or predate the book by decades, so
+  `sceneId` is optional and story time is not tied to chapter order. See
+  [TIMELINE.md](TIMELINE.md).
+- **StoryTime / TemporalRelation** — where something sits in story-world time, at
+  whatever precision the writer has: an instant, a date, a range, a position
+  relative to another node, an ordinal marker, or explicitly unknown. Real
+  calendar dates are never required — `before`/`after`/`during`/`overlaps`/
+  `same_time` relations are a complete chronology on their own. See
+  [TIMELINE.md](TIMELINE.md).
 - **WorldRule** — structured, queryable hard/soft rules (e.g. `RULE_MAGIC_001: resurrection impossible`) consulted during drafting, continuity, timeline, refactor and simulation.
-- **Fact / Belief / Knowledge** — objective truth, per-character belief, and reader knowledge are **separate** representations and must never be conflated. See [STORY_STATE.md](STORY_STATE.md).
+- **Fact / Belief / Knowledge** — objective truth (`Fact.objectiveTruth`),
+  per-character belief (the knowledge graph in the story-state timeline) and
+  reader knowledge are **separate** representations and must never be conflated.
+  Implemented for the first two; reader knowledge is **PLANNED**. See
+  [STORY_STATE.md](STORY_STATE.md).
 - **Clue** — mystery support: source, first appearance, discoverer, reader exposure, interpretations, true/false meaning, related suspects, dependencies, payoff.
 - **Revision / Branch** — see [VERSIONING.md](VERSIONING.md).
 

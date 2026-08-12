@@ -1,4 +1,5 @@
 import type { ChangeSet, EntityChange, FileChange } from "./history";
+import type { TransactionMeta } from "./story-repository";
 
 export interface StagedFileOp {
   readonly path: string;
@@ -24,6 +25,7 @@ export class StagedTransaction {
       ops: StagedFileOp[],
       entities: EntityChange[],
       summary: string,
+      meta?: TransactionMeta,
     ) => Promise<ChangeSet>,
     public summary = "Staged changes",
   ) {}
@@ -63,10 +65,15 @@ export class StagedTransaction {
     return changes;
   }
 
-  /** Apply all staged changes atomically as one recorded change set. */
-  commit(summary?: string): Promise<ChangeSet> {
+  /**
+   * Apply all staged changes atomically as one recorded change set. `meta`
+   * overrides the attribution given at `beginTransaction` — an AI edit only
+   * learns its final approval details when the human decides, so the audit
+   * fields are settled here rather than guessed at staging time.
+   */
+  commit(summary?: string, meta?: TransactionMeta): Promise<ChangeSet> {
     const ops: StagedFileOp[] = [...this.ops].map(([path, content]) => ({ path, content }));
-    return this.commitFn(ops, [...this.notes], summary ?? this.summary);
+    return this.commitFn(ops, [...this.notes], summary ?? this.summary, meta);
   }
 
   /** Abandon all staged changes. The project is untouched. */

@@ -9,6 +9,8 @@ import {
   isWorldRuleId,
   isEventId,
   isRelationshipId,
+  isSetupId,
+  isDecisionId,
   CHAPTER_STATUSES,
   SCENE_STATUSES,
   CHARACTER_STATUSES,
@@ -16,6 +18,10 @@ import {
   PLOT_THREAD_STATUSES,
   FACT_STATUSES,
   WORLD_RULE_SEVERITIES,
+  SUBTLETIES,
+  normaliseStoryTime,
+  normaliseDuration,
+  LEGACY_OBJECT_STATUSES,
   type Chapter,
   type Character,
   type Location,
@@ -26,6 +32,9 @@ import {
   type WorldRule,
   type StoryEvent,
   type Relationship,
+  type Setup,
+  type Decision,
+  type FactId,
   type CharacterId,
   type LocationId,
   type SceneId,
@@ -81,6 +90,7 @@ export const characterCodec: MarkdownCodec<Character> = {
     role: c.role,
     status: c.status,
     description: c.description,
+    goals: c.goals,
     notes: c.notes,
   }),
   toBody: (c) => `# ${c.name}\n`,
@@ -93,6 +103,9 @@ export const characterCodec: MarkdownCodec<Character> = {
       aliases: strArray(d.aliases),
       description: str(d.description),
       role: str(d.role),
+      // Absent in projects written before goals existed. An empty list is the
+      // honest reading: nothing was recorded, which is not the same as none.
+      goals: strArray(d.goals),
       notes: str(d.notes),
       status: oneOf(d.status, CHARACTER_STATUSES, "active"),
       filePath: characterFilePath(id),
@@ -143,7 +156,9 @@ export const objectCodec: MarkdownCodec<StoryObject> = {
       name: str(d.name),
       aliases: strArray(d.aliases),
       description: str(d.description),
-      status: oneOf(d.status, OBJECT_STATUSES, "intact"),
+      // `intact` and `transformed` predate the status/condition split and are
+      // read as `exists` (docs/OBJECTS_LOCATIONS.md).
+      status: oneOf(LEGACY_OBJECT_STATUSES[str(d.status)] ?? d.status, OBJECT_STATUSES, "exists"),
       filePath: objectFilePath(id),
     };
   },
@@ -155,6 +170,8 @@ export function normalizeScene(raw: unknown): Scene | null {
   if (typeof raw !== "object" || raw === null) return null;
   const d = raw as Record<string, unknown>;
   if (!isSceneId(str(d.id))) return null;
+  const sceneTime = normaliseStoryTime(d.storyTime);
+  const sceneDuration = normaliseDuration(d.duration);
   return {
     id: d.id as SceneId,
     title: str(d.title),
@@ -168,8 +185,11 @@ export function normalizeScene(raw: unknown): Scene | null {
     characterIds: idArray(d.characterIds, isCharacterId),
     plotThreadIds: idArray(d.plotThreadIds, isPlotThreadId),
     objectIds: idArray(d.objectIds, isObjectId),
+    factIds: idArray(d.factIds, isFactId),
     purpose: strArray(d.purpose),
     status: oneOf(d.status, SCENE_STATUSES, "planned"),
+    ...(sceneTime !== undefined ? { storyTime: sceneTime } : {}),
+    ...(sceneDuration !== undefined ? { duration: sceneDuration } : {}),
   };
 }
 
@@ -200,6 +220,9 @@ export function normalizeFact(raw: unknown): Fact | null {
     id: d.id as Fact["id"],
     statement: str(d.statement),
     status: oneOf(d.status, FACT_STATUSES, "canonical"),
+    // Absent means true: a fact recorded before propositions could be false is
+    // a statement the author asserted, not one they marked as a lie.
+    objectiveTruth: d.objectiveTruth !== false,
     ...(optStr(d.source) !== undefined ? { source: optStr(d.source) } : {}),
     ...(optStr(d.notes) !== undefined ? { notes: optStr(d.notes) } : {}),
   };
@@ -222,16 +245,50 @@ export function normalizeEvent(raw: unknown): StoryEvent | null {
   if (typeof raw !== "object" || raw === null) return null;
   const d = raw as Record<string, unknown>;
   if (!isEventId(str(d.id))) return null;
+  // `storyTime` used to be a free-form string. It is interpreted rather than
+  // discarded, so existing projects keep their timeline (docs/TIMELINE.md).
+  const storyTime = normaliseStoryTime(d.storyTime);
+  const duration = normaliseDuration(d.duration);
   return {
     id: d.id as StoryEvent["id"],
     name: str(d.name),
     description: str(d.description),
-    ...(optStr(d.storyTime) !== undefined ? { storyTime: optStr(d.storyTime) } : {}),
+    ...(storyTime !== undefined ? { storyTime } : {}),
+    ...(duration !== undefined ? { duration } : {}),
     ...(optId(d.sceneId, isSceneId) !== undefined ? { sceneId: d.sceneId as SceneId } : {}),
     ...(optId(d.locationId, isLocationId) !== undefined
       ? { locationId: d.locationId as LocationId }
       : {}),
     characterIds: idArray(d.characterIds, isCharacterId),
+    plotThreadIds: idArray(d.plotThreadIds, isPlotThreadId),
+  };
+}
+
+export function normalizeSetup(raw: unknown): Setup | null {
+  if (typeof raw !== "object" || raw === null) return null;
+  const d = raw as Record<string, unknown>;
+  if (!isSetupId(str(d.id))) return null;
+  return {
+    id: d.id as Setup["id"],
+    description: str(d.description),
+    setupSceneIds: idArray(d.setupSceneIds, isSceneId),
+    payoffSceneIds: idArray(d.payoffSceneIds, isSceneId),
+    ...(optStr(d.payoffDescription) !== undefined
+      ? { payoffDescription: optStr(d.payoffDescription) }
+      : {}),
+    subtlety: oneOf(d.subtlety, SUBTLETIES, "subtle"),
+    ...(optStr(d.intendedInterpretation) !== undefined
+      ? { intendedInterpretation: optStr(d.intendedInterpretation) }
+      : {}),
+    ...(optStr(d.trueMeaning) !== undefined ? { trueMeaning: optStr(d.trueMeaning) } : {}),
+    ...(optId(d.targetThreadId, isPlotThreadId) !== undefined
+      ? { targetThreadId: d.targetThreadId as PlotThreadId }
+      : {}),
+    ...(optId(d.targetRevealId, isFactId) !== undefined
+      ? { targetRevealId: d.targetRevealId as FactId }
+      : {}),
+    ...(d.abandoned === true ? { abandoned: true } : {}),
+    ...(optStr(d.notes) !== undefined ? { notes: optStr(d.notes) } : {}),
   };
 }
 
@@ -245,6 +302,22 @@ export function normalizeRelationship(raw: unknown): Relationship | null {
     characterAId: d.characterAId as CharacterId,
     characterBId: d.characterBId as CharacterId,
     type: str(d.type),
+    status: str(d.status),
     description: str(d.description),
+  };
+}
+
+export function normalizeDecision(raw: unknown): Decision | null {
+  if (typeof raw !== "object" || raw === null) return null;
+  const d = raw as Record<string, unknown>;
+  if (!isDecisionId(str(d.id))) return null;
+  if (!isCharacterId(str(d.characterId))) return null;
+  return {
+    id: d.id as Decision["id"],
+    description: str(d.description),
+    characterId: d.characterId as CharacterId,
+    ...(optId(d.sceneId, isSceneId) !== undefined ? { sceneId: d.sceneId as SceneId } : {}),
+    ...(optStr(d.reason) !== undefined ? { reason: optStr(d.reason) } : {}),
+    ...(optStr(d.notes) !== undefined ? { notes: optStr(d.notes) } : {}),
   };
 }

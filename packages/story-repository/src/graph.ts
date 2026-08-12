@@ -12,6 +12,8 @@ import {
   normalizeWorldRule,
   normalizeEvent,
   normalizeRelationship,
+  normalizeSetup,
+  normalizeDecision,
 } from "./codecs";
 
 /** Entity kinds that carry structured records (excludes the project container). */
@@ -25,7 +27,9 @@ export type GraphKind =
   | "fact"
   | "world_rule"
   | "event"
-  | "relationship";
+  | "relationship"
+  | "setup"
+  | "decision";
 
 /** Describes one reference-bearing field on an entity kind. */
 interface RefField {
@@ -60,6 +64,16 @@ const REFERENCE_FIELDS: Partial<Record<GraphKind, readonly RefField[]>> = {
   relationship: [
     { field: "characterAId", target: "character", multi: false, required: true },
     { field: "characterBId", target: "character", multi: false, required: true },
+  ],
+  decision: [
+    { field: "characterId", target: "character", multi: false, required: true },
+    { field: "sceneId", target: "scene", multi: false, required: false },
+  ],
+  setup: [
+    { field: "setupSceneIds", target: "scene", multi: true, required: false },
+    { field: "payoffSceneIds", target: "scene", multi: true, required: false },
+    { field: "targetThreadId", target: "plot_thread", multi: false, required: false },
+    { field: "targetRevealId", target: "fact", multi: false, required: false },
   ],
 };
 
@@ -100,11 +114,33 @@ export class EntityGraph {
       world_rule: new JsonCollectionStore(store, PATHS.worldRules, normalizeWorldRule),
       event: new JsonCollectionStore(store, PATHS.events, normalizeEvent),
       relationship: new JsonCollectionStore(store, PATHS.relationships, normalizeRelationship),
+      setup: new JsonCollectionStore(store, PATHS.setups, normalizeSetup),
+      decision: new JsonCollectionStore(store, PATHS.decisions, normalizeDecision),
     };
   }
 
   store(kind: GraphKind): EntityStore<HasId> {
     return this.stores[kind];
+  }
+
+  /**
+   * The file write an entity patch implies, without performing it.
+   *
+   * `id` and kind are immutable, as they are on the live path: a refactor may
+   * change everything about a character except which character they are
+   * (docs/STORY_REFACTOR.md — stable IDs).
+   */
+  async stageUpdate(
+    kind: GraphKind,
+    id: string,
+    patch: Record<string, unknown>,
+    read: (path: string) => Promise<string | null>,
+  ): Promise<{ path: string; content: string } | null> {
+    const store = this.stores[kind];
+    const current = await store.get(id);
+    if (current === null) return null;
+    const next = { ...(current as unknown as Record<string, unknown>), ...patch, id } as HasId;
+    return store.stage(next, read);
   }
 
   static kinds(): GraphKind[] {
@@ -119,6 +155,8 @@ export class EntityGraph {
       "world_rule",
       "event",
       "relationship",
+      "setup",
+      "decision",
     ];
   }
 

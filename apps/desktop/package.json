@@ -13,12 +13,22 @@
     "tauri:build": "tauri build"
   },
   "dependencies": {
+    "@jellytind/agent-runtime": "workspace:*",
+    "@jellytind/context-compiler": "workspace:*",
     "@jellytind/domain": "workspace:*",
-    "@jellytind/shared": "workspace:*",
+    "@jellytind/editing": "workspace:*",
+    "@jellytind/model-router": "workspace:*",
     "@jellytind/persistence": "workspace:*",
+    "@jellytind/provider-anthropic": "workspace:*",
+    "@jellytind/shared": "workspace:*",
+    "@jellytind/story-causality": "workspace:*",
+    "@jellytind/story-debugger": "workspace:*",
+    "@jellytind/story-refactor": "workspace:*",
     "@jellytind/story-repository": "workspace:*",
+    "@jellytind/story-state": "workspace:*",
     "@tauri-apps/api": "^2.1.1",
     "@tauri-apps/plugin-dialog": "^2.0.1",
+    "@tauri-apps/plugin-http": "^2.0.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

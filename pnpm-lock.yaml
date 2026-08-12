@@ -44,24 +44,54 @@ importers:
 
   apps/desktop:
     dependencies:
+      '@jellytind/agent-runtime':
+        specifier: workspace:*
+        version: link:../../packages/agent-runtime
+      '@jellytind/context-compiler':
+        specifier: workspace:*
+        version: link:../../packages/context-compiler
       '@jellytind/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@jellytind/editing':
+        specifier: workspace:*
+        version: link:../../packages/editing
+      '@jellytind/model-router':
+        specifier: workspace:*
+        version: link:../../packages/model-router
       '@jellytind/persistence':
         specifier: workspace:*
         version: link:../../packages/persistence
+      '@jellytind/provider-anthropic':
+        specifier: workspace:*
+        version: link:../../packages/providers/anthropic
       '@jellytind/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@jellytind/story-causality':
+        specifier: workspace:*
+        version: link:../../packages/story-causality
+      '@jellytind/story-debugger':
+        specifier: workspace:*
+        version: link:../../packages/story-debugger
+      '@jellytind/story-refactor':
+        specifier: workspace:*
+        version: link:../../packages/story-refactor
       '@jellytind/story-repository':
         specifier: workspace:*
         version: link:../../packages/story-repository
+      '@jellytind/story-state':
+        specifier: workspace:*
+        version: link:../../packages/story-state
       '@tauri-apps/api':
         specifier: ^2.1.1
         version: 2.11.1
       '@tauri-apps/plugin-dialog':
         specifier: ^2.0.1
         version: 2.7.2
+      '@tauri-apps/plugin-http':
+        specifier: ^2.0.1
+        version: 2.5.9
       react:
         specifier: ^18.3.1
         version: 18.3.1
@@ -99,6 +129,12 @@ importers:
       '@jellytind/model-router':
         specifier: workspace:*
         version: link:../model-router
+      '@jellytind/persistence':
+        specifier: workspace:*
+        version: link:../persistence
+      '@jellytind/search':
+        specifier: workspace:*
+        version: link:../search
       '@jellytind/shared':
         specifier: workspace:*
         version: link:../shared
@@ -108,15 +144,48 @@ importers:
       '@jellytind/domain':
         specifier: workspace:*
         version: link:../domain
+      '@jellytind/search':
+        specifier: workspace:*
+        version: link:../search
       '@jellytind/shared':
         specifier: workspace:*
         version: link:../shared
+      '@jellytind/story-state':
+        specifier: workspace:*
+        version: link:../story-state
 
   packages/domain:
     dependencies:
       '@jellytind/shared':
         specifier: workspace:*
         version: link:../shared
+
+  packages/editing:
+    dependencies:
+      '@jellytind/agent-runtime':
+        specifier: workspace:*
+        version: link:../agent-runtime
+      '@jellytind/context-compiler':
+        specifier: workspace:*
+        version: link:../context-compiler
+      '@jellytind/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@jellytind/model-router':
+        specifier: workspace:*
+        version: link:../model-router
+      '@jellytind/shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@jellytind/story-debugger':
+        specifier: workspace:*
+        version: link:../story-debugger
+      '@jellytind/story-repository':
+        specifier: workspace:*
+        version: link:../story-repository
+      '@jellytind/story-state':
+        specifier: workspace:*
+        version: link:../story-state
 
   packages/model-router:
     dependencies:
@@ -153,7 +222,7 @@ importers:
 
   packages/shared: {}
 
-  packages/story-compiler:
+  packages/story-causality:
     dependencies:
       '@jellytind/domain':
         specifier: workspace:*
@@ -162,8 +231,74 @@ importers:
         specifier: workspace:*
         version: link:../shared
 
+  packages/story-compiler:
+    dependencies:
+      '@jellytind/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@jellytind/shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@jellytind/story-causality':
+        specifier: workspace:*
+        version: link:../story-causality
+      '@jellytind/story-state':
+        specifier: workspace:*
+        version: link:../story-state
+
+  packages/story-debugger:
+    dependencies:
+      '@jellytind/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@jellytind/search':
+        specifier: workspace:*
+        version: link:../search
+      '@jellytind/shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@jellytind/story-compiler':
+        specifier: workspace:*
+        version: link:../story-compiler
+      '@jellytind/story-state':
+        specifier: workspace:*
+        version: link:../story-state
+
+  packages/story-refactor:
+    dependencies:
+      '@jellytind/agent-runtime':
+        specifier: workspace:*
+        version: link:../agent-runtime
+      '@jellytind/context-compiler':
+        specifier: workspace:*
+        version: link:../context-compiler
+      '@jellytind/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@jellytind/model-router':
+        specifier: workspace:*
+        version: link:../model-router
+      '@jellytind/shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@jellytind/story-causality':
+        specifier: workspace:*
+        version: link:../story-causality
+      '@jellytind/story-compiler':
+        specifier: workspace:*
+        version: link:../story-compiler
+      '@jellytind/story-repository':
+        specifier: workspace:*
+        version: link:../story-repository
+      '@jellytind/story-state':
+        specifier: workspace:*
+        version: link:../story-state
+
   packages/story-repository:
     dependencies:
+      '@jellytind/agent-runtime':
+        specifier: workspace:*
+        version: link:../agent-runtime
       '@jellytind/domain':
         specifier: workspace:*
         version: link:../domain
@@ -176,6 +311,18 @@ importers:
       '@jellytind/shared':
         specifier: workspace:*
         version: link:../shared
+      '@jellytind/story-causality':
+        specifier: workspace:*
+        version: link:../story-causality
+      '@jellytind/story-compiler':
+        specifier: workspace:*
+        version: link:../story-compiler
+      '@jellytind/story-debugger':
+        specifier: workspace:*
+        version: link:../story-debugger
+      '@jellytind/story-state':
+        specifier: workspace:*
+        version: link:../story-state
       js-yaml:
         specifier: ^4.1.0
         version: 4.3.1
@@ -183,6 +330,15 @@ importers:
       '@types/js-yaml':
         specifier: ^4.0.9
         version: 4.0.9
+
+  packages/story-state:
+    dependencies:
+      '@jellytind/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@jellytind/shared':
+        specifier: workspace:*
+        version: link:../shared
 
 packages:
 
@@ -866,6 +1022,9 @@ packages:
 
   '@tauri-apps/plugin-dialog@2.7.2':
     resolution: {integrity: sha512-pX0IGm1I3I6wc+zeKYcq1GSqogK6okCNX5fOdaNU5ab1AjGS6l1E5wFNjEb7meg7ZFSp0JUs+0jQGQNyOvLrsg==}
+
+  '@tauri-apps/plugin-http@2.5.9':
+    resolution: {integrity: sha512-lCiY0+vs4HvIUSvZrBs8TC3TiCB0MOPRmiUjTq4prW7SlcJE2jdLeT6KBsJrT9Tlplufl7W1pY6SFAO3gCWxDA==}
 
   '@types/babel__core@7.20.5':
     resolution: {integrity: sha512-qoQprZvz5wQFJwMDqeseRXWv3rqMvhgpbXFfVyWhbx9X47POIA6i/+dXefEmZKoAgOaTdaIgNSMqMIU61yRyzA==}
@@ -2132,6 +2291,10 @@ snapshots:
       '@tauri-apps/cli-win32-x64-msvc': 2.11.4
 
   '@tauri-apps/plugin-dialog@2.7.2':
+    dependencies:
+      '@tauri-apps/api': 2.11.1
+
+  '@tauri-apps/plugin-http@2.5.9':
     dependencies:
       '@tauri-apps/api': 2.11.1
 

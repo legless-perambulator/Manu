@@ -35,6 +35,7 @@ describe("entity ID generation per prefix", () => {
       aliases: [],
       description: "",
       role: "antagonist",
+      goals: [],
       notes: "",
       status: "active",
       filePath: "characters/CHAR_0001.md",
@@ -81,6 +82,7 @@ describe("entity shapes", () => {
       characterAId: ids.next("character"),
       characterBId: ids.next("character"),
       type: "sibling",
+      status: "",
       description: "",
     };
     expectTypeOf(chapter.id).toEqualTypeOf<ChapterId>();

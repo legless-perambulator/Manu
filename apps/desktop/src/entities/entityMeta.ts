@@ -22,6 +22,8 @@ export const KIND_LABEL: Record<Kind, string> = {
   world_rule: "World Rules",
   event: "Events",
   relationship: "Relationships",
+  setup: "Setups & Payoffs",
+  decision: "Decisions",
 };
 
 /** Order the entity panel presents kinds in. */
@@ -35,6 +37,8 @@ export const KIND_ORDER: Kind[] = [
   "world_rule",
   "event",
   "relationship",
+  "setup",
+  "decision",
   "chapter",
 ];
 
@@ -88,14 +92,28 @@ export const SCALAR_FIELDS: Record<Kind, readonly ScalarField[]> = {
     { key: "description", label: "Description", multiline: true },
     { key: "scope", label: "Scope" },
   ],
+  // Story time is structured, not free text — it is edited in the Timeline
+  // panel, where its precision can be stated (docs/TIMELINE.md).
   event: [
     { key: "name", label: "Name" },
     { key: "description", label: "Description", multiline: true },
-    { key: "storyTime", label: "Story time" },
   ],
   relationship: [
     { key: "type", label: "Type" },
     { key: "description", label: "Description", multiline: true },
+  ],
+  // `trueMeaning` is author-only and deliberately edited in the Threads panel,
+  // where the surrounding text says so (docs/NARRATIVE_THREADS.md).
+  setup: [
+    { key: "description", label: "What is planted", multiline: true },
+    { key: "payoffDescription", label: "What it pays off", multiline: true },
+    { key: "intendedInterpretation", label: "Intended reading" },
+    { key: "notes", label: "Notes", multiline: true },
+  ],
+  decision: [
+    { key: "description", label: "What they decide", multiline: true },
+    { key: "reason", label: "Why", multiline: true },
+    { key: "notes", label: "Notes", multiline: true },
   ],
 };
 
