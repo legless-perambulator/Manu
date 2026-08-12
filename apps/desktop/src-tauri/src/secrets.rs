@@ -21,7 +21,7 @@ use std::path::PathBuf;
 use serde::Serialize;
 use tauri::Manager;
 
-const SERVICE: &str = "com.jellytind.app";
+const SERVICE: &str = "com.manu.app";
 const FALLBACK_FILE: &str = "credentials.json";
 
 /// Which store actually holds the secret, surfaced to the UI.

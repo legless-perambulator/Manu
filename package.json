@@ -16,6 +16,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit && pnpm --filter @jellytind/desktop typecheck",
     "test": "vitest run",
     "test:watch": "vitest",
+    "dev:fixture": "vitest run --config vitest.fixture.config.ts",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",

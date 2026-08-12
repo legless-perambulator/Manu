@@ -1,12 +1,12 @@
 [package]
-name = "jellytind-desktop"
-version = "0.0.0"
-description = "JellyTind desktop shell"
+name = "manu-desktop"
+version = "0.1.0-alpha"
+description = "Manu — a writing IDE for fiction"
 edition = "2021"
 rust-version = "1.77"
 
 [lib]
-name = "jellytind_desktop_lib"
+name = "manu_desktop_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

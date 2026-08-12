@@ -1,6 +1,6 @@
 # Documentation
 
-Living architecture and product documentation for the AI-native fiction development environment.
+Living architecture and product documentation for **Manu**, an AI-native fiction development environment.
 
 The permanent north-star vision and full product specification lives in [`../MASTER_BUILD.md`](../MASTER_BUILD.md). Implementation rules for coding agents live in [`../AGENTS.md`](../AGENTS.md).
 
@@ -33,6 +33,8 @@ These documents are **living**: update the relevant document whenever an archite
 | [SIMULATIONS.md](SIMULATIONS.md)             | Reader and character simulation systems.                  |
 | [SECURITY_PRIVACY.md](SECURITY_PRIVACY.md)   | Local-first ownership, data handling, privacy posture.    |
 | [UX.md](UX.md)                               | Interface principles and the IDE layout.                  |
+| [BRAND.md](BRAND.md)                         | The canonical Manu brand: palette, wordmark, voice.       |
+| [BUILDING.md](BUILDING.md)                   | Running from source and building the Linux AppImage.      |
 | [ROADMAP.md](ROADMAP.md)                     | Versioned delivery plan (V1–V6).                          |
 
 ## How to use these documents

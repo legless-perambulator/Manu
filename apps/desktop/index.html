@@ -3,7 +3,20 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>JellyTind</title>
+    <title>Manu</title>
+    <meta name="color-scheme" content="dark light" />
+    <style>
+      /* Paint the ground before the bundle loads, so the window never opens
+         white and then snap to the theme. */
+      html {
+        background: #0f0f10;
+      }
+      @media (prefers-color-scheme: light) {
+        html {
+          background: #f6f4f1;
+        }
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>

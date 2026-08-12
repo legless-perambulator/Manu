@@ -1,0 +1,200 @@
+/* ============================================================================
+   Manu — canonical design tokens
+   ----------------------------------------------------------------------------
+   This file is the single source of truth for colour, type and shape in Manu.
+   Nothing else in the application may define a raw colour value.
+
+   Layer 1  Brand primitives  — the four canonical Manu colours, exactly.
+   Layer 2  Derived neutrals  — tints and shades of the primitives. These are
+                                not new brand colours; they exist so surfaces
+                                can be told apart on screen.
+   Layer 3  Semantic tokens   — what a colour *means*. Components use these.
+
+   Two rules the palette has to keep, documented in docs/BRAND.md:
+
+   1. The brand accent never carries diagnostic meaning. Manuscript Red marks
+      Manu's own hand — selection, focus, the caret, the current thing, work an
+      agent did. It never means "this is broken".
+   2. No diagnostic meaning depends on colour alone. Every severity carries a
+      word and a glyph as well as a hue, so the palette is a reinforcement and
+      never the signal itself.
+   ========================================================================== */
+
+:root {
+  /* ── Layer 1: brand primitives ─────────────────────────────────────────── */
+  --manu-black: #0f0f10;
+  --manu-paper: #f6f4f1;
+  --manu-graphite: #6b6b6b;
+  --manu-manuscript-red: #c53128;
+
+  /* ── Typography ────────────────────────────────────────────────────────── */
+  /* The wordmark is Martian Grotesk Condensed Light, shipped as outlined
+     vector art (src/assets/brand). The interface itself uses the reader's
+     system stack: nothing is downloaded and nothing is bundled. */
+  --manu-font-ui:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --manu-font-mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  /* Manuscript prose is set in a serif at a comfortable measure: it is the
+     thing being written, not part of the tooling. */
+  --manu-font-manuscript:
+    ui-serif, Georgia, "Iowan Old Style", "Liberation Serif", "Times New Roman", serif;
+
+  --manu-text-xs: 11px;
+  --manu-text-sm: 12px;
+  --manu-text-base: 13px;
+  --manu-text-md: 14px;
+  --manu-text-lg: 16px;
+  --manu-text-xl: 20px;
+
+  --manu-tracking-label: 0.06em;
+  --manu-leading-ui: 1.5;
+  --manu-leading-prose: 1.75;
+
+  /* ── Shape and depth ───────────────────────────────────────────────────── */
+  --manu-radius-sm: 4px;
+  --manu-radius-md: 6px;
+  --manu-radius-lg: 10px;
+  --manu-radius-pill: 999px;
+
+  --manu-shadow-raised: 0 1px 2px rgb(0 0 0 / 24%);
+  --manu-shadow-overlay: 0 16px 48px rgb(0 0 0 / 44%);
+
+  /* ── Motion ────────────────────────────────────────────────────────────── */
+  --manu-duration-fast: 90ms;
+  --manu-duration-base: 160ms;
+  --manu-ease: cubic-bezier(0.2, 0, 0.2, 1);
+}
+
+/* ============================================================================
+   Dark — the default. Manu Black ground, Paper ink.
+   ========================================================================== */
+
+:root,
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* Layer 2: neutrals derived from Manu Black, Paper and Graphite. */
+  --manu-bg: var(--manu-black);
+  --manu-surface: #17171a;
+  --manu-surface-raised: #1f1f23;
+  --manu-surface-sunken: #0a0a0b;
+
+  --manu-ink: var(--manu-paper);
+  --manu-ink-muted: #a3a09c;
+  --manu-ink-subtle: #7c7a77;
+  --manu-ink-inverse: var(--manu-black);
+
+  --manu-border: #2b2b30;
+  --manu-border-strong: #3d3d43;
+
+  /* Layer 3: semantics. */
+  --manu-accent: var(--manu-manuscript-red);
+  --manu-accent-strong: #d9453b;
+  /* Manuscript Red is too dark to read as text on Manu Black, so accent-toned
+     text uses a lightened tint of the same hue. Fills keep the true red. */
+  --manu-accent-text: #e8756c;
+  --manu-accent-on: var(--manu-paper);
+  --manu-accent-wash: rgb(197 49 40 / 18%);
+
+  --manu-focus: #e0655b;
+  --manu-selection: rgb(197 49 40 / 32%);
+
+  --manu-success: #6fb58a;
+  --manu-success-wash: rgb(111 181 138 / 14%);
+  --manu-warning: #d9a441;
+  --manu-warning-wash: rgb(217 164 65 / 14%);
+  /* Deliberately lighter and pinker than Manuscript Red so the two never read
+     as the same mark. See rule 1 above. */
+  --manu-error: #ff7a70;
+  --manu-error-wash: rgb(255 122 112 / 14%);
+  --manu-info: #8fa9c9;
+  --manu-info-wash: rgb(143 169 201 / 14%);
+
+  --manu-scrim: rgb(10 10 11 / 66%);
+}
+
+/* ============================================================================
+   Light — Paper ground, Manu Black ink. The manuscript, lit.
+   ========================================================================== */
+
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --manu-bg: var(--manu-paper);
+  --manu-surface: #efede9;
+  --manu-surface-raised: #e7e4df;
+  --manu-surface-sunken: #fbfaf8;
+
+  --manu-ink: var(--manu-black);
+  --manu-ink-muted: #55555a;
+  --manu-ink-subtle: var(--manu-graphite);
+  --manu-ink-inverse: var(--manu-paper);
+
+  --manu-border: #d8d4cd;
+  --manu-border-strong: #bdb8af;
+
+  --manu-accent: var(--manu-manuscript-red);
+  --manu-accent-strong: #a82820;
+  --manu-accent-text: #a82820;
+  --manu-accent-on: var(--manu-paper);
+  --manu-accent-wash: rgb(197 49 40 / 12%);
+
+  --manu-focus: var(--manu-manuscript-red);
+  --manu-selection: rgb(197 49 40 / 22%);
+
+  --manu-success: #2f7d51;
+  --manu-success-wash: rgb(47 125 81 / 12%);
+  --manu-warning: #8a5b12;
+  --manu-warning-wash: rgb(138 91 18 / 12%);
+  /* Deeper and cooler than Manuscript Red, for the same reason. */
+  --manu-error: #8e1f22;
+  --manu-error-wash: rgb(142 31 34 / 12%);
+  --manu-info: #37618b;
+  --manu-info-wash: rgb(55 97 139 / 12%);
+
+  --manu-scrim: rgb(15 15 16 / 40%);
+  --manu-shadow-raised: 0 1px 2px rgb(15 15 16 / 10%);
+  --manu-shadow-overlay: 0 16px 48px rgb(15 15 16 / 20%);
+}
+
+/* Follow the operating system until the writer chooses for themselves. */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    color-scheme: light;
+
+    --manu-bg: var(--manu-paper);
+    --manu-surface: #efede9;
+    --manu-surface-raised: #e7e4df;
+    --manu-surface-sunken: #fbfaf8;
+
+    --manu-ink: var(--manu-black);
+    --manu-ink-muted: #55555a;
+    --manu-ink-subtle: var(--manu-graphite);
+    --manu-ink-inverse: var(--manu-paper);
+
+    --manu-border: #d8d4cd;
+    --manu-border-strong: #bdb8af;
+
+    --manu-accent: var(--manu-manuscript-red);
+    --manu-accent-strong: #a82820;
+    --manu-accent-text: #a82820;
+    --manu-accent-on: var(--manu-paper);
+    --manu-accent-wash: rgb(197 49 40 / 12%);
+
+    --manu-focus: var(--manu-manuscript-red);
+    --manu-selection: rgb(197 49 40 / 22%);
+
+    --manu-success: #2f7d51;
+    --manu-success-wash: rgb(47 125 81 / 12%);
+    --manu-warning: #8a5b12;
+    --manu-warning-wash: rgb(138 91 18 / 12%);
+    --manu-error: #8e1f22;
+    --manu-error-wash: rgb(142 31 34 / 12%);
+    --manu-info: #37618b;
+    --manu-info-wash: rgb(55 97 139 / 12%);
+
+    --manu-scrim: rgb(15 15 16 / 40%);
+    --manu-shadow-raised: 0 1px 2px rgb(15 15 16 / 10%);
+    --manu-shadow-overlay: 0 16px 48px rgb(15 15 16 / 20%);
+  }
+}

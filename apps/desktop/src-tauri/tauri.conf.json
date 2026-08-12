@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "JellyTind",
-  "version": "0.0.0",
-  "identifier": "app.jellytind.desktop",
+  "productName": "Manu",
+  "version": "0.1.0-alpha",
+  "identifier": "com.manu.app",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "JellyTind",
+        "title": "Manu",
         "width": 1280,
         "height": 832,
         "minWidth": 900,
@@ -21,12 +21,21 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost"
     }
   },
   "bundle": {
     "active": true,
-    "targets": "all",
-    "icon": ["icons/icon.png"]
+    "targets": ["appimage", "deb"],
+    "category": "Productivity",
+    "shortDescription": "A writing IDE for fiction.",
+    "longDescription": "Manu is an AI-native fiction development environment. A project is a folder of plain files you own; the story's structure — state, knowledge, relationships, chronology, objects, threads and causality — is recorded alongside the manuscript so continuity can be checked, tested, debugged and refactored deterministically.",
+    "copyright": "Manu",
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.png"],
+    "linux": {
+      "deb": {
+        "depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0"]
+      }
+    }
   }
 }

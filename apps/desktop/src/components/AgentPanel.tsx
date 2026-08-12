@@ -122,8 +122,12 @@ export function AgentPanel({ repo, secrets, onActivityLine }: Props) {
 
       {lines.length > 0 && (
         <section className="agent__section">
-          <h3>Activity</h3>
-          <ul className="agent__activity">
+          {/* What ran, against what — not what the model was thinking. Private
+              reasoning is never requested, stored or shown. */}
+          <h3>
+            Activity <span className="agent__count">{lines.length} step(s)</span>
+          </h3>
+          <ul className="agent__activity" aria-live="polite" aria-label="Agent activity">
             {lines.map((line, i) => (
               <li key={`${String(i)}-${line}`}>{line}</li>
             ))}

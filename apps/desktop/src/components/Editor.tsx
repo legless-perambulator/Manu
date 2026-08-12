@@ -77,17 +77,32 @@ export function Editor({ repo, path, onSaved, sceneId = null, onRunEdit, aiBusy 
   if (path === null) {
     return (
       <div className="editor editor--empty">
-        <p className="placeholder">Select a file from the project explorer to start editing.</p>
+        <div className="empty">
+          <p className="empty__title">Nothing open</p>
+          <p className="empty__body">
+            Pick a chapter in Files to start writing, or press <kbd className="kbd">⌘K</kbd> to go
+            anywhere in the project.
+          </p>
+        </div>
       </div>
     );
   }
 
+  // Manuscript prose is set as prose. The records that describe it are data,
+  // and are set as data.
+  const prose = path.startsWith("manuscript/");
+
   return (
     <div className="editor">
       <div className="editor__bar">
-        <span className="editor__path">
+        <span className="editor__path" title={path}>
           {path}
-          {dirty ? " •" : ""}
+          {dirty && (
+            <span className="editor__dirty" title="Unsaved changes">
+              {" "}
+              • unsaved
+            </span>
+          )}
         </span>
         <button
           className="btn btn--primary"
@@ -97,7 +112,11 @@ export function Editor({ repo, path, onSaved, sceneId = null, onRunEdit, aiBusy 
           {saving ? "Saving…" : "Save"}
         </button>
       </div>
-      {error !== null && <p className="editor__error">{error}</p>}
+      {error !== null && (
+        <p className="editor__error" role="alert">
+          {error}
+        </p>
+      )}
       {onRunEdit !== undefined && (
         <AiEditBar
           selection={selection}
@@ -110,9 +129,10 @@ export function Editor({ repo, path, onSaved, sceneId = null, onRunEdit, aiBusy 
       )}
       <textarea
         ref={area}
-        className="editor__area"
+        className={`editor__area${prose ? " editor__area--prose" : " editor__area--data"}`}
+        aria-label={path}
         value={content}
-        spellCheck={false}
+        spellCheck={prose}
         disabled={!loaded}
         onSelect={captureSelection}
         onBlur={captureSelection}

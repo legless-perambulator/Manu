@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "JellyTind desktop application (Tauri + React).",
+  "description": "Manu desktop application (Tauri + React).",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
