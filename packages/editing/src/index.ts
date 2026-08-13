@@ -42,3 +42,6 @@ export type {
   DependencyProposal,
   ProposedDependency,
 } from "./dependency-analyst";
+
+export { VoiceAnalyst, REJECTION_PATTERN_THRESHOLD } from "./voice-analyst";
+export type { TendencyDraft, RejectionInsight } from "./voice-analyst";

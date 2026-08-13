@@ -4,6 +4,7 @@ import type { ProjectReader } from "../reader";
 import { stripFrontmatter } from "../render";
 import { gatherSceneInspection } from "./scene-inspection";
 import { byId, provenance, readSnapshot, type ProjectSnapshot } from "./shared";
+import { voiceCandidates } from "./voice";
 
 /** Where authored style material lives in a project (docs/STORY_REPOSITORY.md). */
 const STYLE_DIR = "style";
@@ -55,6 +56,15 @@ export async function gatherSceneRewrite(
       full: text,
     });
   }
+
+  // The author's own voice profile, retrieved for this operation only.
+  candidates.push(
+    ...(await voiceCandidates(reader, {
+      operation: "rewrite_scene",
+      ...(scene.pov !== undefined ? { povCharacterId: scene.pov as string } : {}),
+      relatedIds: [scene.id],
+    })),
+  );
 
   // Voice material for the POV character first, then the other participants.
   const speakers = [

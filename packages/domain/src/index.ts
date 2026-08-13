@@ -40,6 +40,38 @@ export {
 export type { Branch, BranchId, BranchStatus } from "./branching";
 
 export {
+  VOICE_CATEGORIES,
+  VOICE_SCOPES,
+  SCOPE_PRECEDENCE,
+  RULE_KINDS,
+  SAMPLE_STANCES,
+  POSITIVE_STANCES,
+  NEGATIVE_STANCES,
+  TENDENCY_STATUSES,
+  CATEGORIES_FOR_OPERATION,
+  isPositiveEvidence,
+  isNegativeEvidence,
+  isEvidence,
+  categoriesFor,
+  describeRule,
+  scopeRank,
+} from "./voice";
+export type {
+  AuthorVoiceProfile,
+  VoiceCategory,
+  VoiceScope,
+  VoiceRule,
+  VoiceRuleId,
+  VoiceSample,
+  VoiceSampleId,
+  VoiceTendency,
+  VoiceTendencyId,
+  SampleStance,
+  RuleKind,
+  TendencyStatus,
+} from "./voice";
+
+export {
   orderChapters,
   orderScenes,
   adjacentChapters,

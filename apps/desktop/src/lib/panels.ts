@@ -13,6 +13,7 @@ export const LEFT_PANELS = [
   "search",
   "history",
   "versions",
+  "voice",
   "state",
   "knowledge",
   "relations",
@@ -71,6 +72,12 @@ export const PANELS: readonly PanelDefinition[] = [
     group: "project",
     label: "Versions",
     purpose: "Alternative versions of the whole story",
+  },
+  {
+    id: "voice",
+    group: "project",
+    label: "Voice",
+    purpose: "What Manu thinks your style is, and your rules for it",
   },
   {
     id: "state",

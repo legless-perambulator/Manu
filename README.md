@@ -18,7 +18,7 @@ This is **not** a chatbot with a writing editor attached. It lets AI agents insp
 
 ## Status
 
-**Phase 21 complete** — `0.1.0-alpha`, with distributable Linux AppImage and Flatpak packages.
+**Phase 22 complete** — `0.1.0-alpha`, with distributable Linux AppImage and Flatpak packages.
 Implemented and tested so far:
 
 - **Phase 0** — monorepo, tooling, stable branded entity IDs, persistence and
@@ -128,6 +128,15 @@ Implemented and tested so far:
   records matched by stable ID; merges take only what is unambiguous and report
   the rest as conflicts, because fiction does not merge like code. The build
   belongs to the branch that produced it.
+
+- **Phase 22** — the Author Voice system: a persistent, inspectable model of
+  how the writer writes, and deliberately **not** one enormous system prompt.
+  Rules they stated, passages they marked, and tendencies a model observed —
+  each labelled, evidenced and proposed rather than assumed. The Context
+  Compiler retrieves only the slice an operation needs, so a dialogue rewrite is
+  not handed preferences about landscape. Rules carrying a phrase are checked
+  exactly; rules that need a reading are reported as unchecked rather than
+  passed. Nothing is inferred from a single rejection.
 
 Implementation proceeds as vertical slices — see
 [`docs/ROADMAP.md`](docs/ROADMAP.md) and

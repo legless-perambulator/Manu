@@ -146,6 +146,8 @@ import { TransitionStore } from "./state-store";
 import { TimelineStore } from "./timeline-store";
 import { BuildStore } from "./build-store";
 import { TestStore } from "./test-store";
+import type { VoiceRule, VoiceTendency } from "@jellytind/domain";
+import { VoiceStore } from "./voice-store";
 import { DebugStore } from "./debug-store";
 import { DependencyStore } from "./dependency-store";
 import { RefactorStore } from "./refactor-store";
@@ -271,6 +273,8 @@ export class StoryRepository {
   private readonly timeline: TimelineStore;
   private readonly builds: BuildStore;
   private readonly tests: TestStore;
+  /** The Author Voice profile for this project (docs/AUTHOR_VOICE.md). */
+  readonly voice: VoiceStore;
   private readonly debugReports: DebugStore;
   private readonly dependencies: DependencyStore;
   private readonly refactors: RefactorStore;
@@ -302,6 +306,7 @@ export class StoryRepository {
     // Journaled: a story test is the writer's stated intention, and as authored
     // as any other piece of canon.
     this.tests = new TestStore(this.store);
+    this.voice = new VoiceStore(this.store);
     // Not journaled, for the same reason as builds: investigating a problem is
     // not a change to the story.
     this.debugReports = new DebugStore(rawStore);
@@ -1143,6 +1148,19 @@ export class StoryRepository {
   // ── Story tests ─────────────────────────────────────────────────────────────
 
   /** Every story test, enabled or not. */
+  /**
+   * The Author Voice slice for one operation — the Context Compiler's source.
+   * Only the writer's rules and confirmed tendencies; a proposed reading has
+   * never been agreed to (docs/AUTHOR_VOICE.md).
+   */
+  authorVoice(options: {
+    operation?: string;
+    characterId?: string;
+    povCharacterId?: string;
+  }): Promise<{ rules: readonly VoiceRule[]; tendencies: readonly VoiceTendency[] }> {
+    return this.voice.forOperation(options);
+  }
+
   listStoryTests(): Promise<StoryTest[]> {
     return this.tests.list();
   }

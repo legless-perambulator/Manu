@@ -16,6 +16,7 @@ import type { Theme } from "../lib/theme";
 import { CommandPalette, type Command } from "./CommandPalette";
 import { Wordmark } from "./Wordmark";
 import { VersionsPanel } from "./VersionsPanel";
+import { VoicePanel } from "./VoicePanel";
 import { openOnBranch, type ProjectSession } from "../repo/session";
 import { ProjectExplorer } from "./ProjectExplorer";
 import { EntitiesPanel } from "./EntitiesPanel";
@@ -456,6 +457,9 @@ export function Workspace({
               onSwitch={(branchId) => setPendingSwitch(branchId)}
               onChanged={refresh}
             />
+          )}
+          {tab === "voice" && (
+            <VoicePanel repo={repo} refreshToken={refreshToken} onChanged={refresh} />
           )}
           {tab === "history" && (
             <HistoryPanel

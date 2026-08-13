@@ -1,4 +1,6 @@
 import type {
+  VoiceRule,
+  VoiceTendency,
   Chapter,
   Character,
   Fact,
@@ -55,6 +57,18 @@ export interface ProjectReader {
   /** Registered setups and payoffs. Optional: a project may record none. */
   listSetups?(): Promise<Setup[]>;
   listTemporalLinks?(): Promise<TemporalLink[]>;
+
+  /**
+   * The slice of the Author Voice profile that bears on this operation.
+   *
+   * Optional: a fixture project satisfies `ProjectReader` without a voice
+   * profile, and the section is simply absent rather than empty.
+   */
+  authorVoice?(options: {
+    operation?: string;
+    characterId?: string;
+    povCharacterId?: string;
+  }): Promise<{ rules: readonly VoiceRule[]; tendencies: readonly VoiceTendency[] }>;
 
   listProjectFiles(prefix?: string): Promise<string[]>;
   readProjectFile(path: string): Promise<string | null>;

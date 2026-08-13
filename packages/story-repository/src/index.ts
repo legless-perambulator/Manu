@@ -93,3 +93,6 @@ export type {
   MergeConflict,
   MergeResult,
 } from "./branches";
+
+export { VoiceStore, checkVoiceRules } from "./voice-store";
+export type { RuleHit, VoiceCheckResult } from "./voice-store";
