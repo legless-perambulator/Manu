@@ -178,3 +178,32 @@ export type {
   SkillStepRecord,
   SkillStepStatus,
 } from "./skills";
+
+export {
+  ARTIFACT_KINDS,
+  REVIEW_STANCES,
+  ROUTING_CLASSES,
+  WORKFLOW_RUN_STATUSES,
+  WORKFLOW_NODE_STATUSES,
+  EMPTY_COST,
+  flattenNodes,
+  summariseWorkflowRun,
+  isAwaitingApproval,
+  isWorkflowResumable,
+  describeWorkflowNode,
+} from "./orchestration";
+export type {
+  ArtifactKind,
+  Disagreement,
+  PendingApproval,
+  ReviewNote,
+  ReviewStance,
+  RoutingClass,
+  RunCost,
+  WorkflowArtifact,
+  WorkflowNodeRecord,
+  WorkflowNodeStatus,
+  WorkflowRun,
+  WorkflowRunStatus,
+  WorkflowRunSummary,
+} from "./orchestration";

@@ -48,3 +48,6 @@ export type { TendencyDraft, RejectionInsight } from "./voice-analyst";
 
 export { ModelSkillAnalyst } from "./skill-analyst";
 export type { ModelSkillAnalystOptions } from "./skill-analyst";
+
+export { ModelAgentWorkExecutor } from "./agent-work-executor";
+export type { ModelAgentWorkExecutorOptions } from "./agent-work-executor";

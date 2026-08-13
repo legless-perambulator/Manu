@@ -18,6 +18,7 @@
     "@jellytind/domain": "workspace:*",
     "@jellytind/editing": "workspace:*",
     "@jellytind/model-router": "workspace:*",
+    "@jellytind/orchestration": "workspace:*",
     "@jellytind/persistence": "workspace:*",
     "@jellytind/provider-anthropic": "workspace:*",
     "@jellytind/shared": "workspace:*",

@@ -38,6 +38,7 @@ import { BuildPanel } from "./BuildPanel";
 import { StoryTestPanel } from "./StoryTestPanel";
 import { DebugPanel } from "./DebugPanel";
 import { SkillsPanel } from "./SkillsPanel";
+import { WorkflowPanel } from "./WorkflowPanel";
 import { CausalityPanel } from "./CausalityPanel";
 import { RefactorPanel } from "./RefactorPanel";
 
@@ -437,6 +438,18 @@ export function Workspace({
               }}
               onOpenScene={(sceneId) => {
                 void openScene(sceneId);
+              }}
+            />
+          )}
+          {tab === "workflows" && (
+            <WorkflowPanel
+              repo={repo}
+              secrets={secrets}
+              refreshToken={refreshToken}
+              onChanged={refresh}
+              onSelectEntity={(id) => {
+                setSelectedEntityId(id);
+                setRightTab("inspector");
               }}
             />
           )}

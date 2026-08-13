@@ -2150,3 +2150,41 @@ code {
 .badge--proposal {
   color: var(--manu-accent-text);
 }
+
+/* ── Multi-agent workflows ───────────────────────────────── */
+/* The workflow is exposed, not hidden: who is working, what they produced, and
+   where the run is waiting for the writer. */
+.skill__steps--nested {
+  margin: 4px 0 0 14px;
+  font-size: var(--manu-text-xs);
+}
+.skill__step--awaiting_approval {
+  border-left-color: var(--manu-accent);
+  background: var(--manu-surface-raised);
+}
+.workflow__position {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  margin-top: 4px;
+  font-size: var(--manu-text-sm);
+  cursor: pointer;
+}
+.workflow__artifact {
+  margin: 6px 0 0;
+  padding: 8px 10px;
+  background: var(--manu-surface-raised);
+  border: 1px solid var(--manu-border);
+  border-radius: var(--manu-radius-sm);
+  font-family: var(--manu-font-mono);
+  font-size: var(--manu-text-xs);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  max-height: 260px;
+  overflow: auto;
+}
+.badge--awaiting_approval,
+.badge--rejected {
+  color: var(--manu-accent-text);
+  border-color: var(--manu-accent);
+}

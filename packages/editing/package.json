@@ -15,6 +15,7 @@
     "@jellytind/context-compiler": "workspace:*",
     "@jellytind/domain": "workspace:*",
     "@jellytind/model-router": "workspace:*",
+    "@jellytind/orchestration": "workspace:*",
     "@jellytind/shared": "workspace:*",
     "@jellytind/skills": "workspace:*",
     "@jellytind/story-debugger": "workspace:*",

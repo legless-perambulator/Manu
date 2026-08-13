@@ -9,6 +9,7 @@ import {
   type SecretStore,
 } from "@jellytind/model-router";
 import { AnthropicProvider, type FetchLike } from "@jellytind/provider-anthropic";
+import { ROUTING_CLASSES, type RoutingClass } from "@jellytind/domain";
 import { isTauri } from "../tauri";
 
 /**
@@ -173,4 +174,58 @@ export function explainModelError(error: unknown): string {
     default:
       return `Provider error: ${error.message}`;
   }
+}
+
+/**
+ * Which model each class of workflow work uses.
+ *
+ * Different agents may use different models: structure wants reasoning, prose
+ * wants a prose model, bulk review is fine on something smaller, and metadata
+ * wants none at all. Stored per machine like the model choice itself, and
+ * defaulting to the configured model so a writer who has set one thing up has
+ * set all of it up (docs/ORCHESTRATION.md).
+ */
+export type RoutingSettings = Partial<Record<RoutingClass, ModelSettings>>;
+
+const ROUTING_KEY = "jellytind.routing-settings";
+
+export function loadRoutingSettings(): RoutingSettings {
+  try {
+    const raw = window.localStorage.getItem(ROUTING_KEY);
+    if (raw === null) return {};
+    const parsed = JSON.parse(raw) as RoutingSettings;
+    return typeof parsed === "object" && parsed !== null ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+export function saveRoutingSettings(settings: RoutingSettings): void {
+  try {
+    window.localStorage.setItem(ROUTING_KEY, JSON.stringify(settings));
+  } catch {
+    // Not fatal: the routing simply falls back to the configured model.
+  }
+}
+
+/** The model settings a routing class resolves to, falling back to the default. */
+export function settingsForClass(
+  routingClass: RoutingClass,
+  routing: RoutingSettings = loadRoutingSettings(),
+  fallback: ModelSettings = loadModelSettings(),
+): ModelSettings {
+  return routing[routingClass] ?? fallback;
+}
+
+/** The routing table the orchestrator runs against: class → model id. */
+export function routingTable(): { models: Partial<Record<RoutingClass, string>> } {
+  const routing = loadRoutingSettings();
+  const fallback = loadModelSettings();
+  const models: Partial<Record<RoutingClass, string>> = {};
+  for (const routingClass of ROUTING_CLASSES) {
+    if (routingClass === "local_metadata") continue;
+    const chosen = settingsForClass(routingClass, routing, fallback);
+    if (chosen.modelId !== "") models[routingClass] = chosen.modelId;
+  }
+  return { models };
 }

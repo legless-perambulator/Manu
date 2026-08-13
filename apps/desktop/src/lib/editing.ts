@@ -2,13 +2,14 @@ import {
   DependencyAnalyst,
   DiagnosisAnalyst,
   ManuscriptEditor,
+  ModelAgentWorkExecutor,
   ModelSkillAnalyst,
 } from "@jellytind/editing";
 import type { PermissionGrant } from "@jellytind/agent-runtime";
 import type { SecretStore } from "@jellytind/model-router";
 import type { StoryRepository } from "@jellytind/story-repository";
 import { RefactorPlanner } from "@jellytind/story-refactor";
-import { createConfiguredModel, loadModelSettings } from "./models";
+import { createConfiguredModel, loadModelSettings, settingsForClass } from "./models";
 
 /**
  * The permission grant AI editing runs under.
@@ -142,4 +143,29 @@ export async function createSkillAnalyst(secrets: SecretStore): Promise<ModelSki
   } catch {
     return null;
   }
+}
+
+/**
+ * Build the executor a multi-agent workflow's steps run through.
+ *
+ * Each step's routing class resolves to its own configured model, so a
+ * premium-prose draft and a cheap-analysis review can genuinely run on
+ * different models. With nothing configured this returns `null`, and the
+ * workflow's agent steps are skipped with a stated reason while its
+ * deterministic nodes — checkpoint, build — still run (docs/ORCHESTRATION.md).
+ */
+export async function createAgentWorkExecutor(
+  repo: StoryRepository,
+  secrets: SecretStore,
+): Promise<ModelAgentWorkExecutor | null> {
+  try {
+    // One probe: if the default model cannot be built, nothing here can run.
+    await createConfiguredModel(loadModelSettings(), secrets);
+  } catch {
+    return null;
+  }
+  return new ModelAgentWorkExecutor({
+    repo,
+    modelFor: (routingClass) => createConfiguredModel(settingsForClass(routingClass), secrets),
+  });
 }

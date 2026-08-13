@@ -4,7 +4,7 @@ How agents are orchestrated. Do not build one monolithic "Writer AI"; build a pr
 
 - **Package:** `@jellytind/agent-runtime`
 - **Depends on:** `@jellytind/domain`, `@jellytind/model-router`, `@jellytind/persistence`, `@jellytind/search`, `@jellytind/shared`
-- **Status (Phase 7, extended in Phase 24):** The task system, permission model, tool registry, executor, activity log and the **read-only Investigator agent** are **implemented and tested**, with tasks and activity persisted in the project. The **nine writing specialists** are implemented as configurations enforced by the same permission machinery ([SPECIALIST_AGENTS.md](SPECIALIST_AGENTS.md)). The orchestrator and multi-agent workflows remain **PLANNED** (V3). See [AGENT_TOOLS.md](AGENT_TOOLS.md).
+- **Status (Phase 7, extended in Phases 24 and 26):** The task system, permission model, tool registry, executor, activity log and the **read-only Investigator agent** are **implemented and tested**, with tasks and activity persisted in the project. The **nine writing specialists** are implemented as configurations enforced by the same permission machinery ([SPECIALIST_AGENTS.md](SPECIALIST_AGENTS.md)). **Multi-agent workflows** are implemented as controlled orchestration in Phase 26 ([ORCHESTRATION.md](ORCHESTRATION.md)); an Author Agent that chooses the workflow from a sentence remains **PLANNED**. See [AGENT_TOOLS.md](AGENT_TOOLS.md).
 
 ## Task system
 
@@ -168,9 +168,9 @@ Users can create specialist agents (e.g. _Grimdark Editor_, _Golden Age Mystery 
 
 Reusable agent workflows invoked like commands, e.g. `/murder-mystery-audit`, `/character-pass CHAR_MARA`, `/dialogue-pass`, `/pacing-audit`, `/continuity-audit`, `/foreshadowing-audit`, `/remove-ai-tendencies`, `/copy-edit`, `/reader-confusion-test`. A skill is a defined multi-step workflow (deterministic steps around bounded model steps). Skills should eventually be shareable/installable. See [ROADMAP.md](ROADMAP.md).
 
-## Multi-agent coordination — PLANNED
+## Multi-agent coordination
 
-Specialists cooperate through controlled orchestration, not endless uncontrolled agent conversations. The orchestrator decides when a specialist is useful; agents pass **structured outputs**.
+**Implemented in Phase 26** — see [ORCHESTRATION.md](ORCHESTRATION.md). Specialists cooperate through controlled orchestration, not endless uncontrolled agent conversations. The workflow engine decides when a specialist is useful; agents pass **structured artifacts**, disagreement is surfaced rather than resolved by whoever ran last, and nothing reaches the manuscript without a checkpoint and the writer's approval.
 
 ```
 Architect → Scene Director → Drafter → Character Editor → Continuity Editor → Prose Editor → Story Compiler

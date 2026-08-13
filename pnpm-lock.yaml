@@ -59,6 +59,9 @@ importers:
       '@jellytind/model-router':
         specifier: workspace:*
         version: link:../../packages/model-router
+      '@jellytind/orchestration':
+        specifier: workspace:*
+        version: link:../../packages/orchestration
       '@jellytind/persistence':
         specifier: workspace:*
         version: link:../../packages/persistence
@@ -177,6 +180,9 @@ importers:
       '@jellytind/model-router':
         specifier: workspace:*
         version: link:../model-router
+      '@jellytind/orchestration':
+        specifier: workspace:*
+        version: link:../orchestration
       '@jellytind/shared':
         specifier: workspace:*
         version: link:../shared
@@ -198,6 +204,21 @@ importers:
       '@jellytind/shared':
         specifier: workspace:*
         version: link:../shared
+
+  packages/orchestration:
+    dependencies:
+      '@jellytind/agent-runtime':
+        specifier: workspace:*
+        version: link:../agent-runtime
+      '@jellytind/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@jellytind/shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@jellytind/story-repository':
+        specifier: workspace:*
+        version: link:../story-repository
 
   packages/persistence:
     dependencies:

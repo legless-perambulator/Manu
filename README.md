@@ -18,7 +18,7 @@ This is **not** a chatbot with a writing editor attached. It lets AI agents insp
 
 ## Status
 
-**Phase 25 complete** — `0.1.0-alpha`, with distributable Linux AppImage and Flatpak packages.
+**Phase 26 complete** — `0.1.0-alpha`, with distributable Linux AppImage and Flatpak packages.
 Implemented and tested so far:
 
 - **Phase 0** — monorepo, tooling, stable branded entity IDs, persistence and
@@ -170,6 +170,19 @@ Implemented and tested so far:
   compose their own from the same operation registry, as a file in the project.
   See [`docs/WRITING_SKILLS.md`](docs/WRITING_SKILLS.md).
 
+- **Phase 26** — controlled multi-agent orchestration: _develop and draft
+  Chapter 17_ becomes a workflow the writer watches run. Architect → Scene
+  Director → **approve** → Drafter → three editors in parallel → merge →
+  checkpoint → **approve** → write → build, with a conditional diagnosis if the
+  build breaks. Specialists never talk to each other: they hand back typed
+  artifacts — chapter brief, scene plan, draft, continuity report — each
+  validated before the next agent sees it. Where the editors want different
+  things for the same scene, **both positions are kept** and the writer settles
+  it; approval is refused while a disagreement is open. Steps declare a routing
+  class rather than a model, and the run counts calls and tokens per class
+  without inventing money. See
+  [`docs/ORCHESTRATION.md`](docs/ORCHESTRATION.md).
+
 Implementation proceeds as vertical slices — see
 [`docs/ROADMAP.md`](docs/ROADMAP.md) and
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
@@ -180,7 +193,8 @@ Implementation proceeds as vertical slices — see
 apps/desktop/            Tauri + React desktop shell
 packages/                domain, persistence, model-router, story-compiler,
                          story-debugger, story-causality, story-refactor,
-                         agent-runtime, context-compiler, editing, search, skills,
+                         agent-runtime, context-compiler, editing, orchestration,
+                         search, skills,
                          story-repository, story-state, shared,
                          providers/anthropic
 docs/                    living architecture documentation

@@ -152,6 +152,7 @@ import { CharacterVoiceStore } from "./character-voice-store";
 import { representativeLines } from "./character-voice";
 import { DebugStore } from "./debug-store";
 import { SkillRunStore } from "./skill-run-store";
+import { WorkflowRunStore } from "./workflow-run-store";
 import { DependencyStore } from "./dependency-store";
 import { RefactorStore } from "./refactor-store";
 import { ProjectSearch } from "./project-search";
@@ -282,6 +283,8 @@ export class StoryRepository {
   readonly characterVoices: CharacterVoiceStore;
   /** Runs of Writing Skills, resumable (docs/WRITING_SKILLS.md). */
   readonly skillRuns: SkillRunStore;
+  /** Multi-agent workflow runs and their handoffs (docs/ORCHESTRATION.md). */
+  readonly workflowRuns: WorkflowRunStore;
   private readonly debugReports: DebugStore;
   private readonly dependencies: DependencyStore;
   private readonly refactors: RefactorStore;
@@ -321,6 +324,9 @@ export class StoryRepository {
     // Not journaled either: running a skill audits the story, it does not
     // change it. The run record is an audit trail, not a revision.
     this.skillRuns = new SkillRunStore(rawStore);
+    // Likewise: orchestrating agents is not a change to the story. The changes
+    // a workflow commits are ordinary change sets, and the run records them.
+    this.workflowRuns = new WorkflowRunStore(rawStore);
     // Journaled: a registered dependency is the author's claim about how their
     // story holds together, as authored as a plot thread.
     this.dependencies = new DependencyStore(this.store);
