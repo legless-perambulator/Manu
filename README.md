@@ -18,7 +18,7 @@ This is **not** a chatbot with a writing editor attached. It lets AI agents insp
 
 ## Status
 
-**Phase 27 complete** — `0.1.0-alpha`, with distributable Linux AppImage and Flatpak packages.
+**Phase 28 complete** — `0.1.0-alpha`, with distributable Linux AppImage and Flatpak packages.
 Implemented and tested so far:
 
 - **Phase 0** — monorepo, tooling, stable branded entity IDs, persistence and
@@ -198,6 +198,21 @@ Implemented and tested so far:
   from there with the reader who finished chapter three. See
   [`docs/SIMULATIONS.md`](docs/SIMULATIONS.md).
 
+- **Phase 28** — the Character Simulator: _would Mara really enter the house
+  alone here?_ Everything about her is reconstructed at the boundary
+  **entering** the scene, and the two things that would ruin the answer are
+  excluded by construction — nothing from later in the book, and no proposition
+  she has not been told, which is counted and withheld rather than handed over.
+  Personality is the author's own: a model may propose a trait, but only
+  confirmed ones reach a simulation. Hard contradictions are settled by the
+  project — recorded elsewhere, recorded deceased, or acting on information
+  nobody gave her; everything a model raises is a labelled reading. There is no
+  percentage anywhere, and a test asserts it: a band with its reasoning, and the
+  counts behind it stated as counts. Counterfactuals and conditions are
+  advisory and applied to nothing, and an agency audit finds where someone acts
+  because the plot needs them to. See
+  [`docs/SIMULATIONS.md`](docs/SIMULATIONS.md).
+
 Implementation proceeds as vertical slices — see
 [`docs/ROADMAP.md`](docs/ROADMAP.md) and
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
@@ -208,8 +223,8 @@ Implementation proceeds as vertical slices — see
 apps/desktop/            Tauri + React desktop shell
 packages/                domain, persistence, model-router, story-compiler,
                          story-debugger, story-causality, story-refactor,
-                         agent-runtime, context-compiler, editing, orchestration,
-                         reader-sim, search, skills,
+                         agent-runtime, character-sim, context-compiler, editing,
+                         orchestration, reader-sim, search, skills,
                          story-repository, story-state, shared,
                          providers/anthropic
 docs/                    living architecture documentation

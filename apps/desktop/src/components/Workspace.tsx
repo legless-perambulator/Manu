@@ -40,6 +40,7 @@ import { DebugPanel } from "./DebugPanel";
 import { SkillsPanel } from "./SkillsPanel";
 import { WorkflowPanel } from "./WorkflowPanel";
 import { ReadersPanel } from "./ReadersPanel";
+import { BehaviourPanel } from "./BehaviourPanel";
 import { CausalityPanel } from "./CausalityPanel";
 import { RefactorPanel } from "./RefactorPanel";
 
@@ -418,6 +419,7 @@ export function Workspace({
               secrets={secrets}
               refreshToken={refreshToken}
               onChanged={refresh}
+              onSimulateBehaviour={() => setTab("behaviour")}
               onSelectEntity={(id) => {
                 setSelectedEntityId(id);
                 setRightTab("inspector");
@@ -463,6 +465,21 @@ export function Workspace({
               onSelectEntity={(id) => {
                 setSelectedEntityId(id);
                 setRightTab("inspector");
+              }}
+            />
+          )}
+          {tab === "behaviour" && (
+            <BehaviourPanel
+              repo={repo}
+              secrets={secrets}
+              refreshToken={refreshToken}
+              onChanged={refresh}
+              onSelectEntity={(id) => {
+                setSelectedEntityId(id);
+                setRightTab("inspector");
+              }}
+              onOpenScene={(id) => {
+                void openScene(id);
               }}
             />
           )}

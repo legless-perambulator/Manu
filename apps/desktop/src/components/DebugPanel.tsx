@@ -18,6 +18,8 @@ interface Props {
   onChanged: () => void;
   onSelectEntity: (id: string) => void;
   onOpenScene: (sceneId: string) => void;
+  /** Hand a motivation question to the Character Simulator. */
+  onSimulateBehaviour: () => void;
 }
 
 /** Which pickers each mode needs, and which of them it cannot work without. */
@@ -72,6 +74,7 @@ export function DebugPanel({
   onChanged,
   onSelectEntity,
   onOpenScene,
+  onSimulateBehaviour,
 }: Props) {
   const [mode, setMode] = useState<DebugMode>("reveal");
   const [problem, setProblem] = useState("");
@@ -295,6 +298,17 @@ export function DebugPanel({
           >
             Gather and diagnose
           </button>
+          {mode === "character_motivation" &&
+            values.characterId !== undefined &&
+            values.sceneId !== undefined && (
+              // The same question from the other direction: the debugger asks
+              // why a decision feels forced; the simulator asks whether they
+              // would do it at all, over the same reconstructed state
+              // (docs/SIMULATIONS.md).
+              <button className="btn btn--ghost btn--small" onClick={onSimulateBehaviour}>
+                Simulate the decision
+              </button>
+            )}
         </div>
         <p className="hint">
           Diagnosing asks the model to interpret the evidence. Its reading is labelled as such and

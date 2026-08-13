@@ -3,6 +3,7 @@ import {
   DiagnosisAnalyst,
   ManuscriptEditor,
   ModelAgentWorkExecutor,
+  ModelCharacterAnalyst,
   ModelReaderAnalyst,
   ModelSkillAnalyst,
 } from "@jellytind/editing";
@@ -184,6 +185,22 @@ export async function createReaderAnalyst(
   try {
     const model = await createConfiguredModel(loadModelSettings(), secrets);
     return new ModelReaderAnalyst({ model });
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Build the judge a character simulation uses, or `null` when no model is
+ * configured — in which case the deterministic half still runs and says what it
+ * could not weigh (docs/SIMULATIONS.md).
+ */
+export async function createCharacterAnalyst(
+  secrets: SecretStore,
+): Promise<ModelCharacterAnalyst | null> {
+  try {
+    const model = await createConfiguredModel(loadModelSettings(), secrets);
+    return new ModelCharacterAnalyst({ model });
   } catch {
     return null;
   }

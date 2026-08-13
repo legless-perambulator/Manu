@@ -54,3 +54,6 @@ export type { ModelAgentWorkExecutorOptions } from "./agent-work-executor";
 
 export { ModelReaderAnalyst } from "./reader-analyst";
 export type { ModelReaderAnalystOptions } from "./reader-analyst";
+
+export { ModelCharacterAnalyst } from "./character-analyst";
+export type { ModelCharacterAnalystOptions } from "./character-analyst";

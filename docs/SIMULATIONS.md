@@ -7,10 +7,14 @@ Reader and character simulation systems used to test narrative behaviour. Both p
   `@jellytind/context-compiler` (the `reader_sequential` recipe),
   `@jellytind/story-repository` (persistence), `@jellytind/editing` (the reader
   as a model call)
-- **Status:** **Reader Simulator implemented and tested (Phase 27).** Four
-  shipped profiles plus the writer's own, persistent per-chapter state, the ten
-  questions, charts over story progression, staleness detection and re-running
-  from an affected chapter. The **Character Simulator remains PLANNED** (V4).
+- **Status:** **Both implemented and tested.** Reader Simulator (Phase 27):
+  four shipped profiles plus the writer's own, persistent per-chapter state,
+  the ten questions, charts over story progression, staleness detection and
+  re-running from an affected chapter. Character Simulator (Phase 28):
+  author-confirmed personality, state compiled at a story point, the behaviour
+  test, counterfactuals, the agency audit and Story Debugger integration.
+- **Also:** `@jellytind/character-sim` (the snapshot, the test, the audit),
+  `@jellytind/story-repository` (`personalities`).
 
 ## Reader Simulator
 
@@ -158,38 +162,150 @@ without one: interpretation is the whole of what it produces. It **refuses to
 start** rather than offering an empty run — a reader who has read nothing has no
 opinion, and inventing one is the failure this feature exists to avoid.
 
-## Character Simulator — PLANNED
+## Character Simulator
 
-Not "chat with your character." A character simulator receives memories, personality, goals, fears, knowledge, beliefs, relationships, current emotional state, physical state and current circumstances, then challenges proposed story behaviour.
+_Would Mara realistically enter the house alone here?_
 
-Example — _Given everything Mara knows at this point, would she realistically enter the house alone?_
+Not "chat with your character". The question is whether a proposed action
+follows from what this person knows, wants and fears **at this point in the
+story** — and the answer is worthless unless the state is taken at the right
+point.
+
+### The snapshot is the acceptance criterion
+
+Everything is reconstructed at the boundary **entering** the scene, which is
+the only state that can explain a choice made inside it:
+
+| Compiled                                              | From                                  |
+| ----------------------------------------------------- | ------------------------------------- |
+| Character profile, goals, notes                       | the character record                  |
+| Author-confirmed personality                          | `.writer/characters/personality.json` |
+| Physical state: status, presence, location, inventory | state at `{ sceneId, before }`        |
+| Knowledge — **theirs alone**                          | knowledge at that boundary            |
+| Relationships, as they stand at that point            | relationship state at that boundary   |
+| Memories: scenes they were in, nearest first          | scene order                           |
+| Pressures: what they have just learned or lost        | transitions in the last three scenes  |
+| Scene circumstances: purpose, who is present, where   | the scene record                      |
+
+Two exclusions do the real work:
+
+**No future.** State is replayed to the boundary. A transition anchored later
+in the book cannot reach back into it — tested directly: Mara does not hold the
+fact in scene two, holds it in scene four, and her relationship with Elias is
+`wary` at two and `broken` at four.
+
+**No borrowed knowledge.** Propositions the story has established that this
+character does _not_ hold are **counted and withheld**. The briefing says _"1
+other proposition is established that this character does not hold; it is
+deliberately not shown to you"_ — because whether she would walk into the trap
+depends on what _she_ believes. What the reader knows is a different question,
+and mixing the two is how a simulator quietly starts answering it.
+
+### Author-confirmed personality
+
+Ten dimensions — values, fears, temperament, moral lines, under pressure,
+attachments, blind spots, competence, self-image, risk appetite — recorded in
+the author's own words.
+
+Traits carry a status, because a model may **propose** one from the manuscript
+and a proposal is not a fact about the character until the author agrees.
+**Only confirmed traits reach a simulation**: a model's reading of Mara, fed
+back in as Mara's personality, would make every answer agree with the model's
+own guess. A rejected trait is kept — it is the author saying _that is not who
+she is_, which says more than never having recorded it.
+
+### The behaviour test
 
 ```
-CHARACTER SIMULATION
-Proposed action: Mara enters the house alone.
-Consistency: Low
-Primary conflicts:
-  - established fear of enclosed spaces
-  - knows suspect may be present
-  - previously refuses unnecessary physical risk
-  - has access to police backup
-Possible fixes:
-  - remove access to backup
-  - create urgent time pressure
-  - establish overriding personal motive
-  - alter earlier characterisation
+Proposed action          Mara enters the cellar alone.
+
+Potential contradiction  She is recorded at The cellar entering a scene set
+                         somewhere else.                    [from the project]
+
+Model judgement          Strained — possible, but it costs something
+                         Her stated fear is specific and the scene gives her no
+                         pressure to override it.
+                         Would change this: whether the fear is meant to have
+                         been overcome by now.
+                         A reading by <model>, not a measurement. 1 factor for,
+                         2 against — counts, not a score.
+
+Factors supporting       She has said she wants to know who sealed it.
+Factors opposing         Going alone costs her the one corroborating witness.
+                         She is recorded as avoiding confined spaces alone.
+
+What would make it       Take away the option of waiting for Elias.
+more plausible           Costs: Elias loses a scene of presence.
+
+Relevant established     …everything the project records, with its source.
+factors
 ```
 
-Purpose: identify **plot-forced behaviour**. Any plausibility it reports is model judgement, not objective measurement.
+**Hard contradictions are deterministic.** The project settles them: recorded
+deceased, recorded departed, recorded somewhere else, not in the scene at all,
+or — the sharpest, borrowed from the Story Debugger — the action turns on a
+proposition they do not hold at this point. That last one is not a matter of
+taste: the manuscript is asking someone to act on information nobody gave them.
 
-The simulator will draw its inputs from [Story State](STORY_STATE.md) at the relevant story time (what the character knows/feels _then_, not "latest") — the character-side equivalent of the reader's sequential boundary.
+**Everything a model raises is soft**, and labelled a reading.
+
+### No probability
+
+There is no percentage, no score and no probability anywhere in the output, and
+a test asserts it. "Behavioural plausibility: 24%" is a number with no
+instrument, no population and no defined error — it would look like science and
+mean nothing. What the test reports is a **band** with its reasoning, and the
+**counts** behind it stated as counts. The heuristic that maps counts to a band
+is called `heuristicBand`, so nothing can mistake it for a measurement.
+
+### What would they do instead?
+
+Advisory, and applied to nothing. Alternatives come back as options with a band
+and a reason, and the caveat travels with them — a simulator that quietly
+rewrote a scene to whatever a model found more plausible would be replacing the
+author's judgement with its own.
+
+### Character Agency Audit
+
+_Where does someone act because the plot needs them to?_ Mostly a reading — but
+not entirely, and the part that is not is worth finding first. Four
+deterministic signals:
+
+1. **Acting on information they do not have** — a scene turning on a
+   proposition they do not hold.
+2. **A decision with no recorded reason** — the author wrote down that she
+   chose; nothing says why.
+3. **Moved without a reason** — their position or condition changes in a scene
+   where no decision of theirs is recorded. The change may be done _to_ them.
+4. **No goals at all** — not a fault, but nothing can be checked against it, and
+   the audit says so rather than passing silently.
+
+Everything beyond those is model judgement and carries the caveat.
+
+### Motivation debugging
+
+The Story Debugger asks _why does Mara's decision feel forced?_; the simulator
+asks _would she do it at all?_ Same reconstructed state, two directions — so
+the simulator hands its **deterministic** findings back in the debugger's own
+evidence shape, and the Debug panel offers the simulation directly from a
+motivation question.
+
+The model's judgement is deliberately **not** included as evidence: a diagnosis
+citing another model's reading would be citing itself, and the debugger's whole
+contract is that claims rest on what the project records.
+
+### Without a model
+
+Unlike the reader simulation, the character simulation has a real deterministic
+half: established factors and hard contradictions run with no model at all. The
+judgement is simply absent, and the report says why.
 
 ## Design requirements
 
-- **No future leakage.** Enforced by the recipe and the packet, not by
-  instructions. Reader presentation order for readers; story chronology +
-  character knowledge for characters. See truth/belief/reader-knowledge
-  separation in [STORY_STATE.md](STORY_STATE.md).
+- **No future leakage.** Enforced by construction, not by instructions. Reader
+  presentation order for readers; the scene boundary and character knowledge for
+  characters. See truth/belief/reader-knowledge separation in
+  [STORY_STATE.md](STORY_STATE.md).
 - **Persistent state.** Reader state accumulates; it is stored per chapter and
   inspectable.
 - **Judgement, not fact.** Outputs feed the [Story Debugger](STORY_DEBUGGER.md),
@@ -208,8 +324,15 @@ The simulator will draw its inputs from [Story State](STORY_STATE.md) at the rel
 - Every series carries its caveat.
 - A change to chapter N invalidates readings from N onward, and no earlier.
 - Re-running resumes the reader who finished N−1.
-- With no model configured, a simulation refuses to start rather than inventing
-  a reader.
+- With no model configured, a reader simulation refuses to start rather than
+  inventing a reader; a character simulation runs its deterministic half and
+  says what it could not weigh.
+- A character is never given a proposition they do not hold — only the count of
+  them.
+- Only author-confirmed personality reaches a simulation.
+- Plausibility is a band with reasoning. No percentage, no score, no
+  probability.
+- Counterfactuals and conditions are advisory; nothing is applied to canon.
 
 ## Relationship to other subsystems
 

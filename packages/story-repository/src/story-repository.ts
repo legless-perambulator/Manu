@@ -154,6 +154,7 @@ import { DebugStore } from "./debug-store";
 import { SkillRunStore } from "./skill-run-store";
 import { WorkflowRunStore } from "./workflow-run-store";
 import { ReaderSimulationStore } from "./reader-sim-store";
+import { PersonalityStore } from "./personality-store";
 import { DependencyStore } from "./dependency-store";
 import { RefactorStore } from "./refactor-store";
 import { ProjectSearch } from "./project-search";
@@ -288,6 +289,8 @@ export class StoryRepository {
   readonly workflowRuns: WorkflowRunStore;
   /** Simulated readers and what they made of the book (docs/SIMULATIONS.md). */
   readonly readerSims: ReaderSimulationStore;
+  /** Author-confirmed personality, for character simulation (docs/SIMULATIONS.md). */
+  readonly personalities: PersonalityStore;
   private readonly debugReports: DebugStore;
   private readonly dependencies: DependencyStore;
   private readonly refactors: RefactorStore;
@@ -332,6 +335,9 @@ export class StoryRepository {
     this.workflowRuns = new WorkflowRunStore(rawStore);
     // Not journaled either: a reader reading the book changes nothing in it.
     this.readerSims = new ReaderSimulationStore(rawStore);
+    // Journaled: what a character is really like is as authored as any other
+    // piece of canon, and changing it is a change to the story.
+    this.personalities = new PersonalityStore(this.store);
     // Journaled: a registered dependency is the author's claim about how their
     // story holds together, as authored as a plot thread.
     this.dependencies = new DependencyStore(this.store);

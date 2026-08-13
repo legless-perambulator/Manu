@@ -232,3 +232,26 @@ export type {
   ReaderState,
   SimulationStatus,
 } from "./reader";
+
+export {
+  PERSONALITY_DIMENSIONS,
+  TRAIT_STATUSES,
+  PLAUSIBILITY_BANDS,
+  AGENCY_CAVEAT,
+  SIMULATION_ADVISORY,
+  describePlausibility,
+  heuristicBand,
+} from "./character-sim";
+export type {
+  AgencyFinding,
+  BehaviourFactor,
+  BehaviourTest,
+  CharacterJudgement,
+  Contradiction,
+  Counterfactual,
+  NarrativeCondition,
+  PersonalityDimension,
+  PersonalityTrait,
+  PlausibilityBand,
+  TraitStatus,
+} from "./character-sim";

@@ -12,6 +12,7 @@
   "sideEffects": false,
   "dependencies": {
     "@jellytind/agent-runtime": "workspace:*",
+    "@jellytind/character-sim": "workspace:*",
     "@jellytind/context-compiler": "workspace:*",
     "@jellytind/domain": "workspace:*",
     "@jellytind/model-router": "workspace:*",

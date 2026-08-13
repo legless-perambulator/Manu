@@ -47,6 +47,9 @@ importers:
       '@jellytind/agent-runtime':
         specifier: workspace:*
         version: link:../../packages/agent-runtime
+      '@jellytind/character-sim':
+        specifier: workspace:*
+        version: link:../../packages/character-sim
       '@jellytind/context-compiler':
         specifier: workspace:*
         version: link:../../packages/context-compiler
@@ -148,6 +151,21 @@ importers:
         specifier: workspace:*
         version: link:../shared
 
+  packages/character-sim:
+    dependencies:
+      '@jellytind/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@jellytind/shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@jellytind/story-repository':
+        specifier: workspace:*
+        version: link:../story-repository
+      '@jellytind/story-state':
+        specifier: workspace:*
+        version: link:../story-state
+
   packages/context-compiler:
     dependencies:
       '@jellytind/domain':
@@ -174,6 +192,9 @@ importers:
       '@jellytind/agent-runtime':
         specifier: workspace:*
         version: link:../agent-runtime
+      '@jellytind/character-sim':
+        specifier: workspace:*
+        version: link:../character-sim
       '@jellytind/context-compiler':
         specifier: workspace:*
         version: link:../context-compiler

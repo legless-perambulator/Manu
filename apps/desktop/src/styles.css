@@ -2255,3 +2255,14 @@ code {
 .status--warn {
   color: var(--manu-accent-text);
 }
+
+/* ── Character simulation ────────────────────────────────── */
+/* What the project records and what a model made of it are different kinds of
+   claim, and the badge says which. */
+.badge--deterministic {
+  color: var(--manu-success);
+}
+.badge--model {
+  color: var(--manu-accent-text);
+  border-color: var(--manu-accent);
+}
