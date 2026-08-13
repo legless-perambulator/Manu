@@ -56,6 +56,25 @@ export {
   describeRule,
   scopeRank,
 } from "./voice";
+
+export {
+  VOICE_ATTRIBUTES,
+  SIMILARITY_BANDS,
+  voiceAt,
+  statedAttributes,
+  describeBand,
+} from "./character-voice";
+export type {
+  CharacterVoiceProfile,
+  CharacterVoiceExample,
+  CharacterVoiceShift,
+  VoiceAttribute,
+  VoiceAttributeValue,
+  VoiceAttributes,
+  VoiceExampleId,
+  VoiceShiftId,
+  SimilarityBand,
+} from "./character-voice";
 export type {
   AuthorVoiceProfile,
   VoiceCategory,

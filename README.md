@@ -18,7 +18,7 @@ This is **not** a chatbot with a writing editor attached. It lets AI agents insp
 
 ## Status
 
-**Phase 22 complete** — `0.1.0-alpha`, with distributable Linux AppImage and Flatpak packages.
+**Phase 23 complete** — `0.1.0-alpha`, with distributable Linux AppImage and Flatpak packages.
 Implemented and tested so far:
 
 - **Phase 0** — monorepo, tooling, stable branded entity IDs, persistence and
@@ -137,6 +137,16 @@ Implemented and tested so far:
   not handed preferences about landscape. Rules carrying a phrase are checked
   exactly; rules that need a reading are reported as unchecked rather than
   passed. Nothing is inferred from a single rejection.
+
+- **Phase 23** — character voice: persistent speech identities, so a dialogue
+  task tells Elias from Mara using project data rather than their character
+  descriptions. Thirteen optional qualitative attributes in the writer's own
+  words, example lines that keep their source, and voice that is allowed to
+  change — shifts are scene-anchored and replayed, so a character who has lost a
+  brother by chapter 30 is not flagged as inconsistent. Differentiation reports
+  a band with its caveat and never a percentage, measurements describe the
+  recorded lines rather than the character, and a sample too small to support a
+  statistic produces no finding at all.
 
 Implementation proceeds as vertical slices — see
 [`docs/ROADMAP.md`](docs/ROADMAP.md) and

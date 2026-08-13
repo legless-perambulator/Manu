@@ -6,6 +6,7 @@ import {
   type StoryRepository,
   type VoiceCheckResult,
 } from "@jellytind/story-repository";
+import { CharacterVoiceSection } from "./CharacterVoiceSection";
 
 interface Props {
   repo: StoryRepository;
@@ -321,6 +322,7 @@ export function VoicePanel({ repo, refreshToken, onChanged }: Props) {
           </>
         )}
       </section>
+      <CharacterVoiceSection repo={repo} refreshToken={refreshToken} onChanged={onChanged} />
     </div>
   );
 }

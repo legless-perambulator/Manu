@@ -1,6 +1,7 @@
 import type {
   VoiceRule,
   VoiceTendency,
+  VoiceAttributes,
   Chapter,
   Character,
   Fact,
@@ -69,6 +70,17 @@ export interface ProjectReader {
     characterId?: string;
     povCharacterId?: string;
   }): Promise<{ rules: readonly VoiceRule[]; tendencies: readonly VoiceTendency[] }>;
+
+  /**
+   * A character's recorded voice at a point in the book: stated attributes,
+   * shifts already in force, and lines they have said. Optional, like the
+   * author voice — a fixture project has none and the section is absent.
+   */
+  characterVoice?(options: { characterId: string; sceneId?: string; limit?: number }): Promise<{
+    attributes: VoiceAttributes;
+    appliedShifts: readonly string[];
+    examples: readonly string[];
+  } | null>;
 
   listProjectFiles(prefix?: string): Promise<string[]>;
   readProjectFile(path: string): Promise<string | null>;

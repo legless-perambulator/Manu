@@ -96,3 +96,18 @@ export type {
 
 export { VoiceStore, checkVoiceRules } from "./voice-store";
 export type { RuleHit, VoiceCheckResult } from "./voice-store";
+
+export { CharacterVoiceStore } from "./character-voice-store";
+export {
+  measureDialogue,
+  compareVoices,
+  checkCharacterVoice,
+  representativeLines,
+} from "./character-voice";
+export type {
+  VoiceMetrics,
+  VoiceSimilarity,
+  MetricComparison,
+  CharacterVoiceCheck,
+  VoiceCheckFinding,
+} from "./character-voice";

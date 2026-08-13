@@ -28,6 +28,7 @@ These documents are **living**: update the relevant document whenever an archite
 | [MODEL_ROUTER.md](MODEL_ROUTER.md)           | Provider-independent model abstraction and routing.             |
 | [AI_EDITING.md](AI_EDITING.md)               | Controlled AI manuscript editing: propose, review, apply.       |
 | [AUTHOR_VOICE.md](AUTHOR_VOICE.md)           | The writer's stylistic preferences, structured and inspectable. |
+| [CHARACTER_VOICE.md](CHARACTER_VOICE.md)     | Persistent speech identities, differentiation and voice check.  |
 | [VERSIONING.md](VERSIONING.md)               | Revisions, diffs, checkpoints, branches, audit trail.           |
 | [STORY_REFACTOR.md](STORY_REFACTOR.md)       | Analyse, plan, stage, validate and commit a story change.       |
 | [STORY_DEBUGGER.md](STORY_DEBUGGER.md)       | Diagnostic workflow that investigates before editing.           |

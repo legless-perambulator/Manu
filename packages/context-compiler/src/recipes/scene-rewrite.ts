@@ -5,6 +5,7 @@ import { stripFrontmatter } from "../render";
 import { gatherSceneInspection } from "./scene-inspection";
 import { byId, provenance, readSnapshot, type ProjectSnapshot } from "./shared";
 import { voiceCandidates } from "./voice";
+import { characterVoiceCandidates } from "./character-voice";
 
 /** Where authored style material lives in a project (docs/STORY_REPOSITORY.md). */
 const STYLE_DIR = "style";
@@ -65,6 +66,24 @@ export async function gatherSceneRewrite(
       relatedIds: [scene.id],
     })),
   );
+
+  // How each person in this scene speaks — recorded, not described.
+  {
+    const speaking = [
+      ...(scene.pov !== undefined ? [scene.pov as string] : []),
+      ...scene.characterIds.filter((id) => id !== scene.pov),
+    ]
+      .map((id) => byId(snap.characters, id))
+      .filter((c): c is Character => c !== undefined);
+    candidates.push(
+      ...(await characterVoiceCandidates(reader, {
+        characters: speaking,
+        ...(scene.pov !== undefined ? { povId: scene.pov as string } : {}),
+        sceneId: scene.id,
+        relatedIds: [scene.id],
+      })),
+    );
+  }
 
   // Voice material for the POV character first, then the other participants.
   const speakers = [

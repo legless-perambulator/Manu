@@ -146,8 +146,10 @@ import { TransitionStore } from "./state-store";
 import { TimelineStore } from "./timeline-store";
 import { BuildStore } from "./build-store";
 import { TestStore } from "./test-store";
-import type { VoiceRule, VoiceTendency } from "@jellytind/domain";
+import type { VoiceAttributes, VoiceRule, VoiceTendency } from "@jellytind/domain";
 import { VoiceStore } from "./voice-store";
+import { CharacterVoiceStore } from "./character-voice-store";
+import { representativeLines } from "./character-voice";
 import { DebugStore } from "./debug-store";
 import { DependencyStore } from "./dependency-store";
 import { RefactorStore } from "./refactor-store";
@@ -275,6 +277,8 @@ export class StoryRepository {
   private readonly tests: TestStore;
   /** The Author Voice profile for this project (docs/AUTHOR_VOICE.md). */
   readonly voice: VoiceStore;
+  /** Per-character speech profiles (docs/CHARACTER_VOICE.md). */
+  readonly characterVoices: CharacterVoiceStore;
   private readonly debugReports: DebugStore;
   private readonly dependencies: DependencyStore;
   private readonly refactors: RefactorStore;
@@ -307,6 +311,7 @@ export class StoryRepository {
     // as any other piece of canon.
     this.tests = new TestStore(this.store);
     this.voice = new VoiceStore(this.store);
+    this.characterVoices = new CharacterVoiceStore(this.store);
     // Not journaled, for the same reason as builds: investigating a problem is
     // not a change to the story.
     this.debugReports = new DebugStore(rawStore);
@@ -1159,6 +1164,34 @@ export class StoryRepository {
     povCharacterId?: string;
   }): Promise<{ rules: readonly VoiceRule[]; tendencies: readonly VoiceTendency[] }> {
     return this.voice.forOperation(options);
+  }
+
+  /**
+   * A character's voice as it stands at a scene — the Context Compiler's
+   * source when drafting their dialogue.
+   */
+  async characterVoice(options: {
+    characterId: string;
+    sceneId?: string;
+    limit?: number;
+  }): Promise<{
+    attributes: VoiceAttributes;
+    appliedShifts: readonly string[];
+    examples: readonly string[];
+  } | null> {
+    const order = (await this.listScenes()).map((scene) => scene.id as string);
+    const { profile, attributes, applied } = await this.characterVoices.voiceAtScene(
+      options.characterId,
+      order,
+      options.sceneId,
+    );
+    if (profile === null) return null;
+    const examples = await this.characterVoices.listExamples(options.characterId);
+    return {
+      attributes,
+      appliedShifts: applied.map((shift) => shift.description),
+      examples: representativeLines(examples, options.limit),
+    };
   }
 
   listStoryTests(): Promise<StoryTest[]> {
