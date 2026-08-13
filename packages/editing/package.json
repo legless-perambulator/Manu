@@ -16,6 +16,7 @@
     "@jellytind/domain": "workspace:*",
     "@jellytind/model-router": "workspace:*",
     "@jellytind/orchestration": "workspace:*",
+    "@jellytind/reader-sim": "workspace:*",
     "@jellytind/shared": "workspace:*",
     "@jellytind/skills": "workspace:*",
     "@jellytind/story-debugger": "workspace:*",

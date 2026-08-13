@@ -21,6 +21,7 @@
     "@jellytind/orchestration": "workspace:*",
     "@jellytind/persistence": "workspace:*",
     "@jellytind/provider-anthropic": "workspace:*",
+    "@jellytind/reader-sim": "workspace:*",
     "@jellytind/shared": "workspace:*",
     "@jellytind/skills": "workspace:*",
     "@jellytind/story-causality": "workspace:*",

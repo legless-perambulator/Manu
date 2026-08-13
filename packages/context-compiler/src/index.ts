@@ -43,5 +43,6 @@ export {
   orderScenes,
   scenesOfChapter,
 } from "./sequence";
+export { gatherReaderSequential, scenesReadBy } from "./recipes/reader-sequential";
 export { PRIORITY } from "./candidate";
 export type { Candidate } from "./candidate";

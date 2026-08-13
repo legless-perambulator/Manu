@@ -2188,3 +2188,70 @@ code {
   color: var(--manu-accent-text);
   border-color: var(--manu-accent);
 }
+
+/* ── Reader simulation ───────────────────────────────────── */
+/* A chart is the most persuasive object in the product, so the caveat travels
+   with it and the axis is labelled with the reader's own words. */
+.chart__grid-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.chart {
+  margin: 0;
+  flex: 1 1 280px;
+  border: 1px solid var(--manu-border);
+  border-radius: var(--manu-radius-md);
+  background: var(--manu-surface-raised);
+  padding: 8px 10px;
+}
+.chart__title {
+  font-size: var(--manu-text-sm);
+  color: var(--manu-ink);
+  margin-bottom: 4px;
+}
+.chart__svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.chart__grid {
+  stroke: var(--manu-border);
+  stroke-width: 0.5;
+}
+.chart__tick {
+  fill: var(--manu-ink-subtle);
+  font-size: 7px;
+  font-family: var(--manu-font-mono);
+}
+.chart__line {
+  fill: none;
+  stroke: var(--manu-accent);
+  stroke-width: 1.5;
+}
+.chart__line--compare {
+  stroke: var(--manu-ink-subtle);
+  stroke-dasharray: 3 2;
+}
+.chart__dot {
+  fill: var(--manu-accent);
+}
+.chart__caveat {
+  margin: 4px 0 0;
+  font-size: var(--manu-text-xs);
+  color: var(--manu-ink-subtle);
+  line-height: 1.5;
+}
+.reader__reading {
+  margin: 6px 0 0 8px;
+  padding-left: 10px;
+  border-left: 2px solid var(--manu-border);
+  font-size: var(--manu-text-sm);
+  line-height: 1.6;
+}
+.reader__reading p {
+  margin: 0 0 4px;
+}
+.status--warn {
+  color: var(--manu-accent-text);
+}

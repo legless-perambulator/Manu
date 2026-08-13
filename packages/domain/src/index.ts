@@ -207,3 +207,28 @@ export type {
   WorkflowRunStatus,
   WorkflowRunSummary,
 } from "./orchestration";
+
+export {
+  READER_LEVELS,
+  LEVEL_INDEX,
+  READER_QUESTIONS,
+  SIMULATION_STATUSES,
+  SIMULATION_CAVEAT,
+  EMPTY_READER_STATE,
+  levelOf,
+  levelFor,
+  currentState,
+  summariseSimulation,
+} from "./reader";
+export type {
+  ReaderAttitude,
+  ReaderExposure,
+  ReaderLevel,
+  ReaderProfile,
+  ReaderReading,
+  ReaderSeries,
+  ReaderSimulation,
+  ReaderSimulationSummary,
+  ReaderState,
+  SimulationStatus,
+} from "./reader";

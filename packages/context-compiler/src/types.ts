@@ -42,6 +42,10 @@ export type SelectionRule =
   | "scene_payoff"
   | "authorial_intent"
   | "lexical_search"
+  /** The chapter a simulated reader is reading now (docs/SIMULATIONS.md). */
+  | "chapter_being_read"
+  /** A chapter that reader has already read, by distance behind them. */
+  | "already_read"
   | "pinned";
 
 /**

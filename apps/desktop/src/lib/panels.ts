@@ -25,6 +25,7 @@ export const LEFT_PANELS = [
   "debug",
   "skills",
   "workflows",
+  "readers",
   "causality",
   "refactor",
 ] as const;
@@ -146,6 +147,12 @@ export const PANELS: readonly PanelDefinition[] = [
     group: "verify",
     label: "Workflows",
     purpose: "Specialists working together, one approved step at a time",
+  },
+  {
+    id: "readers",
+    group: "verify",
+    label: "Readers",
+    purpose: "How a reader experiences the book, chapter by chapter",
   },
   {
     id: "causality",

@@ -18,7 +18,7 @@ This is **not** a chatbot with a writing editor attached. It lets AI agents insp
 
 ## Status
 
-**Phase 26 complete** — `0.1.0-alpha`, with distributable Linux AppImage and Flatpak packages.
+**Phase 27 complete** — `0.1.0-alpha`, with distributable Linux AppImage and Flatpak packages.
 Implemented and tested so far:
 
 - **Phase 0** — monorepo, tooling, stable branded entity IDs, persistence and
@@ -183,6 +183,21 @@ Implemented and tested so far:
   without inventing money. See
   [`docs/ORCHESTRATION.md`](docs/ORCHESTRATION.md).
 
+- **Phase 27** — the Reader Simulator: readers who experience the manuscript
+  **sequentially**, and are never shown a page they have not reached. The
+  guarantee is structural rather than instructed — a reader is handed one
+  packet, built by a subtractive context recipe that carries prose up to this
+  chapter and **no project records at all**, because a character sheet is what
+  the author knows. State persists: chapter eleven is read by the person
+  chapter ten produced, carrying their suspicions, trust, attachment,
+  predictions, questions and confusion forward. Four readers ship — genre
+  expert, casual, emotion-focused, critical developmental — and writers add
+  their own. Attitudes are bands with reasons, never percentages, charted
+  across the book with the caveat attached. Rewrite chapter four and the run
+  says so, marks chapters four onward stale and nothing earlier, and re-reads
+  from there with the reader who finished chapter three. See
+  [`docs/SIMULATIONS.md`](docs/SIMULATIONS.md).
+
 Implementation proceeds as vertical slices — see
 [`docs/ROADMAP.md`](docs/ROADMAP.md) and
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
@@ -194,7 +209,7 @@ apps/desktop/            Tauri + React desktop shell
 packages/                domain, persistence, model-router, story-compiler,
                          story-debugger, story-causality, story-refactor,
                          agent-runtime, context-compiler, editing, orchestration,
-                         search, skills,
+                         reader-sim, search, skills,
                          story-repository, story-state, shared,
                          providers/anthropic
 docs/                    living architecture documentation

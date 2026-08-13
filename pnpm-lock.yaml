@@ -68,6 +68,9 @@ importers:
       '@jellytind/provider-anthropic':
         specifier: workspace:*
         version: link:../../packages/providers/anthropic
+      '@jellytind/reader-sim':
+        specifier: workspace:*
+        version: link:../../packages/reader-sim
       '@jellytind/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -183,6 +186,9 @@ importers:
       '@jellytind/orchestration':
         specifier: workspace:*
         version: link:../orchestration
+      '@jellytind/reader-sim':
+        specifier: workspace:*
+        version: link:../reader-sim
       '@jellytind/shared':
         specifier: workspace:*
         version: link:../shared
@@ -237,6 +243,21 @@ importers:
       '@jellytind/shared':
         specifier: workspace:*
         version: link:../../shared
+
+  packages/reader-sim:
+    dependencies:
+      '@jellytind/context-compiler':
+        specifier: workspace:*
+        version: link:../context-compiler
+      '@jellytind/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@jellytind/shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@jellytind/story-repository':
+        specifier: workspace:*
+        version: link:../story-repository
 
   packages/search:
     dependencies:

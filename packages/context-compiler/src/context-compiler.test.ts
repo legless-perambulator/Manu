@@ -191,14 +191,30 @@ describe("recipes are distinct", () => {
     const inspect = await c.compile({ recipe: "scene_inspection", targetId: "SCENE_0002" });
     const rewrite = await c.compile({ recipe: "scene_rewrite", targetId: "SCENE_0002" });
     const chapter = await c.compile({ recipe: "chapter_inspection", targetId: "CHAPTER_0001" });
+    const reader = await c.compile({ recipe: "reader_sequential", targetId: "CHAPTER_0001" });
 
     expect(includedIds(inspect)).not.toEqual(includedIds(rewrite));
     expect(includedIds(inspect)).not.toEqual(includedIds(chapter));
+    expect(includedIds(reader)).not.toEqual(includedIds(chapter));
     expect(RECIPES.map((r) => r.name)).toEqual([
       "scene_inspection",
       "scene_rewrite",
       "chapter_inspection",
+      "reader_sequential",
     ]);
+  });
+
+  it("gives a reader the pages and nothing that only the author knows", async () => {
+    // The subtractive recipe: prose, and no record of any kind. A reader who
+    // was handed the story bible would answer from it (docs/SIMULATIONS.md).
+    const pkg = await compiler().compile({ recipe: "reader_sequential", targetId: "CHAPTER_0001" });
+    const sections = pkg.sections.map((section) => section.name);
+
+    expect(sections).not.toContain("characters");
+    expect(sections).not.toContain("plotThreads");
+    expect(sections).not.toContain("storyState");
+    expect(sections).not.toContain("worldRules");
+    expect(includedIds(pkg)).toContain("manuscript/CHAPTER_0001.md");
   });
 });
 

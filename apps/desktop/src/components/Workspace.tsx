@@ -39,6 +39,7 @@ import { StoryTestPanel } from "./StoryTestPanel";
 import { DebugPanel } from "./DebugPanel";
 import { SkillsPanel } from "./SkillsPanel";
 import { WorkflowPanel } from "./WorkflowPanel";
+import { ReadersPanel } from "./ReadersPanel";
 import { CausalityPanel } from "./CausalityPanel";
 import { RefactorPanel } from "./RefactorPanel";
 
@@ -443,6 +444,18 @@ export function Workspace({
           )}
           {tab === "workflows" && (
             <WorkflowPanel
+              repo={repo}
+              secrets={secrets}
+              refreshToken={refreshToken}
+              onChanged={refresh}
+              onSelectEntity={(id) => {
+                setSelectedEntityId(id);
+                setRightTab("inspector");
+              }}
+            />
+          )}
+          {tab === "readers" && (
+            <ReadersPanel
               repo={repo}
               secrets={secrets}
               refreshToken={refreshToken}

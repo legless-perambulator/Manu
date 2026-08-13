@@ -5,6 +5,7 @@ import { excerptProse } from "./render";
 import { gatherChapterInspection } from "./recipes/chapter-inspection";
 import { gatherSceneInspection } from "./recipes/scene-inspection";
 import { gatherSceneRewrite } from "./recipes/scene-rewrite";
+import { gatherReaderSequential } from "./recipes/reader-sequential";
 import { byId, provenance, readSnapshot } from "./recipes/shared";
 import { CHARACTER_ESTIMATOR, type TokenCounter } from "./tokens";
 import {
@@ -18,7 +19,12 @@ import {
   type TargetRef,
 } from "./types";
 
-export const RECIPE_NAMES = ["scene_inspection", "scene_rewrite", "chapter_inspection"] as const;
+export const RECIPE_NAMES = [
+  "scene_inspection",
+  "scene_rewrite",
+  "chapter_inspection",
+  "reader_sequential",
+] as const;
 export type RecipeName = (typeof RECIPE_NAMES)[number];
 
 export interface RecipeInfo {
@@ -49,6 +55,13 @@ export const RECIPES: readonly RecipeInfo[] = [
     title: "Chapter inspection",
     description:
       "The chapter's scenes, summaries of the previous and next chapters, the characters involved, and the plot threads still active.",
+    targetKind: "chapter",
+  },
+  {
+    name: "reader_sequential",
+    title: "Reader sequential",
+    description:
+      "The manuscript as a reader has met it: prose up to and including this chapter, nearest first, and nothing else — no records, no state, nothing from later.",
     targetKind: "chapter",
   },
 ];
@@ -162,6 +175,12 @@ export class ContextCompiler {
       }
       case "chapter_inspection": {
         const out = await gatherChapterInspection(this.reader, request.targetId, snapshot);
+        candidates = out.candidates;
+        target = { id: out.chapter.id, kind: "chapter", label: out.chapter.title };
+        break;
+      }
+      case "reader_sequential": {
+        const out = await gatherReaderSequential(this.reader, request.targetId, snapshot);
         candidates = out.candidates;
         target = { id: out.chapter.id, kind: "chapter", label: out.chapter.title };
         break;

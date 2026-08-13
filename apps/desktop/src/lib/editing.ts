@@ -3,6 +3,7 @@ import {
   DiagnosisAnalyst,
   ManuscriptEditor,
   ModelAgentWorkExecutor,
+  ModelReaderAnalyst,
   ModelSkillAnalyst,
 } from "@jellytind/editing";
 import type { PermissionGrant } from "@jellytind/agent-runtime";
@@ -168,4 +169,22 @@ export async function createAgentWorkExecutor(
     repo,
     modelFor: (routingClass) => createConfiguredModel(settingsForClass(routingClass), secrets),
   });
+}
+
+/**
+ * Build the reader a simulation runs as, or `null` when no model is configured.
+ *
+ * Unlike the deterministic subsystems, a reader simulation has no useful half
+ * without a model: interpretation is the whole of what it produces, so the
+ * panel says so rather than offering an empty run (docs/SIMULATIONS.md).
+ */
+export async function createReaderAnalyst(
+  secrets: SecretStore,
+): Promise<ModelReaderAnalyst | null> {
+  try {
+    const model = await createConfiguredModel(loadModelSettings(), secrets);
+    return new ModelReaderAnalyst({ model });
+  } catch {
+    return null;
+  }
 }
