@@ -8,24 +8,24 @@
 import { StrictMode, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { InMemoryProjectStore } from "@jellytind/persistence";
-import { StoryRepository } from "@jellytind/story-repository";
+import { BranchStore, StoryRepository, openBranch } from "@jellytind/story-repository";
 import { Workspace } from "./components/Workspace";
 import { createSecretStore } from "./lib/secrets";
 import { useTheme } from "./lib/theme";
+import type { ProjectSession } from "./repo/session";
 import "./styles.css";
 
 function Preview() {
-  const [repo, setRepo] = useState<StoryRepository | null>(null);
+  const [session, setSession] = useState<ProjectSession | null>(null);
   const [theme, setTheme] = useTheme();
 
   useEffect(() => {
     void (async () => {
       const store = new InMemoryProjectStore();
-      const created = await StoryRepository.createProject({
-        store,
-        title: "The Blackthorn Inheritance",
-      });
-      setRepo(created);
+      await StoryRepository.createProject({ store, title: "The Blackthorn Inheritance" });
+      const repo = await openBranch(store);
+      const branch = await new BranchStore(store).active();
+      setSession({ repo, store, root: "", branch });
     })();
   }, []);
 
@@ -39,14 +39,15 @@ function Preview() {
 
   const openPalette = params.get("palette") === "1";
   useEffect(() => {
-    if (repo === null || !openPalette) return;
+    if (session === null || !openPalette) return;
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true }));
-  }, [repo, openPalette]);
+  }, [session, openPalette]);
 
-  if (repo === null) return <p className="placeholder">Preparing preview…</p>;
+  if (session === null) return <p className="placeholder">Preparing preview…</p>;
   return (
     <Workspace
-      repo={repo}
+      session={session}
+      onSession={setSession}
       secrets={createSecretStore()}
       theme={theme}
       onChangeTheme={setTheme}

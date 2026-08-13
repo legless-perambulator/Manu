@@ -219,6 +219,19 @@ export interface ProjectAccess {
   runStoryTests?(): Promise<TestRunLike>;
 
   /**
+   * Alternative versions of the whole project.
+   *
+   * Optional, like the build: a fixture project satisfies `ProjectAccess`
+   * without branching, and the branch tools simply are not registered.
+   * There is deliberately no `deleteBranch` here — see branch-tools.ts.
+   */
+  listBranches?(): Promise<BranchLike[]>;
+  currentBranch?(): Promise<BranchLike>;
+  createBranch?(name: string, description?: string): Promise<BranchLike>;
+  switchBranch?(branchId: string): Promise<BranchLike>;
+  compareBranches?(fromBranchId: string, toBranchId: string): Promise<BranchComparisonLike>;
+
+  /**
    * The Story Debugger's deterministic trace, and the reports it has produced.
    *
    * Only the trace is exposed. Interpreting evidence is what an agent is *for*
@@ -256,4 +269,20 @@ export interface AgentStore {
 
   appendActivity(event: Omit<AgentActivityEvent, "id">): Promise<AgentActivityEvent>;
   listActivity(taskId?: string): Promise<AgentActivityEvent[]>;
+}
+
+/** A branch, as the agent runtime needs it. */
+export interface BranchLike {
+  readonly id: string;
+  readonly name: string;
+  readonly description?: string;
+  readonly parentBranchId?: string;
+  readonly status: string;
+}
+
+export interface BranchComparisonLike {
+  readonly summary: string;
+  readonly manuscript: readonly unknown[];
+  readonly records: readonly unknown[];
+  readonly inspected: readonly string[];
 }

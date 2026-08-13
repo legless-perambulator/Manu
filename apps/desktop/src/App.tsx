@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
-import type { StoryRepository } from "@jellytind/story-repository";
 import { StartScreen } from "./components/StartScreen";
 import { Workspace } from "./components/Workspace";
 import { ModelSettings } from "./components/ModelSettings";
 import { createSecretStore } from "./lib/secrets";
+import type { ProjectSession } from "./repo/session";
 import { useTheme } from "./lib/theme";
 
 /**
@@ -13,22 +13,23 @@ import { useTheme } from "./lib/theme";
  * have to close their book to change a provider.
  */
 export function App() {
-  const [repo, setRepo] = useState<StoryRepository | null>(null);
+  const [session, setSession] = useState<ProjectSession | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const secrets = useMemo(() => createSecretStore(), []);
   const [theme, setTheme] = useTheme();
 
   return (
     <>
-      {repo === null ? (
-        <StartScreen onReady={setRepo} onOpenSettings={() => setSettingsOpen(true)} />
+      {session === null ? (
+        <StartScreen onReady={setSession} onOpenSettings={() => setSettingsOpen(true)} />
       ) : (
         <Workspace
-          repo={repo}
+          session={session}
+          onSession={setSession}
           secrets={secrets}
           theme={theme}
           onChangeTheme={setTheme}
-          onClose={() => setRepo(null)}
+          onClose={() => setSession(null)}
           onOpenSettings={() => setSettingsOpen(true)}
         />
       )}

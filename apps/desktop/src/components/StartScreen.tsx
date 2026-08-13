@@ -1,12 +1,12 @@
 import { useState } from "react";
-import type { StoryRepository } from "@jellytind/story-repository";
 import { createProjectAt, openProjectAt, validateProjectAt } from "../repo/session";
+import type { ProjectSession } from "../repo/session";
 import { pickDirectory } from "../lib/dialog";
 import { isTauri } from "../tauri";
 import { Wordmark } from "./Wordmark";
 
 interface StartScreenProps {
-  onReady: (repo: StoryRepository) => void;
+  onReady: (session: ProjectSession) => void;
   onOpenSettings: () => void;
 }
 

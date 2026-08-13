@@ -3,7 +3,7 @@
 Every AI mutation must be reversible, attributable and auditable. This document covers revisions, diffs, checkpoints, branches, transactional edits and the audit trail.
 
 - **Package:** `@jellytind/story-repository` (change sets, history, checkpoints, diffs, revert, staging)
-- **Status (Phase 5, extended in Phase 9):** **Implemented and tested.** Every significant mutation is captured as a reviewable, reversible **change set**; checkpoints snapshot the whole project; a line diff drives a diff viewer; single change sets and whole-checkpoint reverts work; and a staging transaction is ready for future AI operations. Branching remains **PLANNED**.
+- **Status (Phase 5, extended in Phase 9):** **Implemented and tested.** Every significant mutation is captured as a reviewable, reversible **change set**; checkpoints snapshot the whole project; a line diff drives a diff viewer; single change sets and whole-checkpoint reverts work; and a staging transaction is ready for future AI operations. **Phase 21 adds branching:** alternative versions of the whole project, isolated, comparable and conservatively mergeable.
 
 This is the safety layer that must exist **before** unrestricted AI editing: it is
 difficult for any operation — human or agent — to irreversibly damage a project.
@@ -165,3 +165,152 @@ a structural change to a novel is one revertible entry, not eleven. Its audit
 record lives under `.writer/refactors/` rather than in the journal, because the
 change is the change set and recording the record of it would double every
 entry. See [STORY_REFACTOR.md](STORY_REFACTOR.md).
+
+## Branching: alternative versions
+
+_"What if Marcus survives Chapter 28?"_ is not a question about a paragraph. It
+is a question about the whole book — the manuscript, who knows what afterwards,
+which threads pay off, which tests still hold. So a **branch is an alternative
+state of the entire Story Repository**, not an alternative text file.
+
+```
+main
+├── mara-confesses-early
+├── marcus-survives
+└── darker-ending
+```
+
+### The interface says "version"
+
+A novelist trying a darker ending is doing something they already understand.
+They should not have to learn version control to do it, so the interface says
+**Current version**, **Alternative versions**, **Create version**, **Compare**.
+The word _branch_ survives only in the stable ID (`BRANCH_0002`), where an
+advanced user will recognise it.
+
+### How isolation actually works
+
+Every subsystem — manuscript, entities, story state, knowledge, relationships,
+timeline, objects, plot threads, tests, dependencies — reads and writes through
+one narrow interface, `ProjectStore`. So isolating the store isolates all of
+them at once, and **no subsystem needs to know branches exist**.
+
+`BranchedProjectStore` is a copy-on-write view: reads fall through to the
+parent, writes land in the branch's own overlay under
+`.writer/branches/<BRANCH_ID>/files/`, and deletes are recorded as tombstones
+rather than touching the parent. A `StoryRepository` is always scoped to
+exactly one branch and cannot see another.
+
+That is what makes isolation total rather than a rule every subsystem has to
+remember — and it is why isolation covers systems written long before branching
+existed.
+
+The branches directory is invisible from inside any branch. Main is the same
+class with no overlay: it still hides that directory, so a shadow-copy
+validation or a search index built on main never ingests an alternative
+version's files.
+
+### Main, and migration
+
+Every project has a main branch. Projects created before branching existed have
+no registry; they get one on first use, describing the state already on disk.
+Opening an old project is a migration that changes nothing the writer can see.
+
+The registry — the list of versions and which is current — lives at
+`.writer/branches/branches.json` and is written through the **base** store, so
+switching versions never forks the list of versions. It is on disk, not in
+memory, which is why the active version survives a restart.
+
+### Creating a version does not write the alternative
+
+Creating `marcus-survives` copies nothing and changes nothing. The description
+records what the writer intends; the prose is untouched until they do it. The
+creative transformation is a separate act, performed after switching — by the
+writer, or by an agent they ask.
+
+### Switching
+
+Switching re-opens the project against different files. Anything held only in
+an editor buffer or a staged AI proposal belongs to the version it was written
+on, so the writer is shown exactly what would be left behind and has to resolve
+it first. **Nothing is silently discarded.**
+
+### Comparison
+
+| Half           | What it reports                                              |
+| -------------- | ------------------------------------------------------------ |
+| **Textual**    | Manuscript files that differ, with lines added and removed   |
+| **Structural** | Records added, removed or changed — matched by **stable ID** |
+
+Matching by ID is what makes a renamed character a modification rather than a
+deletion plus an addition. The comparison also reports **what it inspected**, so
+silence reads as "no difference" rather than "not looked at"
+([STORY_COMPILER.md](STORY_COMPILER.md)).
+
+**Story-intelligence comparison** — pacing, character arc, thematic effect,
+which ending lands harder — is deliberately **not** implemented in this phase.
+The architecture is in place: `BranchComparison` is where such a reading would
+attach, and it would be labelled model judgement, never presented as a
+measurement. A model telling a writer which ending is better, unprompted and
+unevidenced, is exactly the kind of claim this product does not make.
+
+### Merge is conservative, on purpose
+
+**Fiction does not merge like code.** Two versions of a chapter that both
+changed are not a three-way text merge problem; they are two different books,
+and only the author knows which sentence should survive.
+
+So a merge takes only what is unambiguous:
+
+- a file the source changed and the target did not → **applied**
+- a file both changed → **a conflict, reported, never guessed at**
+
+Each side is asked about its **own** record of what it changed — a branch's
+overlay is literally the list of files it has touched; main's is its change
+history since the branch point. Comparing content instead would make "they both
+edited this" indistinguishable from "only one of them did", which is precisely
+the distinction a merge turns on.
+
+Nothing is applied until the whole merge is planned, and the result is one
+revertible change set.
+
+### Deletion
+
+Deleting a version destroys work with no undo, so it takes an explicit
+confirmation that names what is lost. **Main cannot be deleted.** Neither can
+the version currently being written on, nor one that other versions were taken
+from.
+
+### The build belongs to the branch
+
+Story Compiler and Story Tests run against the active version, and their
+diagnostics stay there. Build numbering is per-branch: two versions can each
+hold their own `BUILD_0001`, in their own namespace, neither able to see the
+other.
+
+### Agent tools
+
+```
+list_branches      read_canon       what versions exist, and which is current
+create_branch      create_branches  take a new one; changes nothing in the story
+switch_branch      create_branches  work somewhere else
+compare_branches   read_canon       what differs, prose and records
+```
+
+There is deliberately **no `delete_branch`**. A version is a body of work a
+writer chose to keep, and there is no undo for removing it; that decision stays
+behind a human confirmation ([AGENT_TOOLS.md](AGENT_TOOLS.md)).
+
+### Invariants
+
+- A branch is an alternative state of the whole repository, not a file.
+- Every project has a main branch; main is never deleted.
+- Every branch has a stable ID, never reused.
+- No branch can read or write another branch's files.
+- Creating a branch changes nothing in the story.
+- Switching never silently discards unsaved work.
+- Comparison matches records by stable ID and states what it inspected.
+- A merge applies only unambiguous changes and reports the rest as conflicts.
+- Builds, tests and diagnostics belong to the branch that produced them.
+- The active version and the version list are on disk, and survive a restart.
+- No agent tool deletes a version.

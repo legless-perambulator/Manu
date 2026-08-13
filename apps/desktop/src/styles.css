@@ -2008,3 +2008,26 @@ code {
   letter-spacing: 0;
   text-transform: none;
 }
+
+/* ── Version selector ────────────────────────────────────── */
+/* The current version is always visible: a writer must never be unsure which
+   version of their book they are typing into. */
+.titlebar__version {
+  font: inherit;
+  font-size: var(--manu-text-sm);
+  color: var(--manu-ink-muted);
+  background: var(--manu-surface-raised);
+  border: 1px solid var(--manu-border);
+  border-radius: var(--manu-radius-pill);
+  padding: 2px 10px;
+  cursor: pointer;
+  flex: none;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.titlebar__version:hover {
+  color: var(--manu-ink);
+  border-color: var(--manu-accent);
+}

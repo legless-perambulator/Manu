@@ -1,13 +1,1 @@
-{
-  "default": {
-    "identifier": "default",
-    "description": "Default capability for the main window (core commands, dialogs, scoped provider HTTP).",
-    "local": true,
-    "windows": ["main"],
-    "permissions": [
-      "core:default",
-      "dialog:default",
-      { "identifier": "http:default", "allow": [{ "url": "https://api.anthropic.com/*" }] }
-    ]
-  }
-}
+{"default":{"identifier":"default","description":"Default capability for the main window (core commands, dialogs, scoped provider HTTP).","local":true,"windows":["main"],"permissions":["core:default","dialog:default",{"identifier":"http:default","allow":[{"url":"https://api.anthropic.com/*"}]}]}}

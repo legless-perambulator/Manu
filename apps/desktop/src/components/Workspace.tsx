@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { EditProposal, EditRequest, ManuscriptEditor } from "@jellytind/editing";
 import type { SecretStore } from "@jellytind/model-router";
-import type { StoryRepository } from "@jellytind/story-repository";
+import type { BranchId } from "@jellytind/domain";
 import { createManuscriptEditor, explainEditError } from "../lib/editing";
 import {
   PANEL_GROUPS,
@@ -15,6 +15,8 @@ import {
 import type { Theme } from "../lib/theme";
 import { CommandPalette, type Command } from "./CommandPalette";
 import { Wordmark } from "./Wordmark";
+import { VersionsPanel } from "./VersionsPanel";
+import { openOnBranch, type ProjectSession } from "../repo/session";
 import { ProjectExplorer } from "./ProjectExplorer";
 import { EntitiesPanel } from "./EntitiesPanel";
 import { SearchPanel } from "./SearchPanel";
@@ -46,7 +48,8 @@ const RIGHT_TABS: readonly { id: RightTab; label: string; purpose: string }[] = 
 ];
 
 interface WorkspaceProps {
-  repo: StoryRepository;
+  session: ProjectSession;
+  onSession: (session: ProjectSession) => void;
   secrets: SecretStore;
   theme: Theme;
   onChangeTheme: (theme: Theme) => void;
@@ -55,14 +58,19 @@ interface WorkspaceProps {
 }
 
 export function Workspace({
-  repo,
+  session,
+  onSession,
   secrets,
   theme,
   onChangeTheme,
   onClose,
   onOpenSettings,
 }: WorkspaceProps) {
+  const repo = session.repo;
   const [tab, setTab] = useState<LeftPanelId>("files");
+  const [pendingSwitch, setPendingSwitch] = useState<BranchId | null>(null);
+  const [editorDirty, setEditorDirty] = useState(false);
+  const [switchError, setSwitchError] = useState<string | null>(null);
   const [group, setGroup] = useState<PanelGroupId>("project");
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [rightTab, setRightTab] = useState<RightTab>("inspector");
@@ -123,6 +131,36 @@ export function Workspace({
     },
     [repo],
   );
+
+  /**
+   * Switching versions re-opens the project against different files. Anything
+   * held only in the editor's buffer or in a staged proposal belongs to the
+   * version it was written on, so the writer is told what would be lost and
+   * has to say so explicitly (docs/VERSIONING.md).
+   */
+  const performSwitch = useCallback(
+    async (branchId: BranchId) => {
+      setSwitchError(null);
+      try {
+        const next = await openOnBranch(session, branchId);
+        setProposal(null);
+        setEditor(null);
+        setSelectedChangeId(null);
+        setSelectedEntityId(null);
+        setOpenPath(null);
+        setEditorDirty(false);
+        setPendingSwitch(null);
+        onSession(next);
+      } catch (cause) {
+        setSwitchError(cause instanceof Error ? cause.message : "Could not switch version.");
+      }
+    },
+    [onSession, session],
+  );
+
+  const unsaved: string[] = [];
+  if (editorDirty && openPath !== null) unsaved.push(`unsaved changes in ${openPath}`);
+  if (proposal !== null) unsaved.push("an AI proposal you have not accepted or discarded");
 
   const sceneIdForEditor =
     selectedEntityId?.startsWith("SCENE_") === true ? selectedEntityId : null;
@@ -213,6 +251,13 @@ export function Workspace({
         <span className="titlebar__project" title={repo.project.title}>
           {repo.project.title}
         </span>
+        <button
+          className="titlebar__version"
+          title="Alternative versions of this story"
+          onClick={() => openPanel("versions")}
+        >
+          {session.branch.name}
+        </button>
         <span className="titlebar__spacer" />
         <button
           className="btn btn--ghost btn--small"
@@ -405,6 +450,13 @@ export function Workspace({
               }}
             />
           )}
+          {tab === "versions" && (
+            <VersionsPanel
+              session={session}
+              onSwitch={(branchId) => setPendingSwitch(branchId)}
+              onChanged={refresh}
+            />
+          )}
           {tab === "history" && (
             <HistoryPanel
               repo={repo}
@@ -445,6 +497,7 @@ export function Workspace({
               sceneId={sceneIdForEditor}
               aiBusy={aiBusy}
               onRunEdit={(request) => void runEdit(request)}
+              onDirtyChange={setEditorDirty}
             />
           )}
         </main>
@@ -510,6 +563,56 @@ export function Workspace({
       </footer>
 
       {paletteOpen && <CommandPalette commands={commands} onClose={() => setPaletteOpen(false)} />}
+
+      {pendingSwitch !== null && (
+        <div className="modal-backdrop">
+          <div className="modal" role="dialog" aria-modal="true" aria-label="Switch version">
+            <div className="modal__header">
+              <h2>Switch version</h2>
+            </div>
+            <div className="modal__body">
+              {unsaved.length === 0 ? (
+                <p>
+                  Everything on <strong>{session.branch.name}</strong> is saved. Switching leaves it
+                  exactly as it is, and you can come back to it whenever you like.
+                </p>
+              ) : (
+                <>
+                  <p className="review__label review__label--warn">Not saved yet</p>
+                  <p>
+                    Switching now would leave this behind on <strong>{session.branch.name}</strong>:
+                  </p>
+                  <ul className="review__warnings">
+                    {unsaved.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                  <p className="hint">
+                    Save the file, or accept or discard the proposal, then switch again.
+                  </p>
+                </>
+              )}
+              {switchError !== null && (
+                <p className="status status--error" role="alert">
+                  {switchError}
+                </p>
+              )}
+              <div className="modal__actions">
+                <button
+                  className="btn btn--primary"
+                  disabled={unsaved.length > 0}
+                  onClick={() => void performSwitch(pendingSwitch)}
+                >
+                  Switch
+                </button>
+                <button className="btn" onClick={() => setPendingSwitch(null)}>
+                  Stay here
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

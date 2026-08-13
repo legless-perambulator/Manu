@@ -49,3 +49,10 @@ export type { AgentRunResult, InvestigationAgentOptions, RunOptions } from "./in
 
 export { INVESTIGATOR_AGENT } from "./agent";
 export type { AgentDescriptor } from "./agent";
+
+export {
+  listBranchesTool,
+  createBranchTool,
+  switchBranchTool,
+  compareBranchesTool,
+} from "./tools/branch-tools";

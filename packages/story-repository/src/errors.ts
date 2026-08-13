@@ -7,7 +7,9 @@ export type RepositoryErrorCode =
   | "already_exists"
   | "entity_not_found"
   | "invalid_reference"
-  | "has_references";
+  | "has_references"
+  | "branch_not_found"
+  | "invalid_branch_operation";
 
 /** A Story Repository operation failure with a stable, machine-readable code. */
 export class RepositoryError extends AppError {

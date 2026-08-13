@@ -12,12 +12,27 @@ interface Props {
   /** Run an AI edit against the current selection. */
   onRunEdit?: (request: EditRequest) => void;
   aiBusy?: boolean;
+  /** Told whenever there is unsaved prose, so switching versions can warn. */
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
-export function Editor({ repo, path, onSaved, sceneId = null, onRunEdit, aiBusy = false }: Props) {
+export function Editor({
+  repo,
+  path,
+  onSaved,
+  sceneId = null,
+  onRunEdit,
+  aiBusy = false,
+  onDirtyChange,
+}: Props) {
   const [content, setContent] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [dirty, setDirty] = useState(false);
+
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+  }, [dirty, onDirtyChange]);
+
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selection, setSelection] = useState<{ text: string; start: number; end: number } | null>(

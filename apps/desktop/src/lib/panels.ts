@@ -12,6 +12,7 @@ export const LEFT_PANELS = [
   "entities",
   "search",
   "history",
+  "versions",
   "state",
   "knowledge",
   "relations",
@@ -64,6 +65,12 @@ export const PANELS: readonly PanelDefinition[] = [
     group: "project",
     label: "History",
     purpose: "Every change, with diffs and checkpoints",
+  },
+  {
+    id: "versions",
+    group: "project",
+    label: "Versions",
+    purpose: "Alternative versions of the whole story",
   },
   {
     id: "state",

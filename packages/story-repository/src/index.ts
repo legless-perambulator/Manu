@@ -76,3 +76,20 @@ export { TestStore } from "./test-store";
 export { DebugStore } from "./debug-store";
 export { DependencyStore } from "./dependency-store";
 export { RefactorStore } from "./refactor-store";
+
+export { BranchStore } from "./branch-store";
+export {
+  openBranch,
+  createBranch,
+  switchBranch,
+  compareBranches,
+  mergeBranch,
+  deleteBranch,
+} from "./branches";
+export type {
+  BranchComparison,
+  FileDifference,
+  RecordDifference,
+  MergeConflict,
+  MergeResult,
+} from "./branches";

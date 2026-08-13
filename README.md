@@ -18,7 +18,7 @@ This is **not** a chatbot with a writing editor attached. It lets AI agents insp
 
 ## Status
 
-**Phase 20.5 complete** — `0.1.0-alpha`, with a distributable Linux AppImage.
+**Phase 21 complete** — `0.1.0-alpha`, with distributable Linux AppImage and Flatpak packages.
 Implemented and tested so far:
 
 - **Phase 0** — monorepo, tooling, stable branded entity IDs, persistence and
@@ -118,6 +118,16 @@ Implemented and tested so far:
   next — and the first real desktop package: `Manu-0.1.0-alpha`, standalone,
   as a Linux AppImage. See [`docs/BRAND.md`](docs/BRAND.md),
   [`docs/UX.md`](docs/UX.md) and [`docs/BUILDING.md`](docs/BUILDING.md).
+
+- **Phase 21** — Story Branching: alternative versions of the _whole_ project.
+  _What if Marcus survives Chapter 28?_ becomes a version you can write into
+  without risking the book you have. Isolation is total because every subsystem
+  reads through one store interface and the branch is a copy-on-write view of
+  it — manuscript, state, knowledge, relationships, timeline, objects, threads,
+  tests and dependencies all at once. Versions compare on both halves, prose and
+  records matched by stable ID; merges take only what is unambiguous and report
+  the rest as conflicts, because fiction does not merge like code. The build
+  belongs to the branch that produced it.
 
 Implementation proceeds as vertical slices — see
 [`docs/ROADMAP.md`](docs/ROADMAP.md) and

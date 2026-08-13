@@ -1,4 +1,6 @@
-import { StoryRepository } from "@jellytind/story-repository";
+import { StoryRepository, BranchStore, openBranch } from "@jellytind/story-repository";
+import type { ProjectStore } from "@jellytind/persistence";
+import type { Branch, BranchId } from "@jellytind/domain";
 import { TauriProjectStore } from "./tauri-project-store";
 import { isTauri } from "../tauri";
 
@@ -6,18 +8,47 @@ import { isTauri } from "../tauri";
  * Thin renderer-side entry points to the Story Repository service, wiring it to
  * the Tauri-backed store. The repository operates file-first; the SQLite derived
  * index is a host-side concern attached separately (see docs/STORY_REPOSITORY.md).
+ *
+ * A session holds the **base** store as well as the repository, because branch
+ * operations work across versions while a `StoryRepository` is scoped to
+ * exactly one (docs/VERSIONING.md).
  */
-
-export async function createProjectAt(root: string, title: string): Promise<StoryRepository> {
-  requireTauri();
-  const store = new TauriProjectStore(root);
-  return StoryRepository.createProject({ store, title, rootPath: root });
+export interface ProjectSession {
+  readonly repo: StoryRepository;
+  readonly store: ProjectStore;
+  readonly root: string;
+  readonly branch: Branch;
 }
 
-export async function openProjectAt(root: string): Promise<StoryRepository> {
+export async function createProjectAt(root: string, title: string): Promise<ProjectSession> {
   requireTauri();
   const store = new TauriProjectStore(root);
-  return StoryRepository.openProject({ store, rootPath: root });
+  await StoryRepository.createProject({ store, title, rootPath: root });
+  return sessionFor(store, root);
+}
+
+export async function openProjectAt(root: string): Promise<ProjectSession> {
+  requireTauri();
+  return sessionFor(new TauriProjectStore(root), root);
+}
+
+/** Re-open the project on a different version. */
+export async function openOnBranch(
+  session: ProjectSession,
+  branchId: BranchId,
+): Promise<ProjectSession> {
+  return sessionFor(session.store, session.root, branchId);
+}
+
+async function sessionFor(
+  store: ProjectStore,
+  root: string,
+  branchId?: BranchId,
+): Promise<ProjectSession> {
+  const repo = await openBranch(store, branchId, { rootPath: root });
+  const branches = new BranchStore(store);
+  const branch = branchId === undefined ? await branches.active() : await branches.get(branchId);
+  return { repo, store, root, branch };
 }
 
 export async function validateProjectAt(root: string) {

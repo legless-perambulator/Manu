@@ -31,6 +31,15 @@ export type {
 } from "./causality";
 
 export {
+  MAIN_BRANCH_NAME,
+  BRANCH_STATUSES,
+  isMainBranch,
+  normaliseBranchName,
+  describeBranch,
+} from "./branching";
+export type { Branch, BranchId, BranchStatus } from "./branching";
+
+export {
   orderChapters,
   orderScenes,
   adjacentChapters,
