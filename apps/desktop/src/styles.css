@@ -2312,3 +2312,78 @@ code {
 .badge--insufficient_data {
   color: var(--manu-ink-muted);
 }
+
+/* ── Genre modules ───────────────────────────────────────── */
+/* One panel for every module's records rather than one per genre: the brief
+   asks the workspace to adapt without becoming a pile of every possible tool
+   (docs/GENRE_MODULES.md). */
+.modules__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.modules__item {
+  border: 1px solid var(--manu-border);
+  border-radius: var(--manu-radius-sm);
+  padding: 10px 12px;
+  background: var(--manu-surface);
+}
+.modules__item--on {
+  border-color: var(--manu-accent);
+  background: var(--manu-surface-raised);
+}
+.modules__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.modules__name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  font-size: var(--manu-text-sm);
+}
+.modules__summary {
+  margin: 6px 0 0;
+  font-size: var(--manu-text-sm);
+}
+/* The confirmation is the promise made visible: what goes quiet, and that
+   nothing is lost. */
+.modules__confirm {
+  border: 1px solid var(--manu-warning);
+  border-radius: var(--manu-radius-sm);
+}
+
+.start__templates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0 4px;
+}
+.start__template {
+  font: inherit;
+  font-size: var(--manu-text-xs);
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--manu-border);
+  background: var(--manu-surface);
+  color: var(--manu-ink-muted);
+  cursor: pointer;
+}
+.start__template:hover:not(:disabled) {
+  border-color: var(--manu-accent);
+}
+.start__template--on {
+  border-color: var(--manu-accent);
+  background: var(--manu-accent);
+  color: var(--manu-accent-on);
+}
+.start__template:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

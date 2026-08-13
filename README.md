@@ -18,7 +18,7 @@ This is **not** a chatbot with a writing editor attached. It lets AI agents insp
 
 ## Status
 
-**Phase 29 complete** — `0.1.0-alpha`, with distributable Linux AppImage and Flatpak packages.
+**Phase 30 complete** — `0.1.0-alpha`, with distributable Linux AppImage and Flatpak packages.
 Implemented and tested so far:
 
 - **Phase 0** — monorepo, tooling, stable branded entity IDs, persistence and
@@ -232,6 +232,25 @@ Implemented and tested so far:
   the culprit is what you wrote down. See
   [`docs/MYSTERY_ENGINE.md`](docs/MYSTERY_ENGINE.md).
 
+- **Phase 30** — the Genre Module Framework: one core that adapts to different
+  forms of storytelling instead of fragmenting into six applications. A module
+  **extends** the story domain and never replaces it — the timeline, the
+  knowledge model, the causality graph and the version history are the same
+  ones under every genre. Adding a genre adds no entity kind and no ID prefix:
+  there is one extension record whose schema its module declares and validation
+  enforces, so a module may add records and not arbitrary shapes. Modules ship
+  five deep: Mystery (which declares no records at all, and instead switches on
+  the Phase 29 engine, putting its fairness audit into every build), Fantasy
+  (ten worldbuilding record kinds, schema only), Romance (beats over the
+  relationship state already tracked), Thriller (threat, clock, pursuit,
+  asymmetry) and Screenplay (headings over the same scenes). A module may name
+  an agent but never mint one, because an agent is a permission grant. Eight
+  project templates configure modules and confer nothing — there is no project
+  _type_ to be stuck with — and switching a module off hides its panels and
+  stops its checks while deleting nothing, so a project is never trapped. The
+  acceptance test runs all five genres over one project and one build. See
+  [`docs/GENRE_MODULES.md`](docs/GENRE_MODULES.md).
+
 Implementation proceeds as vertical slices — see
 [`docs/ROADMAP.md`](docs/ROADMAP.md) and
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
@@ -243,7 +262,8 @@ apps/desktop/            Tauri + React desktop shell
 packages/                domain, persistence, model-router, story-compiler,
                          story-debugger, story-causality, story-refactor,
                          agent-runtime, character-sim, context-compiler, editing,
-                         mystery, orchestration, reader-sim, search, skills,
+                         genre, mystery, orchestration, reader-sim, search,
+                         skills,
                          story-repository, story-state, shared,
                          providers/anthropic
 docs/                    living architecture documentation

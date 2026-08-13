@@ -18,6 +18,7 @@
     "@jellytind/context-compiler": "workspace:*",
     "@jellytind/domain": "workspace:*",
     "@jellytind/editing": "workspace:*",
+    "@jellytind/genre": "workspace:*",
     "@jellytind/model-router": "workspace:*",
     "@jellytind/mystery": "workspace:*",
     "@jellytind/orchestration": "workspace:*",

@@ -20,6 +20,7 @@ export function defineSkill(input: {
   inputs?: readonly SkillInput[];
   steps: ReadonlyArray<{ operationId: string; id?: string; title?: string }>;
   preferredAgent?: string;
+  module?: string;
   custom?: boolean;
 }): SkillDefinition {
   const inputs = input.inputs ?? [];
@@ -45,6 +46,7 @@ export function defineSkill(input: {
     requiredTools,
     contextRecipes,
     ...(input.preferredAgent === undefined ? {} : { preferredAgent: input.preferredAgent }),
+    ...(input.module === undefined ? {} : { module: input.module }),
     outputSchema: { name: `${input.id}_report`, sections: sectionsOf(steps) },
     ...(input.custom === true ? { custom: true } : {}),
   };
@@ -199,6 +201,8 @@ export const FAIRNESS_AUDIT = defineSkill({
     },
   ],
   preferredAgent: "continuity_editor",
+  // Arrives with the Mystery module, and is offered only while it is on.
+  module: "mystery",
   steps: [
     { operationId: "load_mystery" },
     { operationId: "resolve_deduction_chain" },

@@ -30,6 +30,7 @@ export type SetupId = Brand<string, "SetupId">;
 export type MysteryId = Brand<string, "MysteryId">;
 export type ClueId = Brand<string, "ClueId">;
 export type DeductionId = Brand<string, "DeductionId">;
+export type ExtensionId = Brand<string, "ExtensionId">;
 export type DecisionId = Brand<string, "DecisionId">;
 export type TestId = Brand<string, "TestId">;
 
@@ -54,7 +55,8 @@ export type EntityId =
   | TestId
   | MysteryId
   | ClueId
-  | DeductionId;
+  | DeductionId
+  | ExtensionId;
 
 /** Any identifier this system mints, including the project container. */
 export type AnyId = StoryProjectId | EntityId;
@@ -78,6 +80,7 @@ export interface IdTypeByKind {
   mystery: MysteryId;
   clue: ClueId;
   deduction: DeductionId;
+  extension: ExtensionId;
 }
 
 export type IdFor<K extends EntityKind> = IdTypeByKind[K];
@@ -171,6 +174,7 @@ export const isSetupId = makeKindGuard("setup");
 export const isMysteryId = makeKindGuard("mystery");
 export const isClueId = makeKindGuard("clue");
 export const isDeductionId = makeKindGuard("deduction");
+export const isExtensionId = makeKindGuard("extension");
 export const isDecisionId = makeKindGuard("decision");
 export const isTestId = makeKindGuard("test");
 

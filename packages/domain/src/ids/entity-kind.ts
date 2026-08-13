@@ -26,6 +26,9 @@ export const ENTITY_KINDS = [
   "mystery",
   "clue",
   "deduction",
+  // One kind for every genre module's records. What a record *is* lives in
+  // the record, not in the ID space (docs/GENRE_MODULES.md).
+  "extension",
 ] as const;
 
 export type EntityKind = (typeof ENTITY_KINDS)[number];
@@ -56,6 +59,7 @@ export const ID_PREFIX = {
   mystery: "MYSTERY",
   clue: "CLUE",
   deduction: "DEDUCTION",
+  extension: "EXT",
 } as const satisfies Record<EntityKind, string>;
 
 export type IdPrefix = (typeof ID_PREFIX)[EntityKind];

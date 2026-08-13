@@ -3,6 +3,7 @@ import { createProjectAt, openProjectAt, validateProjectAt } from "../repo/sessi
 import type { ProjectSession } from "../repo/session";
 import { pickDirectory } from "../lib/dialog";
 import { isTauri } from "../tauri";
+import { TEMPLATES } from "@jellytind/genre";
 import { Wordmark } from "./Wordmark";
 
 interface StartScreenProps {
@@ -22,6 +23,7 @@ function firstRun(): boolean {
 
 export function StartScreen({ onReady, onOpenSettings }: StartScreenProps) {
   const [title, setTitle] = useState("");
+  const [template, setTemplate] = useState("novel");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showIntro, setShowIntro] = useState(firstRun);
@@ -48,7 +50,7 @@ export function StartScreen({ onReady, onOpenSettings }: StartScreenProps) {
     if (dir === null) return;
     setBusy(true);
     try {
-      onReady(await createProjectAt(dir, trimmed));
+      onReady(await createProjectAt(dir, trimmed, template));
     } catch (e) {
       setError(messageOf(e));
     } finally {
@@ -129,6 +131,23 @@ export function StartScreen({ onReady, onOpenSettings }: StartScreenProps) {
               if (e.key === "Enter" && !busy && inApp) void handleCreate();
             }}
           />
+          <div className="start__templates" role="radiogroup" aria-label="Template">
+            {TEMPLATES.map((entry) => (
+              <button
+                key={entry.id}
+                type="button"
+                role="radio"
+                aria-checked={template === entry.id}
+                title={entry.summary}
+                className={`start__template${template === entry.id ? " start__template--on" : ""}`}
+                disabled={busy || !inApp}
+                onClick={() => setTemplate(entry.id)}
+              >
+                {entry.name}
+              </button>
+            ))}
+          </div>
+          <p className="start__note">{TEMPLATES.find((entry) => entry.id === template)?.summary}</p>
           <button
             className="btn btn--primary"
             onClick={() => void handleCreate()}
@@ -137,7 +156,8 @@ export function StartScreen({ onReady, onOpenSettings }: StartScreenProps) {
             Choose a folder and create
           </button>
           <p className="start__note">
-            A Manu project is a folder of plain files you own. Nothing is stored anywhere else.
+            A Manu project is a folder of plain files you own. Nothing is stored anywhere else. A
+            template switches modules on — you can change them whenever you like.
           </p>
         </section>
 

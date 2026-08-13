@@ -5,13 +5,14 @@ import type { BranchId } from "@jellytind/domain";
 import { createManuscriptEditor, explainEditError } from "../lib/editing";
 import {
   PANEL_GROUPS,
-  PANELS,
   firstPanelOfGroup,
   panelById,
   panelsInGroup,
+  visiblePanels,
   type LeftPanelId,
   type PanelGroupId,
 } from "../lib/panels";
+import { GenreRuntime, extensionKindsFor } from "@jellytind/genre";
 import type { Theme } from "../lib/theme";
 import { CommandPalette, type Command } from "./CommandPalette";
 import { Wordmark } from "./Wordmark";
@@ -42,6 +43,8 @@ import { WorkflowPanel } from "./WorkflowPanel";
 import { ReadersPanel } from "./ReadersPanel";
 import { BehaviourPanel } from "./BehaviourPanel";
 import { MysteryPanel } from "./MysteryPanel";
+import { ModulesPanel } from "./ModulesPanel";
+import { WorldPanel } from "./WorldPanel";
 import { CausalityPanel } from "./CausalityPanel";
 import { RefactorPanel } from "./RefactorPanel";
 
@@ -90,7 +93,36 @@ export function Workspace({
   const [aiBusy, setAiBusy] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
 
+  const [enabledModuleIds, setEnabledModuleIds] = useState<readonly string[]>([]);
+
   const refresh = () => setRefreshToken((n) => n + 1);
+
+  /**
+   * Attach the genre framework, and learn which modules are on.
+   *
+   * Done here rather than in the session so the repository stays independent of
+   * the framework: the app is what decides to wire the two together
+   * (docs/GENRE_MODULES.md).
+   */
+  useEffect(() => {
+    GenreRuntime.attach(repo);
+    void repo.modules.enabled().then(setEnabledModuleIds);
+  }, [repo, refreshToken]);
+
+  /** The panels this project can currently see — one filter, used everywhere. */
+  const panels = useMemo(
+    () =>
+      visiblePanels(enabledModuleIds, {
+        hasExtensionKinds: extensionKindsFor(enabledModuleIds).length > 0,
+      }),
+    [enabledModuleIds],
+  );
+
+  // Switching a module off while looking at its panel would otherwise leave the
+  // writer on a tab that is no longer in the strip.
+  useEffect(() => {
+    if (!panels.some((panel) => panel.id === tab)) setTab(firstPanelOfGroup(group, panels));
+  }, [panels, tab, group]);
   const showActivity = useCallback((line: string | null) => setActivityLine(line), []);
 
   /** Open a panel and bring its group with it, from wherever the request came. */
@@ -172,7 +204,7 @@ export function Workspace({
     selectedEntityId?.startsWith("SCENE_") === true ? selectedEntityId : null;
 
   const commands = useMemo<readonly Command[]>(() => {
-    const panels = PANELS.map<Command>((panel) => ({
+    const goTo = panels.map<Command>((panel) => ({
       id: `panel.${panel.id}`,
       section: "Go to",
       label: panel.label,
@@ -187,7 +219,7 @@ export function Workspace({
       run: () => setRightTab(entry.id),
     }));
     return [
-      ...panels,
+      ...goTo,
       ...inspectors,
       {
         id: "theme.light",
@@ -291,7 +323,8 @@ export function Workspace({
                 title={entry.purpose}
                 onClick={() => {
                   setGroup(entry.id);
-                  if (panelById(tab).group !== entry.id) setTab(firstPanelOfGroup(entry.id));
+                  if (panelById(tab).group !== entry.id)
+                    setTab(firstPanelOfGroup(entry.id, panels));
                 }}
               >
                 {entry.label}
@@ -299,7 +332,7 @@ export function Workspace({
             ))}
           </nav>
           <div className="tabbar" role="tablist" aria-label="Panels">
-            {panelsInGroup(group).map((panel) => (
+            {panelsInGroup(group, panels).map((panel) => (
               <button
                 key={panel.id}
                 role="tab"
@@ -481,6 +514,20 @@ export function Workspace({
               }}
               onOpenScene={(id) => {
                 void openScene(id);
+              }}
+            />
+          )}
+          {tab === "modules" && (
+            <ModulesPanel repo={repo} refreshToken={refreshToken} onChanged={refresh} />
+          )}
+          {tab === "world" && (
+            <WorldPanel
+              repo={repo}
+              refreshToken={refreshToken}
+              onChanged={refresh}
+              onSelectEntity={(id) => {
+                setSelectedEntityId(id);
+                setRightTab("inspector");
               }}
             />
           )}

@@ -59,6 +59,9 @@ importers:
       '@jellytind/editing':
         specifier: workspace:*
         version: link:../../packages/editing
+      '@jellytind/genre':
+        specifier: workspace:*
+        version: link:../../packages/genre
       '@jellytind/model-router':
         specifier: workspace:*
         version: link:../../packages/model-router
@@ -228,6 +231,33 @@ importers:
       '@jellytind/story-state':
         specifier: workspace:*
         version: link:../story-state
+
+  packages/genre:
+    dependencies:
+      '@jellytind/agent-runtime':
+        specifier: workspace:*
+        version: link:../agent-runtime
+      '@jellytind/context-compiler':
+        specifier: workspace:*
+        version: link:../context-compiler
+      '@jellytind/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@jellytind/mystery':
+        specifier: workspace:*
+        version: link:../mystery
+      '@jellytind/shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@jellytind/skills':
+        specifier: workspace:*
+        version: link:../skills
+      '@jellytind/story-compiler':
+        specifier: workspace:*
+        version: link:../story-compiler
+      '@jellytind/story-repository':
+        specifier: workspace:*
+        version: link:../story-repository
 
   packages/model-router:
     dependencies:

@@ -26,7 +26,7 @@ export type {
   TestStatus,
 } from "./story-tests";
 
-export { SEVERITIES, RULE_CATEGORIES } from "./types";
+export { SEVERITIES, RULE_CATEGORIES, NO_MODULES } from "./types";
 export type {
   BuildComparison,
   BuildConfig,
@@ -36,6 +36,7 @@ export type {
   DanglingReference,
   Diagnostic,
   DiagnosticDraft,
+  ModuleBuildInput,
   ResolvedBuildConfig,
   RuleCategory,
   RuleOptions,

@@ -288,3 +288,7 @@ export type {
   Solvability,
   Suspect,
 } from "./mystery";
+
+// ── Genre module extensions (Phase 30) ──────────────────────────────────────
+export { describeExtension, renderValue } from "./extensions";
+export type { ExtensionRecord, ExtensionValue } from "./extensions";

@@ -21,6 +21,7 @@ import {
   type StateTransition,
   type TransitionKind,
 } from "@jellytind/story-state";
+import { NO_MODULES } from "./types";
 import type { BuildContext, DanglingReference } from "./types";
 
 /**
@@ -196,6 +197,7 @@ export function buildContext(overrides: FixtureOverrides = {}): Omit<BuildContex
   const timeline = new StoryTimeline(ordered, transitions);
 
   return {
+    modules: NO_MODULES,
     scenes,
     chapters,
     characters,

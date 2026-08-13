@@ -79,6 +79,10 @@ export { WorkflowRunStore } from "./workflow-run-store";
 export { ReaderSimulationStore } from "./reader-sim-store";
 export { PersonalityStore } from "./personality-store";
 export { MysteryStore } from "./mystery-store";
+export { ExtensionStore } from "./extension-store";
+export { ModuleStore } from "./module-store";
+export type { ModuleSettings } from "./module-store";
+export type { ModuleRuntime } from "./module-runtime";
 export { DependencyStore } from "./dependency-store";
 export { RefactorStore } from "./refactor-store";
 

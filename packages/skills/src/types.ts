@@ -96,6 +96,16 @@ export interface SkillDefinition {
   readonly contextRecipes: readonly string[];
   /** The specialist this work belongs to (docs/SPECIALIST_AGENTS.md). */
   readonly preferredAgent?: string;
+  /**
+   * The genre module this skill arrives with, when it is not a skill for
+   * everybody.
+   *
+   * Declared here rather than inferred from which module happens to name it,
+   * so there is one place that knows whether `/fairness-audit` is core. A
+   * module listing a skill and the skill naming a module are cross-checked at
+   * registration (docs/GENRE_MODULES.md).
+   */
+  readonly module?: string;
   readonly outputSchema: SkillOutputSchema;
   /** Written by the writer rather than shipped with Manu. */
   readonly custom?: boolean;

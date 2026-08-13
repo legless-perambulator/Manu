@@ -176,6 +176,9 @@ import {
   locationFilePath,
   objectFilePath,
 } from "./paths";
+import { ExtensionStore } from "./extension-store";
+import { ModuleStore } from "./module-store";
+import type { ModuleRuntime } from "./module-runtime";
 import { scaffoldProject } from "./scaffold";
 import { buildManifest, validateManifest } from "./manifest";
 import { readCatalog, writeCatalog, type CatalogEntity } from "./catalog";
@@ -294,11 +297,16 @@ export class StoryRepository {
   readonly personalities: PersonalityStore;
   /** Clues, suspects and deductions (docs/MYSTERY_ENGINE.md). */
   readonly mysteries: MysteryStore;
+  /** Which genre modules are switched on (docs/GENRE_MODULES.md). */
+  readonly modules: ModuleStore;
+  /** Records belonging to genre modules (docs/GENRE_MODULES.md). */
+  readonly extensions: ExtensionStore;
   private readonly debugReports: DebugStore;
   private readonly dependencies: DependencyStore;
   private readonly refactors: RefactorStore;
   private manifest: ProjectManifest;
   private ids: SequentialIdGenerator;
+  private moduleRuntime: ModuleRuntime | null = null;
 
   private constructor(
     rawStore: ProjectStore,
@@ -343,6 +351,12 @@ export class StoryRepository {
     this.personalities = new PersonalityStore(this.store);
     // Journaled: who did it, and what each clue really means, is canon.
     this.mysteries = new MysteryStore(this.store);
+    // Not journaled: which modules are switched on is a setting about the
+    // workspace, not a claim about the story.
+    this.modules = new ModuleStore(rawStore);
+    // Journaled, unlike the setting above: a culture or a relationship beat is
+    // authored material and belongs in the revision history.
+    this.extensions = new ExtensionStore(this.store);
     // Journaled: a registered dependency is the author's claim about how their
     // story holds together, as authored as a plot thread.
     this.dependencies = new DependencyStore(this.store);
@@ -1390,7 +1404,13 @@ export class StoryRepository {
       this.getManuscriptMetrics(),
     ]);
 
+    const enabled = await this.modules.enabled();
+    const extensions = await this.extensions.listAll(enabled);
+    const moduleData =
+      this.moduleRuntime === null ? {} : await this.moduleRuntime.collect(enabled, this);
+
     return {
+      modules: { enabled, extensions, data: moduleData },
       scenes,
       chapters,
       characters,
@@ -1424,6 +1444,18 @@ export class StoryRepository {
   }
 
   /**
+   * Attach the genre framework, or take it away.
+   *
+   * Optional by design: with nothing attached the repository behaves exactly as
+   * it did before modules existed. It is the app that decides to wire the two
+   * together, which keeps the dependency running upward
+   * (docs/GENRE_MODULES.md).
+   */
+  useModules(runtime: ModuleRuntime | null): void {
+    this.moduleRuntime = runtime;
+  }
+
+  /**
    * Build the story: run every enabled rule over the project's structured state
    * and record the result.
    *
@@ -1437,7 +1469,12 @@ export class StoryRepository {
   ): Promise<StoryBuild> {
     const [context, number] = await Promise.all([this.getBuildContext(), this.builds.nextNumber()]);
 
-    const build = await buildStory(CORE_RULES, context, {
+    // Core rules, plus whatever the enabled modules contribute. With no runtime
+    // attached this is exactly CORE_RULES, which is what a project with no
+    // modules on should get.
+    const rules = [...CORE_RULES, ...(this.moduleRuntime?.rulesFor(context.modules.enabled) ?? [])];
+
+    const build = await buildStory(rules, context, {
       number,
       now: this.clock,
       ...(options.config !== undefined ? { config: options.config } : {}),

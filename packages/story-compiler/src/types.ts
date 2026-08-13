@@ -3,6 +3,7 @@ import type {
   Character,
   Decision,
   Dependency,
+  ExtensionRecord,
   Fact,
   Location,
   PlotThread,
@@ -83,7 +84,8 @@ export type BuildInputKind =
   | "world_rules"
   | "prose"
   | "story_tests"
-  | "dependencies";
+  | "dependencies"
+  | "extensions";
 
 /**
  * One finding from one rule.
@@ -161,6 +163,16 @@ export interface BuildContext {
    */
   readonly danglingReferences: readonly DanglingReference[];
 
+  /**
+   * What the enabled genre modules brought with them.
+   *
+   * The compiler knows that modules exist and knows nothing about any genre.
+   * A module's rule reads its own slot — `context.modules.data["mystery"]` —
+   * which it filled itself via `collect`, and the core never grows a branch
+   * per genre (docs/GENRE_MODULES.md).
+   */
+  readonly modules: ModuleBuildInput;
+
   readonly config: ResolvedBuildConfig;
   /**
    * Test results, evaluated once by the build before the rules run.
@@ -171,6 +183,21 @@ export interface BuildContext {
    */
   readonly testResults?: TestRunSummary;
 }
+
+/**
+ * The genre modules' contribution to a build.
+ *
+ * Deliberately opaque. `data` is keyed by module id and each module casts its
+ * own entry — a rule that reads another module's slot is reaching outside
+ * itself and gets `unknown` for its trouble.
+ */
+export interface ModuleBuildInput {
+  readonly enabled: readonly string[];
+  readonly extensions: readonly ExtensionRecord[];
+  readonly data: Readonly<Record<string, unknown>>;
+}
+
+export const NO_MODULES: ModuleBuildInput = { enabled: [], extensions: [], data: {} };
 
 export interface DanglingReference {
   readonly fromId: string;

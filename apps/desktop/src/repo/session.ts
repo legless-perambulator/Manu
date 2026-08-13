@@ -1,6 +1,7 @@
 import { StoryRepository, BranchStore, openBranch } from "@jellytind/story-repository";
 import type { ProjectStore } from "@jellytind/persistence";
 import type { Branch, BranchId } from "@jellytind/domain";
+import { GenreRuntime } from "@jellytind/genre";
 import { TauriProjectStore } from "./tauri-project-store";
 import { isTauri } from "../tauri";
 
@@ -20,10 +21,18 @@ export interface ProjectSession {
   readonly branch: Branch;
 }
 
-export async function createProjectAt(root: string, title: string): Promise<ProjectSession> {
+export async function createProjectAt(
+  root: string,
+  title: string,
+  template = "novel",
+): Promise<ProjectSession> {
   requireTauri();
   const store = new TauriProjectStore(root);
-  await StoryRepository.createProject({ store, title, rootPath: root });
+  const repo = await StoryRepository.createProject({ store, title, rootPath: root });
+  // A template is a starting configuration, not a project type: it switches
+  // modules on and confers nothing that cannot be changed later
+  // (docs/GENRE_MODULES.md).
+  await GenreRuntime.attach(repo).applyTemplate(template);
   return sessionFor(store, root);
 }
 

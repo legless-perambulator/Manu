@@ -28,6 +28,8 @@ export const LEFT_PANELS = [
   "readers",
   "behaviour",
   "mystery",
+  "world",
+  "modules",
   "causality",
   "refactor",
 ] as const;
@@ -42,6 +44,17 @@ export interface PanelDefinition {
   readonly label: string;
   /** What the panel answers, shown in the command palette. */
   readonly purpose: string;
+  /**
+   * The genre module this panel arrives with, when it is not a core panel.
+   *
+   * Hidden entirely while that module is off — from the sidebar, the command
+   * palette and the shortcuts alike, because they all read this one registry.
+   * That is the whole of "the workspace adapts": a writer who never enables
+   * the Mystery module never sees a clue board (docs/GENRE_MODULES.md).
+   */
+  readonly module?: string;
+  /** Shown only when at least one module declaring record kinds is on. */
+  readonly needsExtensionKinds?: boolean;
 }
 
 export interface PanelGroup {
@@ -167,6 +180,20 @@ export const PANELS: readonly PanelDefinition[] = [
     group: "verify",
     label: "Mystery",
     purpose: "Clues, deductions, and whether the reader could have got there",
+    module: "mystery",
+  },
+  {
+    id: "world",
+    group: "story",
+    label: "World",
+    purpose: "Everything the enabled genre modules record",
+    needsExtensionKinds: true,
+  },
+  {
+    id: "modules",
+    group: "project",
+    label: "Modules",
+    purpose: "Which genre modules this project uses",
   },
   {
     id: "causality",
@@ -191,14 +218,38 @@ export function panelById(id: LeftPanelId): PanelDefinition {
   return found;
 }
 
-export function panelsInGroup(group: PanelGroupId): readonly PanelDefinition[] {
-  return PANELS.filter((panel) => panel.group === group);
+/**
+ * The panels a project can currently see.
+ *
+ * One filter, applied everywhere. The alternative — each consumer deciding for
+ * itself — is how a panel ends up reachable by keyboard shortcut after being
+ * hidden from the sidebar.
+ */
+export function visiblePanels(
+  enabled: readonly string[],
+  options: { hasExtensionKinds?: boolean } = {},
+): readonly PanelDefinition[] {
+  return PANELS.filter((panel) => {
+    if (panel.module !== undefined && !enabled.includes(panel.module)) return false;
+    if (panel.needsExtensionKinds === true && options.hasExtensionKinds !== true) return false;
+    return true;
+  });
+}
+
+export function panelsInGroup(
+  group: PanelGroupId,
+  visible: readonly PanelDefinition[] = PANELS,
+): readonly PanelDefinition[] {
+  return visible.filter((panel) => panel.group === group);
 }
 
 /** The panel each group opens on when it has not been visited yet. */
-export function firstPanelOfGroup(group: PanelGroupId): LeftPanelId {
-  const first = panelsInGroup(group)[0];
-  /* istanbul ignore next — every group has at least one panel. */
+export function firstPanelOfGroup(
+  group: PanelGroupId,
+  visible: readonly PanelDefinition[] = PANELS,
+): LeftPanelId {
+  const first = panelsInGroup(group, visible)[0];
+  /* istanbul ignore next — every group has at least one core panel. */
   if (first === undefined) throw new Error(`Empty panel group: ${group}`);
   return first.id;
 }
