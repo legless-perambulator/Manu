@@ -18,7 +18,7 @@ This is **not** a chatbot with a writing editor attached. It lets AI agents insp
 
 ## Status
 
-**Phase 28 complete** — `0.1.0-alpha`, with distributable Linux AppImage and Flatpak packages.
+**Phase 29 complete** — `0.1.0-alpha`, with distributable Linux AppImage and Flatpak packages.
 Implemented and tested so far:
 
 - **Phase 0** — monorepo, tooling, stable branded entity IDs, persistence and
@@ -213,6 +213,25 @@ Implemented and tested so far:
   because the plot needs them to. See
   [`docs/SIMULATIONS.md`](docs/SIMULATIONS.md).
 
+- **Phase 29** — the Mystery Engine: a clue system that makes the whole
+  information architecture of a mystery reconstructible **without the prose**.
+  The proof is a test over a book containing no prose at all — every chapter
+  file front matter and a heading — which still answers when the reader had
+  what, which reasoning rests on which clue, and which alibis the timeline
+  contradicts. Clues separate what the _reader_ has been shown from what the
+  _characters_ have found; the five kinds of information a mystery moves are
+  kept apart; deduction chains resolve depth-first and report circular
+  reasoning rather than hanging on it. `/fairness-audit` asks whether a careful
+  reader could fairly get there before the reveal and answers with a verdict —
+  fair, strained, unfair — never a score, naming hidden essentials, late
+  premises, unresolved red herrings and clues nothing ever cashes. Earliest
+  solvability names the premise holding it back and compares it to where you
+  meant it; accidental obviousness reads the simulated readers of Phase 27 and
+  reports only the ones who got there early. Nothing anywhere derives guilt:
+  motive, means and opportunity are recorded because a reader weighs them, and
+  the culprit is what you wrote down. See
+  [`docs/MYSTERY_ENGINE.md`](docs/MYSTERY_ENGINE.md).
+
 Implementation proceeds as vertical slices — see
 [`docs/ROADMAP.md`](docs/ROADMAP.md) and
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
@@ -224,7 +243,7 @@ apps/desktop/            Tauri + React desktop shell
 packages/                domain, persistence, model-router, story-compiler,
                          story-debugger, story-causality, story-refactor,
                          agent-runtime, character-sim, context-compiler, editing,
-                         orchestration, reader-sim, search, skills,
+                         mystery, orchestration, reader-sim, search, skills,
                          story-repository, story-state, shared,
                          providers/anthropic
 docs/                    living architecture documentation

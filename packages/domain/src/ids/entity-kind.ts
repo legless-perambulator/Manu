@@ -23,6 +23,9 @@ export const ENTITY_KINDS = [
   "setup",
   "decision",
   "test",
+  "mystery",
+  "clue",
+  "deduction",
 ] as const;
 
 export type EntityKind = (typeof ENTITY_KINDS)[number];
@@ -50,6 +53,9 @@ export const ID_PREFIX = {
   setup: "SETUP",
   decision: "DECISION",
   test: "TEST",
+  mystery: "MYSTERY",
+  clue: "CLUE",
+  deduction: "DEDUCTION",
 } as const satisfies Record<EntityKind, string>;
 
 export type IdPrefix = (typeof ID_PREFIX)[EntityKind];

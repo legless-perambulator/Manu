@@ -78,6 +78,7 @@ export { SkillRunStore } from "./skill-run-store";
 export { WorkflowRunStore } from "./workflow-run-store";
 export { ReaderSimulationStore } from "./reader-sim-store";
 export { PersonalityStore } from "./personality-store";
+export { MysteryStore } from "./mystery-store";
 export { DependencyStore } from "./dependency-store";
 export { RefactorStore } from "./refactor-store";
 

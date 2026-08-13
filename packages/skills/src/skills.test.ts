@@ -11,6 +11,7 @@ import {
   CHARACTER_PASS,
   CONTINUITY_AUDIT,
   DIALOGUE_PASS,
+  FAIRNESS_AUDIT,
   REMOVE_AI_TENDENCIES,
   SCENE_PURPOSE_AUDIT,
   defineSkill,
@@ -555,6 +556,136 @@ describe("the output schema is enforced, not decorative", () => {
     expect(report.total).toBe(run.findings.length);
     expect(report.modelDerived).toBe(0);
     expect(report.deterministic).toBe(report.total);
+  });
+});
+
+// ── The fairness audit ──────────────────────────────────────────────────────
+
+/**
+ * A mystery laid over the same three scenes.
+ *
+ * Two clues the reader is shown, one deduction from them, one solution, and an
+ * alibi with nobody to back it up. No prose is touched: the audit reads the
+ * clue system (docs/MYSTERY_ENGINE.md).
+ */
+async function mysteryIn(project: Awaited<ReturnType<typeof novel>>) {
+  const { repo, elias, s1, s2, s3 } = project;
+  const mystery = await repo.mysteries.addMystery({
+    name: "The sealed vault",
+    question: "Who sealed the vault?",
+    solution: "Elias did.",
+    culpritIds: [elias.id],
+    revealSceneId: s3.id,
+    intendedSolvableFromSceneId: s2.id,
+    status: "active",
+  });
+  const board = await repo.mysteries.addClue({
+    mysteryId: mystery.id,
+    description: "A key missing from the board",
+    source: "absence",
+    firstAppearance: s1.id,
+  });
+  const coat = await repo.mysteries.addClue({
+    mysteryId: mystery.id,
+    description: "Elias's coat is damp to the elbow",
+    firstAppearance: s2.id,
+  });
+  const step = await repo.mysteries.addDeduction({
+    mysteryId: mystery.id,
+    statement: "Whoever sealed it went down first",
+    premises: [board.id, coat.id],
+  });
+  await repo.mysteries.addDeduction({
+    mysteryId: mystery.id,
+    statement: "Elias sealed the vault",
+    premises: [step.id],
+    isSolution: true,
+  });
+  await repo.mysteries.setSuspect({
+    mysteryId: mystery.id,
+    characterId: elias.id,
+    motive: "cut out of the will",
+    alibi: { claim: "He says he was in the hall.", coversSceneId: s1.id },
+    evidenceFor: [board.id, coat.id],
+    evidenceAgainst: [],
+  });
+  return { mystery, board, coat };
+}
+
+describe("the fairness audit", () => {
+  it("answers the question in named steps against the clue system", async () => {
+    const project = await novel();
+    const { mystery } = await mysteryIn(project);
+    const run = await runnerFor(project.repo).start(FAIRNESS_AUDIT, { mysteryId: mystery.id });
+
+    expect(run.status).toBe("completed");
+    expect(run.steps.map((step) => step.title)).toEqual([
+      "Load the clue system",
+      "Resolve the chain of reasoning",
+      "Ask whether the reader could have got there",
+      "Estimate the earliest solvable point",
+      "Check alibis against the timeline",
+      "Check whether simulated readers get there early",
+      "Produce report",
+    ]);
+    expect((run.outputs.fairness as { verdict: string }).verdict).toBe("fair");
+    expect((run.outputs.solvability as { earliestPosition: number }).earliestPosition).toBe(2);
+    expect(validateReport(FAIRNESS_AUDIT, run)).toEqual([]);
+  });
+
+  it("names the premise the reader never got, and says so as a conflict", async () => {
+    const project = await novel();
+    const { mystery, coat } = await mysteryIn(project);
+    // The coat now only appears in the reveal itself.
+    await project.repo.mysteries.updateClue(coat.id, {
+      firstAppearance: project.s3.id,
+      readerExposure: [project.s3.id],
+    });
+
+    const run = await runnerFor(project.repo).start(FAIRNESS_AUDIT, { mysteryId: mystery.id });
+    const conflicts = run.findings.filter((entry) => entry.kind === "conflict");
+
+    expect((run.outputs.fairness as { verdict: string }).verdict).toBe("unfair");
+    expect(conflicts.some((entry) => /at or after the reveal/.test(entry.statement))).toBe(true);
+    expect(conflicts.every((entry) => entry.source === "deterministic")).toBe(true);
+  });
+
+  it("skips the reader comparison with a reason rather than reporting it clean", async () => {
+    const project = await novel();
+    const { mystery } = await mysteryIn(project);
+    const run = await runnerFor(project.repo).start(FAIRNESS_AUDIT, { mysteryId: mystery.id });
+
+    const step = run.steps.find((entry) => entry.id === "detect_obviousness");
+    expect(step?.status).toBe("skipped");
+    expect(step?.reason).toMatch(/No completed reader simulations are stored/);
+    expect(run.outputs.obviousness).toBeUndefined();
+  });
+
+  it("reports an alibi nothing corroborates without calling it a verdict on guilt", async () => {
+    const project = await novel();
+    const { mystery } = await mysteryIn(project);
+    const run = await runnerFor(project.repo).start(FAIRNESS_AUDIT, { mysteryId: mystery.id });
+
+    const alibi = run.findings.find((entry) => /nobody to corroborate/.test(entry.statement));
+    expect(alibi?.kind).toBe("attention");
+    expect(JSON.stringify(run.outputs)).not.toMatch(/guilty|score|probability/i);
+  });
+
+  it("runs the whole workflow with no model at all", async () => {
+    const project = await novel();
+    const { mystery } = await mysteryIn(project);
+    const run = await runnerFor(project.repo).start(FAIRNESS_AUDIT, { mysteryId: mystery.id });
+    expect(run.findings.every((entry) => entry.source === "deterministic")).toBe(true);
+    expect(
+      FAIRNESS_AUDIT.steps.every(
+        (step) => operationById(step.operationId).kind === "deterministic",
+      ),
+    ).toBe(true);
+  });
+
+  it("needs a mystery before it will run", async () => {
+    const { repo } = await novel();
+    await expect(runnerFor(repo).start(FAIRNESS_AUDIT, {})).rejects.toThrowError(/needs Mystery/);
   });
 });
 

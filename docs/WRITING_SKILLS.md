@@ -5,9 +5,11 @@ Repeatable fiction-development workflows.
 - **Packages:** `@jellytind/skills` (the operations, the skills, the runner),
   `@jellytind/domain` (the run record), `@jellytind/story-repository`
   (persistence), `@jellytind/editing` (the semantic port's implementation)
-- **Status (Phase 25):** **Implemented and tested.** Twenty-eight operations,
-  seven shipped skills, step-by-step progress, resumable runs, custom skills
-  loaded from the project.
+- **Status (Phase 25):** **Implemented and tested.** Thirty-four operations,
+  eight shipped skills, step-by-step progress, resumable runs, custom skills
+  loaded from the project. `/fairness-audit` was added by the Mystery Engine
+  (Phase 29) as six further operations and no new machinery — which is the
+  point of the registry.
 
 ## A skill is not a saved prompt
 
@@ -64,7 +66,7 @@ That makes a workflow **checkable before it runs**. A step reading `scenes`
 when no earlier step produces it is rejected at definition time, with a
 sentence naming the step and the key — not at minute nine of an audit.
 
-## The seven
+## The eight
 
 | Command                 | What it does                                                                          |
 | ----------------------- | ------------------------------------------------------------------------------------- |
@@ -75,6 +77,7 @@ sentence naming the step and the key — not at minute nine of an audit.
 | `/foreshadowing-audit`  | Setups → distance to payoff → thread activity → report                                |
 | `/scene-purpose-audit`  | What each scene says it is for → what actually changes in it → categorise → report    |
 | `/remove-ai-tendencies` | Count constructions → check your own rules → propose alternatives → report            |
+| `/fairness-audit`       | Clue system → chain of reasoning → fairness → solvability → alibis → readers → report |
 
 Two ways in, one workflow: the Skills panel, or the command — `/character-pass
 Mara`, resolved against the project's own entities so "Mara" becomes
@@ -210,6 +213,7 @@ every other controlled model operation.
   rather than re-implementing its checks.
 - [CHARACTER_VOICE.md](CHARACTER_VOICE.md) — where `/dialogue-pass` gets the
   voices it measures against.
+- [MYSTERY_ENGINE.md](MYSTERY_ENGINE.md) — what `/fairness-audit` reads
 - [AUTHOR_VOICE.md](AUTHOR_VOICE.md) — the rules `/remove-ai-tendencies`
   checks, and will not propose breaking.
 - [AI_EDITING.md](AI_EDITING.md) — why a proposal is not an edit.

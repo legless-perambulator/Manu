@@ -151,9 +151,11 @@ twenty.
 
 A mystery is working when the reader suspects the right person at the right time
 and not before, which is exactly `suspicionOf(simulation, characterId)` and
-`firstSuspected(simulation, characterId, "moderate")`. The seam is in place, so
-when the Mystery Engine arrives it consumes reader simulations rather than
-growing a second opinion of its own.
+`firstSuspected(simulation, characterId, "moderate")`. The Mystery Engine
+(Phase 29) consumes those directly rather than growing a second opinion of its
+own: `detectObviousness` pairs `firstSuspected` with the culprit the author
+recorded and the scene they meant the mystery to become solvable, and reports
+the readers who arrive early. See [MYSTERY_ENGINE.md](MYSTERY_ENGINE.md).
 
 ### Needs a model
 

@@ -255,3 +255,36 @@ export type {
   PlausibilityBand,
   TraitStatus,
 } from "./character-sim";
+
+export {
+  EVIDENCE_KINDS,
+  CLUE_SOURCES,
+  CLUE_STATUSES,
+  CLUE_VISIBILITY,
+  DEDUCTION_DIFFICULTIES,
+  MYSTERY_STATUSES,
+  FAIRNESS_PROBLEMS,
+  FAIRNESS_VERDICTS,
+  MYSTERY_CAVEAT,
+  describeFairness,
+} from "./mystery";
+export type {
+  AlibiFinding,
+  Clue,
+  ClueDiscovery,
+  ClueSource,
+  ClueStatus,
+  ClueVisibility,
+  Deduction,
+  DeductionDifficulty,
+  EvidenceKind,
+  FairnessFinding,
+  FairnessProblem,
+  FairnessReport,
+  FairnessVerdict,
+  Mystery,
+  MysteryStatus,
+  ObviousnessFinding,
+  Solvability,
+  Suspect,
+} from "./mystery";

@@ -1,9 +1,9 @@
 {
-  "name": "@jellytind/skills",
+  "name": "@jellytind/mystery",
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Writing Skills: repeatable fiction-development workflows composed from structured project operations.",
+  "description": "The Mystery Engine: clue architecture, deduction chains, fairness audit and earliest solvability.",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
@@ -12,7 +12,7 @@
   "sideEffects": false,
   "dependencies": {
     "@jellytind/domain": "workspace:*",
-    "@jellytind/mystery": "workspace:*",
+    "@jellytind/reader-sim": "workspace:*",
     "@jellytind/shared": "workspace:*",
     "@jellytind/story-repository": "workspace:*"
   }

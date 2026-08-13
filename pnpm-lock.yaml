@@ -62,6 +62,9 @@ importers:
       '@jellytind/model-router':
         specifier: workspace:*
         version: link:../../packages/model-router
+      '@jellytind/mystery':
+        specifier: workspace:*
+        version: link:../../packages/mystery
       '@jellytind/orchestration':
         specifier: workspace:*
         version: link:../../packages/orchestration
@@ -232,6 +235,21 @@ importers:
         specifier: workspace:*
         version: link:../shared
 
+  packages/mystery:
+    dependencies:
+      '@jellytind/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@jellytind/reader-sim':
+        specifier: workspace:*
+        version: link:../reader-sim
+      '@jellytind/shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@jellytind/story-repository':
+        specifier: workspace:*
+        version: link:../story-repository
+
   packages/orchestration:
     dependencies:
       '@jellytind/agent-runtime':
@@ -296,6 +314,9 @@ importers:
       '@jellytind/domain':
         specifier: workspace:*
         version: link:../domain
+      '@jellytind/mystery':
+        specifier: workspace:*
+        version: link:../mystery
       '@jellytind/shared':
         specifier: workspace:*
         version: link:../shared

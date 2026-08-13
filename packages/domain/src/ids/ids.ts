@@ -27,6 +27,9 @@ export type EventId = Brand<string, "EventId">;
 export type WorldRuleId = Brand<string, "WorldRuleId">;
 export type RelationshipId = Brand<string, "RelationshipId">;
 export type SetupId = Brand<string, "SetupId">;
+export type MysteryId = Brand<string, "MysteryId">;
+export type ClueId = Brand<string, "ClueId">;
+export type DeductionId = Brand<string, "DeductionId">;
 export type DecisionId = Brand<string, "DecisionId">;
 export type TestId = Brand<string, "TestId">;
 
@@ -48,7 +51,10 @@ export type EntityId =
   | RelationshipId
   | SetupId
   | DecisionId
-  | TestId;
+  | TestId
+  | MysteryId
+  | ClueId
+  | DeductionId;
 
 /** Any identifier this system mints, including the project container. */
 export type AnyId = StoryProjectId | EntityId;
@@ -69,6 +75,9 @@ export interface IdTypeByKind {
   setup: SetupId;
   decision: DecisionId;
   test: TestId;
+  mystery: MysteryId;
+  clue: ClueId;
+  deduction: DeductionId;
 }
 
 export type IdFor<K extends EntityKind> = IdTypeByKind[K];
@@ -159,6 +168,9 @@ export const isEventId = makeKindGuard("event");
 export const isWorldRuleId = makeKindGuard("world_rule");
 export const isRelationshipId = makeKindGuard("relationship");
 export const isSetupId = makeKindGuard("setup");
+export const isMysteryId = makeKindGuard("mystery");
+export const isClueId = makeKindGuard("clue");
+export const isDeductionId = makeKindGuard("deduction");
 export const isDecisionId = makeKindGuard("decision");
 export const isTestId = makeKindGuard("test");
 

@@ -183,6 +183,33 @@ export const REMOVE_AI_TENDENCIES = defineSkill({
   ],
 });
 
+export const FAIRNESS_AUDIT = defineSkill({
+  id: "fairness_audit",
+  command: "/fairness-audit",
+  name: "Fairness Audit",
+  description:
+    "Can a careful reader fairly reach the intended solution before the reveal? Resolve the chain of reasoning, check every premise against what the reader has been shown, and compare the earliest solvable point to where you meant it to be.",
+  inputs: [
+    {
+      key: "mysteryId",
+      label: "Mystery",
+      entityKind: "mystery",
+      required: true,
+      description: "Which mystery to audit.",
+    },
+  ],
+  preferredAgent: "continuity_editor",
+  steps: [
+    { operationId: "load_mystery" },
+    { operationId: "resolve_deduction_chain" },
+    { operationId: "audit_fairness" },
+    { operationId: "estimate_solvability" },
+    { operationId: "check_alibis" },
+    { operationId: "detect_obviousness" },
+    { operationId: "compile_report" },
+  ],
+});
+
 export const BUILT_IN_SKILLS: readonly SkillDefinition[] = [
   CHARACTER_PASS,
   CONTINUITY_AUDIT,
@@ -191,6 +218,7 @@ export const BUILT_IN_SKILLS: readonly SkillDefinition[] = [
   FORESHADOWING_AUDIT,
   SCENE_PURPOSE_AUDIT,
   REMOVE_AI_TENDENCIES,
+  FAIRNESS_AUDIT,
 ];
 
 export function skillById(id: string, extra: readonly SkillDefinition[] = []): SkillDefinition {

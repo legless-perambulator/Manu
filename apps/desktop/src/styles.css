@@ -2266,3 +2266,49 @@ code {
   color: var(--manu-accent-text);
   border-color: var(--manu-accent);
 }
+
+/* ── Mystery Engine ──────────────────────────────────────── */
+/* The chain of reasoning is drawn the way the specification draws it, so it is
+   set in the mono face and kept whitespace-exact. */
+.mystery__chain {
+  margin: 4px 0 10px;
+  padding: 8px 10px;
+  background: var(--manu-surface-raised);
+  border: 1px solid var(--manu-border);
+  border-radius: var(--manu-radius-sm);
+  font-family: var(--manu-font-mono);
+  font-size: var(--manu-text-xs);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-x: auto;
+}
+/* The kinds of information a mystery moves are kept visually apart, because
+   confusing a red herring for a clue is exactly the mistake being guarded
+   against (docs/MYSTERY_ENGINE.md). */
+.badge--red_herring {
+  color: var(--manu-warning);
+  border-color: var(--manu-warning);
+}
+.badge--evidence {
+  color: var(--manu-info);
+}
+.badge--reveal {
+  color: var(--manu-accent-text);
+  border-color: var(--manu-accent);
+}
+/* A verdict, never a score. */
+.badge--fair {
+  color: var(--manu-success);
+  border-color: var(--manu-success);
+}
+.badge--strained {
+  color: var(--manu-warning);
+  border-color: var(--manu-warning);
+}
+.badge--unfair {
+  color: var(--manu-error);
+  border-color: var(--manu-error);
+}
+.badge--insufficient_data {
+  color: var(--manu-ink-muted);
+}

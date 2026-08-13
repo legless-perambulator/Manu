@@ -28,7 +28,7 @@ export interface SkillInput {
   readonly key: string;
   readonly label: string;
   /** Which entity kind the value names, so the interface can offer a picker. */
-  readonly entityKind?: "character" | "chapter" | "scene" | "plot_thread";
+  readonly entityKind?: "character" | "chapter" | "scene" | "plot_thread" | "mystery";
   readonly required: boolean;
   readonly description?: string;
 }

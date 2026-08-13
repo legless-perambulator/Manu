@@ -35,7 +35,8 @@ These documents are **living**: update the relevant document whenever an archite
 | [VERSIONING.md](VERSIONING.md)               | Revisions, diffs, checkpoints, branches, audit trail.           |
 | [STORY_REFACTOR.md](STORY_REFACTOR.md)       | Analyse, plan, stage, validate and commit a story change.       |
 | [STORY_DEBUGGER.md](STORY_DEBUGGER.md)       | Diagnostic workflow that investigates before editing.           |
-| [SIMULATIONS.md](SIMULATIONS.md)             | Sequential reader simulation; character simulation planned.     |
+| [SIMULATIONS.md](SIMULATIONS.md)             | Sequential reader simulation and character simulation.          |
+| [MYSTERY_ENGINE.md](MYSTERY_ENGINE.md)       | Clues, deduction chains and the fairness audit.                 |
 | [SECURITY_PRIVACY.md](SECURITY_PRIVACY.md)   | Local-first ownership, data handling, privacy posture.          |
 | [UX.md](UX.md)                               | Interface principles and the IDE layout.                        |
 | [BRAND.md](BRAND.md)                         | The canonical Manu brand: palette, wordmark, voice.             |

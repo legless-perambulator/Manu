@@ -41,6 +41,7 @@ import { SkillsPanel } from "./SkillsPanel";
 import { WorkflowPanel } from "./WorkflowPanel";
 import { ReadersPanel } from "./ReadersPanel";
 import { BehaviourPanel } from "./BehaviourPanel";
+import { MysteryPanel } from "./MysteryPanel";
 import { CausalityPanel } from "./CausalityPanel";
 import { RefactorPanel } from "./RefactorPanel";
 
@@ -472,6 +473,20 @@ export function Workspace({
             <BehaviourPanel
               repo={repo}
               secrets={secrets}
+              refreshToken={refreshToken}
+              onChanged={refresh}
+              onSelectEntity={(id) => {
+                setSelectedEntityId(id);
+                setRightTab("inspector");
+              }}
+              onOpenScene={(id) => {
+                void openScene(id);
+              }}
+            />
+          )}
+          {tab === "mystery" && (
+            <MysteryPanel
+              repo={repo}
               refreshToken={refreshToken}
               onChanged={refresh}
               onSelectEntity={(id) => {

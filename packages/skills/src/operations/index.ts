@@ -2,6 +2,7 @@ import { SkillError, type SkillDefinition, type SkillOperation, type SkillStep }
 import { CHARACTER_OPERATIONS } from "./character";
 import { CONTINUITY_OPERATIONS } from "./continuity";
 import { DIALOGUE_OPERATIONS } from "./dialogue";
+import { MYSTERY_OPERATIONS } from "./mystery";
 import { REPORT_OPERATIONS } from "./report";
 import { STRUCTURE_OPERATIONS } from "./structure";
 import { TENDENCY_OPERATIONS } from "./tendencies";
@@ -20,6 +21,7 @@ export const OPERATIONS: readonly SkillOperation[] = [
   ...DIALOGUE_OPERATIONS,
   ...STRUCTURE_OPERATIONS,
   ...TENDENCY_OPERATIONS,
+  ...MYSTERY_OPERATIONS,
   ...REPORT_OPERATIONS,
 ];
 
@@ -117,4 +119,5 @@ export * from "./continuity";
 export * from "./dialogue";
 export * from "./structure";
 export * from "./tendencies";
+export * from "./mystery";
 export * from "./report";
