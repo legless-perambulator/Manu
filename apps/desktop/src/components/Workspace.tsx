@@ -37,6 +37,7 @@ import { ThreadPanel } from "./ThreadPanel";
 import { BuildPanel } from "./BuildPanel";
 import { StoryTestPanel } from "./StoryTestPanel";
 import { DebugPanel } from "./DebugPanel";
+import { SkillsPanel } from "./SkillsPanel";
 import { CausalityPanel } from "./CausalityPanel";
 import { RefactorPanel } from "./RefactorPanel";
 
@@ -411,6 +412,21 @@ export function Workspace({
           )}
           {tab === "debug" && (
             <DebugPanel
+              repo={repo}
+              secrets={secrets}
+              refreshToken={refreshToken}
+              onChanged={refresh}
+              onSelectEntity={(id) => {
+                setSelectedEntityId(id);
+                setRightTab("inspector");
+              }}
+              onOpenScene={(sceneId) => {
+                void openScene(sceneId);
+              }}
+            />
+          )}
+          {tab === "skills" && (
+            <SkillsPanel
               repo={repo}
               secrets={secrets}
               refreshToken={refreshToken}

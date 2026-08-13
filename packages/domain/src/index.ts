@@ -157,3 +157,24 @@ export type {
   TimeBounds,
   TravelRule,
 } from "./story-time";
+
+export {
+  SKILL_RUN_STATUSES,
+  SKILL_STEP_STATUSES,
+  SKILL_FINDING_KINDS,
+  FINDING_SOURCES,
+  summariseRun,
+  isResumable,
+  describeStep,
+} from "./skills";
+export type {
+  FindingSource,
+  SkillFinding,
+  SkillFindingKind,
+  SkillMeasurement,
+  SkillRun,
+  SkillRunStatus,
+  SkillRunSummary,
+  SkillStepRecord,
+  SkillStepStatus,
+} from "./skills";

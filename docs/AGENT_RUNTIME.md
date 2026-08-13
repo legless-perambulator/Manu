@@ -164,6 +164,8 @@ Users can create specialist agents (e.g. _Grimdark Editor_, _Golden Age Mystery 
 
 ## Skills
 
+**Implemented in Phase 25** — see [WRITING_SKILLS.md](WRITING_SKILLS.md). Seven ship with Manu, each a sequence of named operations against the Story Repository rather than a prompt, resumable where it stopped, and composable by the writer into skills of their own.
+
 Reusable agent workflows invoked like commands, e.g. `/murder-mystery-audit`, `/character-pass CHAR_MARA`, `/dialogue-pass`, `/pacing-audit`, `/continuity-audit`, `/foreshadowing-audit`, `/remove-ai-tendencies`, `/copy-edit`, `/reader-confusion-test`. A skill is a defined multi-step workflow (deterministic steps around bounded model steps). Skills should eventually be shareable/installable. See [ROADMAP.md](ROADMAP.md).
 
 ## Multi-agent coordination — PLANNED

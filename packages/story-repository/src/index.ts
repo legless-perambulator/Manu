@@ -74,6 +74,7 @@ export { TimelineStore } from "./timeline-store";
 export { BuildStore } from "./build-store";
 export { TestStore } from "./test-store";
 export { DebugStore } from "./debug-store";
+export { SkillRunStore } from "./skill-run-store";
 export { DependencyStore } from "./dependency-store";
 export { RefactorStore } from "./refactor-store";
 

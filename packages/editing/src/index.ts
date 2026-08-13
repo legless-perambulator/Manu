@@ -45,3 +45,6 @@ export type {
 
 export { VoiceAnalyst, REJECTION_PATTERN_THRESHOLD } from "./voice-analyst";
 export type { TendencyDraft, RejectionInsight } from "./voice-analyst";
+
+export { ModelSkillAnalyst } from "./skill-analyst";
+export type { ModelSkillAnalystOptions } from "./skill-analyst";

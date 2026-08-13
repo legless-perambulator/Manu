@@ -18,7 +18,7 @@ This is **not** a chatbot with a writing editor attached. It lets AI agents insp
 
 ## Status
 
-**Phase 24 complete** — `0.1.0-alpha`, with distributable Linux AppImage and Flatpak packages.
+**Phase 25 complete** — `0.1.0-alpha`, with distributable Linux AppImage and Flatpak packages.
 Implemented and tested so far:
 
 - **Phase 0** — monorepo, tooling, stable branded entity IDs, persistence and
@@ -158,6 +158,18 @@ Implemented and tested so far:
   not hold. None may delete, apply a refactor, or fork canon onto a private
   branch. See [`docs/SPECIALIST_AGENTS.md`](docs/SPECIALIST_AGENTS.md).
 
+- **Phase 25** — Writing Skills: `/character-pass`, `/continuity-audit`,
+  `/dialogue-pass`, `/pacing-audit`, `/foreshadowing-audit`,
+  `/scene-purpose-audit`, `/remove-ai-tendencies`. A skill is an **executable
+  workflow**, not a saved prompt: a sequence of structured queries against the
+  project, each writing down what it found before the next one starts, so the
+  same run on an unchanged project says the same thing twice. Progress shows
+  step by step; a step that could not run says why and never counts as passed;
+  and because every step's output is persisted as it completes, a run
+  interrupted at step three resumes at step three — across a restart. Writers
+  compose their own from the same operation registry, as a file in the project.
+  See [`docs/WRITING_SKILLS.md`](docs/WRITING_SKILLS.md).
+
 Implementation proceeds as vertical slices — see
 [`docs/ROADMAP.md`](docs/ROADMAP.md) and
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
@@ -168,7 +180,7 @@ Implementation proceeds as vertical slices — see
 apps/desktop/            Tauri + React desktop shell
 packages/                domain, persistence, model-router, story-compiler,
                          story-debugger, story-causality, story-refactor,
-                         agent-runtime, context-compiler, editing, search,
+                         agent-runtime, context-compiler, editing, search, skills,
                          story-repository, story-state, shared,
                          providers/anthropic
 docs/                    living architecture documentation

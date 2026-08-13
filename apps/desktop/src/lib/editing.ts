@@ -1,4 +1,9 @@
-import { DependencyAnalyst, DiagnosisAnalyst, ManuscriptEditor } from "@jellytind/editing";
+import {
+  DependencyAnalyst,
+  DiagnosisAnalyst,
+  ManuscriptEditor,
+  ModelSkillAnalyst,
+} from "@jellytind/editing";
 import type { PermissionGrant } from "@jellytind/agent-runtime";
 import type { SecretStore } from "@jellytind/model-router";
 import type { StoryRepository } from "@jellytind/story-repository";
@@ -111,4 +116,30 @@ export async function createRefactorPlanner(
 ): Promise<RefactorPlanner> {
   const model = await createConfiguredModel(loadModelSettings(), secrets);
   return new RefactorPlanner({ repo, model });
+}
+
+/**
+ * The permission grant a Writing Skill's semantic steps run under.
+ *
+ * Read-only, and narrower still than the debugger's: a skill's model steps
+ * observe material the deterministic steps already retrieved. Nothing a skill
+ * produces reaches the manuscript (docs/WRITING_SKILLS.md).
+ */
+export const SKILL_READING_GRANT: PermissionGrant = {
+  permissions: ["read_manuscript", "read_canon"],
+  allowedTools: ["skill_reading"],
+};
+
+/**
+ * Build the analyst a skill's semantic steps use, or `null` when no model is
+ * configured — in which case those steps are skipped with a stated reason and
+ * every deterministic step still runs.
+ */
+export async function createSkillAnalyst(secrets: SecretStore): Promise<ModelSkillAnalyst | null> {
+  try {
+    const model = await createConfiguredModel(loadModelSettings(), secrets);
+    return new ModelSkillAnalyst({ model, grant: SKILL_READING_GRANT });
+  } catch {
+    return null;
+  }
 }

@@ -1,0 +1,18 @@
+{
+  "name": "@jellytind/skills",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Writing Skills: repeatable fiction-development workflows composed from structured project operations.",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "sideEffects": false,
+  "dependencies": {
+    "@jellytind/domain": "workspace:*",
+    "@jellytind/shared": "workspace:*",
+    "@jellytind/story-repository": "workspace:*"
+  }
+}

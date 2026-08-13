@@ -151,6 +151,7 @@ import { VoiceStore } from "./voice-store";
 import { CharacterVoiceStore } from "./character-voice-store";
 import { representativeLines } from "./character-voice";
 import { DebugStore } from "./debug-store";
+import { SkillRunStore } from "./skill-run-store";
 import { DependencyStore } from "./dependency-store";
 import { RefactorStore } from "./refactor-store";
 import { ProjectSearch } from "./project-search";
@@ -279,6 +280,8 @@ export class StoryRepository {
   readonly voice: VoiceStore;
   /** Per-character speech profiles (docs/CHARACTER_VOICE.md). */
   readonly characterVoices: CharacterVoiceStore;
+  /** Runs of Writing Skills, resumable (docs/WRITING_SKILLS.md). */
+  readonly skillRuns: SkillRunStore;
   private readonly debugReports: DebugStore;
   private readonly dependencies: DependencyStore;
   private readonly refactors: RefactorStore;
@@ -315,6 +318,9 @@ export class StoryRepository {
     // Not journaled, for the same reason as builds: investigating a problem is
     // not a change to the story.
     this.debugReports = new DebugStore(rawStore);
+    // Not journaled either: running a skill audits the story, it does not
+    // change it. The run record is an audit trail, not a revision.
+    this.skillRuns = new SkillRunStore(rawStore);
     // Journaled: a registered dependency is the author's claim about how their
     // story holds together, as authored as a plot thread.
     this.dependencies = new DependencyStore(this.store);

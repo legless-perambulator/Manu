@@ -68,6 +68,9 @@ importers:
       '@jellytind/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@jellytind/skills':
+        specifier: workspace:*
+        version: link:../../packages/skills
       '@jellytind/story-causality':
         specifier: workspace:*
         version: link:../../packages/story-causality
@@ -177,6 +180,9 @@ importers:
       '@jellytind/shared':
         specifier: workspace:*
         version: link:../shared
+      '@jellytind/skills':
+        specifier: workspace:*
+        version: link:../skills
       '@jellytind/story-debugger':
         specifier: workspace:*
         version: link:../story-debugger
@@ -221,6 +227,18 @@ importers:
         version: link:../shared
 
   packages/shared: {}
+
+  packages/skills:
+    dependencies:
+      '@jellytind/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@jellytind/shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@jellytind/story-repository':
+        specifier: workspace:*
+        version: link:../story-repository
 
   packages/story-causality:
     dependencies:

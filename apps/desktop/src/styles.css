@@ -2100,3 +2100,53 @@ code {
   color: var(--manu-ink-subtle);
   text-decoration: line-through;
 }
+
+/* ── Writing Skills ──────────────────────────────────────── */
+/* A skill is a list of steps before it runs, while it runs and after — so the
+   writer can see what was checked, and what was not. */
+.skill__steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--manu-text-sm);
+}
+.skill__step {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 8px;
+  border-left: 2px solid var(--manu-border);
+  border-radius: 0 var(--manu-radius-sm) var(--manu-radius-sm) 0;
+}
+.skill__step--running {
+  border-left-color: var(--manu-accent);
+  background: var(--manu-surface-raised);
+}
+.skill__step--ok {
+  border-left-color: var(--manu-success);
+}
+.skill__step--skipped {
+  border-left-color: var(--manu-border);
+  color: var(--manu-ink-muted);
+}
+.skill__step--failed {
+  border-left-color: var(--manu-accent);
+  color: var(--manu-accent-text);
+}
+.skill__step--pending {
+  color: var(--manu-ink-subtle);
+}
+.badge--conflict {
+  border-color: var(--manu-accent);
+  color: var(--manu-accent-text);
+}
+.badge--gap,
+.badge--attention {
+  color: var(--manu-ink-muted);
+}
+.badge--proposal {
+  color: var(--manu-accent-text);
+}
