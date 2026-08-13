@@ -18,7 +18,7 @@ This is **not** a chatbot with a writing editor attached. It lets AI agents insp
 
 ## Status
 
-**Phase 23 complete** — `0.1.0-alpha`, with distributable Linux AppImage and Flatpak packages.
+**Phase 24 complete** — `0.1.0-alpha`, with distributable Linux AppImage and Flatpak packages.
 Implemented and tested so far:
 
 - **Phase 0** — monorepo, tooling, stable branded entity IDs, persistence and
@@ -147,6 +147,16 @@ Implemented and tested so far:
   a band with its caveat and never a percentage, measurements describe the
   recorded lines rather than the character, and a sample too small to support a
   statistic produces no finding at all.
+
+- **Phase 24** — specialised writing agents: nine of them, and each one a
+  _configuration_ rather than a chat persona. A Copy Editor is not a Story
+  Architect with a politer prompt; it holds three read tools, compiles no story
+  context and runs on a fast model, while the Architect alone reaches refactor
+  analysis and the Continuity Editor alone holds the whole build/test/debug
+  surface. The difference is enforced: a specialist's tool list _is_ its
+  permission grant, and the model is never even shown a tool its specialist does
+  not hold. None may delete, apply a refactor, or fork canon onto a private
+  branch. See [`docs/SPECIALIST_AGENTS.md`](docs/SPECIALIST_AGENTS.md).
 
 Implementation proceeds as vertical slices — see
 [`docs/ROADMAP.md`](docs/ROADMAP.md) and

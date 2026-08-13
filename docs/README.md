@@ -25,6 +25,7 @@ These documents are **living**: update the relevant document whenever an archite
 | [STORY_TESTS.md](STORY_TESTS.md)             | Writer-authored assertions the build holds the story to.        |
 | [AGENT_RUNTIME.md](AGENT_RUNTIME.md)         | Agent orchestration, tasks and multi-agent coordination.        |
 | [AGENT_TOOLS.md](AGENT_TOOLS.md)             | The typed tool surface agents operate through.                  |
+| [SPECIALIST_AGENTS.md](SPECIALIST_AGENTS.md) | The nine writing specialists and what each may reach.           |
 | [MODEL_ROUTER.md](MODEL_ROUTER.md)           | Provider-independent model abstraction and routing.             |
 | [AI_EDITING.md](AI_EDITING.md)               | Controlled AI manuscript editing: propose, review, apply.       |
 | [AUTHOR_VOICE.md](AUTHOR_VOICE.md)           | The writer's stylistic preferences, structured and inspectable. |

@@ -2031,3 +2031,72 @@ code {
   color: var(--manu-ink);
   border-color: var(--manu-accent);
 }
+
+/* ── Specialist picker ───────────────────────────────────── */
+/* A specialist differs from another by configuration, so the panel shows the
+   configuration: what it can reach, what it cannot, and what it returns. */
+.specialist {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.specialist__suggestion {
+  margin: 0;
+  font-size: var(--manu-text-sm);
+  color: var(--manu-ink-muted);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.specialist__card {
+  border: 1px solid var(--manu-border);
+  border-radius: var(--manu-radius-md);
+  background: var(--manu-surface-raised);
+  padding: 10px 12px;
+}
+.specialist__role {
+  margin: 0;
+  font-size: var(--manu-text-base);
+}
+.specialist__facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 2px 10px;
+  margin: 8px 0 0;
+  font-size: var(--manu-text-sm);
+}
+.specialist__facts dt {
+  color: var(--manu-ink-subtle);
+}
+.specialist__facts dd {
+  margin: 0;
+}
+.specialist__list {
+  margin: 0;
+  padding-left: 18px;
+  font-size: var(--manu-text-sm);
+  line-height: 1.6;
+}
+.specialist__list--out {
+  color: var(--manu-ink-muted);
+}
+.specialist__tools {
+  margin-top: 10px;
+  font-size: var(--manu-text-sm);
+}
+.specialist__tools summary {
+  cursor: pointer;
+  color: var(--manu-ink-muted);
+}
+.specialist__toolset {
+  margin: 6px 0 0;
+  font-family: var(--manu-font-mono);
+  font-size: var(--manu-text-xs);
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.specialist__toolset--denied {
+  color: var(--manu-ink-subtle);
+  text-decoration: line-through;
+}

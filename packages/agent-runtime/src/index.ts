@@ -56,3 +56,16 @@ export {
   switchBranchTool,
   compareBranchesTool,
 } from "./tools/branch-tools";
+
+export {
+  AGENTS,
+  SPECIALIST_IDS,
+  MODEL_CLASSES,
+  OUTPUT_SHAPES,
+  agentById,
+  isSpecialistId,
+  grantFor,
+  canEdit,
+  recommendSpecialist,
+} from "./agents/registry";
+export type { AgentDefinition, SpecialistId, ModelClass, OutputShape } from "./agents/registry";

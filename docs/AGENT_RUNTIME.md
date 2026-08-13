@@ -4,7 +4,7 @@ How agents are orchestrated. Do not build one monolithic "Writer AI"; build a pr
 
 - **Package:** `@jellytind/agent-runtime`
 - **Depends on:** `@jellytind/domain`, `@jellytind/model-router`, `@jellytind/persistence`, `@jellytind/search`, `@jellytind/shared`
-- **Status (Phase 7):** The task system, permission model, tool registry, executor, activity log and the **read-only Investigator agent** are **implemented and tested**, with tasks and activity persisted in the project. The orchestrator, specialist agents and multi-agent workflows are **PLANNED** (V3). See [AGENT_TOOLS.md](AGENT_TOOLS.md).
+- **Status (Phase 7, extended in Phase 24):** The task system, permission model, tool registry, executor, activity log and the **read-only Investigator agent** are **implemented and tested**, with tasks and activity persisted in the project. The **nine writing specialists** are implemented as configurations enforced by the same permission machinery ([SPECIALIST_AGENTS.md](SPECIALIST_AGENTS.md)). The orchestrator and multi-agent workflows remain **PLANNED** (V3). See [AGENT_TOOLS.md](AGENT_TOOLS.md).
 
 ## Task system
 
@@ -134,9 +134,15 @@ tool still cannot, because the executor checks the grant before the handler runs
 The user must always understand what an agent is permitted to do. See
 [AGENT_TOOLS.md](AGENT_TOOLS.md) for the two-gate check.
 
-## Agents (planned)
+## Agents
 
-- **Author Agent** — general project-level orchestrator. Understands the request, determines required tools and specialists, coordinates work, presents results.
+Nine of the specialists below are **implemented** as registry entries rather
+than prompts — tools, permissions, context recipe, output shape and model class,
+with the tool list becoming the executor's grant. See
+[SPECIALIST_AGENTS.md](SPECIALIST_AGENTS.md); the rest of this list remains
+planned.
+
+- **Author Agent** — general project-level orchestrator. Understands the request, determines required tools and specialists, coordinates work, presents results. Implemented today as the Investigator plus `recommendSpecialist`.
 - **Story Architect** — macro structure: acts, sequences, promises, arcs, causality, setup/payoff, pacing, climax, resolution.
 - **Scene Director** — turns narrative intention into scene architecture: goals, conflict, entrances/exits, beats, reversals, revelations, emotional progression, transitions.
 - **Drafter** — writes prose from structured plans and compiled context.

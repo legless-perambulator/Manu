@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import type { AgentAnswer, AgentTask } from "@jellytind/agent-runtime";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { AgentAnswer, AgentTask, SpecialistId } from "@jellytind/agent-runtime";
+import { agentById, recommendSpecialist } from "@jellytind/agent-runtime";
 import type { SecretStore } from "@jellytind/model-router";
 import type { StoryRepository } from "@jellytind/story-repository";
 import { startInvestigation, type InvestigationHandle } from "../lib/agent";
 import { explainModelError } from "../lib/models";
+import { SpecialistPicker } from "./SpecialistPicker";
 
 interface Props {
   repo: StoryRepository;
@@ -27,13 +29,20 @@ const EXAMPLE =
  */
 export function AgentPanel({ repo, secrets, onActivityLine }: Props) {
   const [question, setQuestion] = useState("");
+  const [specialistId, setSpecialistId] = useState<SpecialistId | null>(null);
   const [lines, setLines] = useState<string[]>([]);
   const [answer, setAnswer] = useState<AgentAnswer | null>(null);
+  /** Who actually ran, which is not necessarily who is selected now. */
+  const [ranAs, setRanAs] = useState<SpecialistId | null>(null);
   const [task, setTask] = useState<AgentTask | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const [history, setHistory] = useState<AgentTask[]>([]);
   const handle = useRef<InvestigationHandle | null>(null);
+
+  // The Author Agent's suggestion, offered from the writer's own words. It
+  // never changes who runs — only the writer does that.
+  const suggestion = useMemo(() => recommendSpecialist(question), [question]);
 
   const reloadHistory = useCallback(async () => {
     setHistory((await repo.agents.listTasks()).slice(0, 8));
@@ -66,6 +75,7 @@ export function AgentPanel({ repo, secrets, onActivityLine }: Props) {
         repo,
         secrets,
         question: goal,
+        ...(specialistId === null ? {} : { specialistId }),
         onActivity: (_event, line) => {
           setLines((prev) => [...prev, line]);
           onActivityLine(line);
@@ -75,6 +85,7 @@ export function AgentPanel({ repo, secrets, onActivityLine }: Props) {
       const result = await started.result;
       setTask(result.task);
       setAnswer(result.answer ?? null);
+      setRanAs(specialistId);
     } catch (cause) {
       setError(explainModelError(cause));
     } finally {
@@ -88,6 +99,12 @@ export function AgentPanel({ repo, secrets, onActivityLine }: Props) {
   return (
     <div className="agent">
       <div className="agent__ask">
+        <SpecialistPicker
+          value={specialistId}
+          onChange={setSpecialistId}
+          suggestion={suggestion}
+          disabled={running}
+        />
         <textarea
           className="agent__input"
           rows={3}
@@ -102,7 +119,7 @@ export function AgentPanel({ repo, secrets, onActivityLine }: Props) {
             onClick={() => void ask()}
             disabled={running || question.trim() === ""}
           >
-            {running ? "Investigating…" : "Investigate"}
+            {running ? "Working…" : specialistId === null ? "Investigate" : "Ask the specialist"}
           </button>
           {running && (
             <button className="btn btn--small" onClick={() => handle.current?.cancel()}>
@@ -116,7 +133,8 @@ export function AgentPanel({ repo, secrets, onActivityLine }: Props) {
           )}
         </div>
         <p className="hint">
-          Read-only: this agent inspects the project through typed tools and cannot change it.
+          Read-only: whichever agent runs, it inspects the project through typed tools and cannot
+          change it. Edits reach the manuscript only as proposals you review.
         </p>
       </div>
 
@@ -146,7 +164,9 @@ export function AgentPanel({ repo, secrets, onActivityLine }: Props) {
 
       {answer !== null && (
         <section className="agent__section">
-          <h3>Answer</h3>
+          <h3>
+            Answer {ranAs !== null && <span className="agent__count">{agentById(ranAs).name}</span>}
+          </h3>
           <p className="agent__summary">{answer.summary}</p>
 
           <h4 className="agent__label">From the project</h4>

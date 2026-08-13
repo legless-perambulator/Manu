@@ -13,7 +13,10 @@ import {
   type AgentActivityEvent,
   type AgentRunResult,
   type ProjectAccess,
+  agentById,
+  grantFor,
 } from "@jellytind/agent-runtime";
+import type { SpecialistId } from "@jellytind/agent-runtime";
 import type { SecretStore } from "@jellytind/model-router";
 import type { StoryRepository } from "@jellytind/story-repository";
 import { refactorAccess } from "@jellytind/story-refactor";
@@ -38,6 +41,8 @@ export interface StartInvestigationOptions {
   readonly repo: StoryRepository;
   readonly secrets: SecretStore;
   readonly question: string;
+  /** Run as a named specialist rather than the general investigator. */
+  readonly specialistId?: SpecialistId;
   readonly onActivity: (event: AgentActivityEvent, line: string) => void;
   readonly onTaskCreated?: (taskId: string) => void;
 }
@@ -46,6 +51,10 @@ export async function startInvestigation(
   options: StartInvestigationOptions,
 ): Promise<InvestigationHandle> {
   const { repo, secrets, question, onActivity } = options;
+  // A specialist runs under its own grant: its tool list and its permissions,
+  // both enforced by the executor (docs/SPECIALIST_AGENTS.md). With none
+  // chosen, the general investigator's read-only grant applies.
+  const specialist = options.specialistId === undefined ? null : agentById(options.specialistId);
 
   // The repository satisfies the runtime's read port directly.
   // The repository plus refactor analysis: the composition lives in
@@ -59,9 +68,12 @@ export async function startInvestigation(
     ...createRefactorTools(access),
   );
 
-  // Phase 7 is read-only: the grant carries no write permission at all, so no
-  // configuration mistake here can turn an investigation into an edit.
-  const executor = new ToolExecutor({ registry, grant: READ_ONLY_GRANT, store: repo.agents });
+  // This registry holds no editing tool, so nothing run here can write to the
+  // manuscript whatever permissions a specialist carries — an editing
+  // specialist's `edit_manuscript` is spent through the Manuscript Editor
+  // (docs/EDITING.md), which applies its own approval gate.
+  const grant = specialist === null ? READ_ONLY_GRANT : grantFor(specialist);
+  const executor = new ToolExecutor({ registry, grant, store: repo.agents });
 
   const model = await createConfiguredModel(loadModelSettings(), secrets);
   const agent = new InvestigationAgent({ model, executor, store: repo.agents });
@@ -70,7 +82,7 @@ export async function startInvestigation(
     id: await repo.agents.nextTaskId(),
     goal: question,
     now: new Date().toISOString(),
-    allowedTools: INVESTIGATOR_AGENT.permittedTools,
+    allowedTools: specialist === null ? INVESTIGATOR_AGENT.permittedTools : specialist.tools,
     approvalPolicy: "approve_every_edit",
   });
   await repo.agents.saveTask(task);
