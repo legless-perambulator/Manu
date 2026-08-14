@@ -78,6 +78,7 @@ import { MysteryPanel } from "./MysteryPanel";
 import { ModulesPanel } from "./ModulesPanel";
 import { WorldPanel } from "./WorldPanel";
 import { CausalityPanel } from "./CausalityPanel";
+import { ChapterBuildPanel } from "./ChapterBuildPanel";
 import { RefactorPanel } from "./RefactorPanel";
 
 interface WorkspaceProps {
@@ -631,6 +632,17 @@ export function Workspace({
         );
       case "agent":
         return <AgentPanel repo={repo} secrets={secrets} onActivityLine={showActivity} />;
+      case "chapterbuild":
+        return (
+          <ChapterBuildPanel
+            repo={repo}
+            secrets={secrets}
+            branchId={session.branch.id as string}
+            refreshToken={refreshToken}
+            onChanged={refresh}
+            onOpenFile={setOpenPath}
+          />
+        );
       case "context":
         return <ContextPanel repo={repo} refreshToken={refreshToken} />;
       case "build":

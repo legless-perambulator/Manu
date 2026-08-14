@@ -4,7 +4,7 @@ Controlled AI manuscript editing: targeted, reviewable, reversible changes to pr
 
 - **Package:** `@jellytind/editing`
 - **Depends on:** `@jellytind/story-repository`, `@jellytind/context-compiler`, `@jellytind/model-router`, `@jellytind/agent-runtime`, `@jellytind/domain`, `@jellytind/shared`
-- **Status (Phase 9):** **Implemented and tested.** Three operations — `rewrite_selection`, `rewrite_scene`, `continue_scene` — with staged proposals, hunk-level acceptance and full audit. Autonomous chapter rewriting and multi-scene operations are **PLANNED**.
+- **Status (Phase 9):** **Implemented and tested.** Three operations — `rewrite_selection`, `rewrite_scene`, `continue_scene` — with staged proposals, hunk-level acceptance and full audit. Multi-scene chapter production is Phase 31's [CHAPTER_BUILDER.md](CHAPTER_BUILDER.md), built on this machinery.
 
 ## The rule
 
@@ -65,7 +65,7 @@ prose, the characters present, the POV, the location, the live plot threads and
 the project's style files — all of which arrive through the compiled context, not
 through prompt text.
 
-Autonomous chapter rewriting is deliberately **not** implemented.
+Whole-chapter production is not an operation here: it is the Chapter Builder's pipeline ([CHAPTER_BUILDER.md](CHAPTER_BUILDER.md)), which reuses this package's validation, staging and provenance for every scene it commits.
 
 ## Addressing a scene's prose
 

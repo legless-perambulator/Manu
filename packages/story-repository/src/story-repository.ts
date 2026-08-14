@@ -152,6 +152,7 @@ import { representativeLines } from "./character-voice";
 import { DebugStore } from "./debug-store";
 import { SkillRunStore } from "./skill-run-store";
 import { WorkflowRunStore } from "./workflow-run-store";
+import { ChapterBuildStore } from "./chapter-build-store";
 import { ReaderSimulationStore } from "./reader-sim-store";
 import { PersonalityStore } from "./personality-store";
 import { MysteryStore } from "./mystery-store";
@@ -291,6 +292,8 @@ export class StoryRepository {
   readonly skillRuns: SkillRunStore;
   /** Multi-agent workflow runs and their handoffs (docs/ORCHESTRATION.md). */
   readonly workflowRuns: WorkflowRunStore;
+  /** Long-form chapter builds, resumable across sessions (docs/CHAPTER_BUILDER.md). */
+  readonly chapterBuilds: ChapterBuildStore;
   /** Simulated readers and what they made of the book (docs/SIMULATIONS.md). */
   readonly readerSims: ReaderSimulationStore;
   /** Author-confirmed personality, for character simulation (docs/SIMULATIONS.md). */
@@ -355,6 +358,9 @@ export class StoryRepository {
     // Likewise: orchestrating agents is not a change to the story. The changes
     // a workflow commits are ordinary change sets, and the run records them.
     this.workflowRuns = new WorkflowRunStore(rawStore);
+    // Same reasoning again: a chapter build's record is progress bookkeeping;
+    // the prose it commits arrives as ordinary journaled change sets.
+    this.chapterBuilds = new ChapterBuildStore(rawStore);
     // Not journaled either: a reader reading the book changes nothing in it.
     this.readerSims = new ReaderSimulationStore(rawStore);
     // Journaled: what a character is really like is as authored as any other

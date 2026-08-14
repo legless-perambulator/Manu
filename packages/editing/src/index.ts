@@ -57,3 +57,10 @@ export type { ModelReaderAnalystOptions } from "./reader-analyst";
 
 export { ModelCharacterAnalyst } from "./character-analyst";
 export type { ModelCharacterAnalystOptions } from "./character-analyst";
+
+export { ChapterBuilder } from "./chapter-builder";
+export type {
+  ChapterBuildModels,
+  ChapterBuilderOptions,
+  StartBuildOptions,
+} from "./chapter-builder";

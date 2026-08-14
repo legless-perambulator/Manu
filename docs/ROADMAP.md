@@ -678,10 +678,11 @@ The application begins understanding the structure of the story.
 
 ## V5 — Autonomous Production
 
-- chapter / act / book build pipelines
-- approval gates · autonomous revision passes
-- resumable long-running tasks · automatic validation
-- state extraction · checkpointing · `/write-book`
+- **chapter build pipeline — SHIPPED (Phase 31)**: scene-by-scene drafting from
+  per-scene compiled contexts, approval gates, bounded revision, per-scene
+  state extraction and validation, pause/resume across restarts, checkpoints
+  ([CHAPTER_BUILDER.md](CHAPTER_BUILDER.md))
+- act / book build pipelines · `/write-book`
 
 `/write-book` means _launch a persistent, stateful, validated, multi-stage production pipeline_ — not "ask a model for a novel."
 

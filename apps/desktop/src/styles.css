@@ -3404,3 +3404,189 @@ input[type="range"],
 progress {
   accent-color: var(--manu-accent);
 }
+
+/* ── Chapter builder (Phase 31) ──────────────────────────── */
+/* A scene checklist and four verbs. The pipeline's machinery stays in the
+   record; the writer sees what a build is doing and where it wants them. */
+.cbuild {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 14px;
+  overflow: auto;
+  flex: 1;
+}
+.cbuild__intro {
+  margin: 0;
+  font-size: var(--manu-text-sm);
+  color: var(--manu-ink-muted);
+  line-height: 1.5;
+}
+.cbuild__start {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.cbuild__policies {
+  border: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cbuild__policies legend {
+  font-size: var(--manu-text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--manu-tracking-label);
+  color: var(--manu-ink-subtle);
+  padding: 0 0 4px;
+}
+.cbuild__policy {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  cursor: pointer;
+  font-size: var(--manu-text-base);
+}
+.cbuild__policy input {
+  margin-top: 3px;
+}
+.cbuild__policy strong {
+  display: block;
+  font-weight: 500;
+}
+.cbuild__hint {
+  display: block;
+  font-size: var(--manu-text-xs);
+  color: var(--manu-ink-subtle);
+}
+.cbuild__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.cbuild__title {
+  margin: 0;
+  font-size: var(--manu-text-lg);
+  font-weight: 500;
+}
+.cbuild__status {
+  font-size: var(--manu-text-xs);
+  color: var(--manu-ink-muted);
+  white-space: nowrap;
+}
+.cbuild__status--failed {
+  color: var(--manu-error);
+}
+.cbuild__scenes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.cbuild__scene {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: var(--manu-radius-sm);
+  font-size: var(--manu-text-base);
+}
+.cbuild__scene--drafting,
+.cbuild__scene--extracting,
+.cbuild__scene--validating,
+.cbuild__scene--revising {
+  background: var(--manu-accent-wash);
+}
+.cbuild__glyph {
+  width: 1.2em;
+  text-align: center;
+  color: var(--manu-ink-subtle);
+}
+.cbuild__scene--committed .cbuild__glyph {
+  color: var(--manu-success);
+}
+.cbuild__scene--failed .cbuild__glyph {
+  color: var(--manu-error);
+}
+.cbuild__scene-name {
+  background: none;
+  border: none;
+  color: var(--manu-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  padding: 0;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cbuild__scene-name:hover {
+  color: var(--manu-accent-text);
+}
+.cbuild__scene-meta {
+  font-size: var(--manu-text-xs);
+  color: var(--manu-ink-subtle);
+  white-space: nowrap;
+}
+.cbuild__gate {
+  border: 1px solid var(--manu-border-strong);
+  border-radius: var(--manu-radius-md);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cbuild__question {
+  margin: 0;
+  font-weight: 500;
+}
+.cbuild__draft {
+  margin: 0;
+  padding: 8px 10px;
+  max-height: 30vh;
+  overflow: auto;
+  border-left: 2px solid var(--manu-border-strong);
+  font-family: var(--manu-font-manuscript);
+  font-size: var(--manu-text-md);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  color: var(--manu-ink);
+}
+.cbuild__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.cbuild__diagnostics summary,
+.cbuild__history summary {
+  cursor: pointer;
+  font-size: var(--manu-text-sm);
+  color: var(--manu-ink-muted);
+}
+.cbuild__diagnostics ul,
+.cbuild__history ul {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--manu-text-sm);
+}
+.cbuild__past {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.cbuild__past-meta {
+  color: var(--manu-ink-subtle);
+  font-size: var(--manu-text-xs);
+  white-space: nowrap;
+}

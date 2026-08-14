@@ -31,6 +31,7 @@ export const LEFT_PANELS = [
   "threads",
   "timeline",
   "world",
+  "chapterbuild",
   "inspector",
   "agent",
   "context",
@@ -185,6 +186,13 @@ export const PANELS: readonly PanelDefinition[] = [
     purpose: "Everything the enabled genre modules record",
     side: "left",
     needsExtensionKinds: true,
+  },
+  {
+    id: "chapterbuild",
+    group: "assist",
+    label: "Write chapter",
+    purpose: "Build a chapter from its scene plan, scene by scene",
+    side: "right",
   },
   {
     id: "inspector",

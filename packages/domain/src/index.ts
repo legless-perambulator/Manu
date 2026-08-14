@@ -292,3 +292,28 @@ export type {
 // ── Genre module extensions (Phase 30) ──────────────────────────────────────
 export { describeExtension, renderValue } from "./extensions";
 export type { ExtensionRecord, ExtensionValue } from "./extensions";
+
+// ── Chapter builds (Phase 31) ───────────────────────────────────────────────
+export {
+  APPROVAL_POLICIES,
+  CHAPTER_BUILD_STATUSES,
+  CHAPTER_BUILD_STEPS,
+  RESUMABLE_STATUSES,
+  SCENE_BUILD_STATUSES,
+  isBuildFinished,
+  isBuildResumable,
+  summariseChapterBuild,
+} from "./chapter-build";
+export type {
+  ApprovalPolicy,
+  BuildDiagnostic,
+  BuildPending,
+  ChapterBuild,
+  ChapterBuildStatus,
+  ChapterBuildStep,
+  ChapterBuildSummary,
+  PlanCoverageItem,
+  SceneBuildRecord,
+  SceneBuildStatus,
+  SceneLengthTarget,
+} from "./chapter-build";
