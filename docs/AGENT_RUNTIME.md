@@ -94,7 +94,7 @@ The final answer is structured and validated (`AGENT_ANSWER_SCHEMA`):
 ```ts
 {
   summary;
-  findings: [{ statement, sources }];
+  findings: [{ statement, sources, evidence, unverified, grounded }];
   interpretation;
   uncertainties;
 }
@@ -106,11 +106,51 @@ separately from `interpretation`, which the UI labels explicitly as the model's
 reading and **not** project canon. A malformed response fails validation and
 surfaces as a typed error rather than a half-rendered answer.
 
+### Citations are checked, not requested
+
+Through Phase 30, `sources` was validated as "an array of strings" and nothing
+compared those strings to anything. The enforcement mechanism was the sentence
+_Do not invent IDs_ in a system prompt — the one place this codebase's
+"structure it, don't prompt it" discipline lapsed, and the failure it allowed is
+worse than an uncited guess because a fabricated citation looks verified
+(MANU-007).
+
+It is now an invariant with three parts:
+
+1. **An evidence ledger.** Every tool result that passes its own output schema
+   is scanned for the identifiers it contains — entity IDs anywhere in the
+   payload, including inside retrieved prose, and project file paths — and each
+   becomes an `EvidenceHandle` naming the call it came from. A _failed_ call
+   grounds nothing, so an ID that appeared only in the arguments of a call that
+   errored is not citable.
+2. **Verdicts, not a boolean.** `verified`, `unknown` and `malformed` are
+   different answers. `SCENE_0099` is a well-formed reference to something never
+   retrieved — the model invented a plausible ID. "the vault scene" is not a
+   reference at all — the model misunderstood the field. They want different
+   repairs, so they are told apart.
+3. **One bounded repair, then disclosure.** A finding with unresolved citations
+   sends the model exactly which sources were rejected and exactly what it may
+   cite, once. A retry is accepted only if it is genuinely better. Whatever
+   survives keeps its statement and is marked `grounded: false` with the
+   offending sources listed — deleting it would hide that the model made
+   something up, which is what a reader most needs to know. The Agent panel
+   renders such a finding as unverified rather than as project fact.
+
+An uncited finding is not grounded either. It may be a sensible reading; it is
+not something the project said.
+
+The same check, from one implementation (`groundClaim` in `@jellytind/shared`),
+runs over Story Debugger diagnoses and Story Refactor consequences — the other
+two places a model interprets material the project retrieved.
+
 ### Activity, not chain-of-thought
 
-The activity log records **actions**: tool, argument summary, result summary,
-timestamp, status, duration. It never contains model reasoning, and none is
-requested, stored or displayed. The user understands what the agent did by seeing
+The activity log records **actions**: tool, task, argument summary, result
+summary, timestamp, status, duration, and the identifiers the call returned
+(`references`). It never contains model reasoning, and none is requested, stored
+or displayed. Result _identity_ rather than result content: enough to see later
+which call produced the evidence a claim rests on, without the log becoming a
+second copy of the manuscript. The user understands what the agent did by seeing
 what it _did_:
 
 ```
@@ -137,8 +177,12 @@ The user must always understand what an agent is permitted to do. See
 ## Agents
 
 Nine of the specialists below are **implemented** as registry entries rather
-than prompts — tools, permissions, context recipe, output shape and model class,
-with the tool list becoming the executor's grant. See
+than prompts. Two of those fields are enforced and three are declarative, and
+the difference matters: `tools` becomes the executor's grant and `permissions`
+becomes the grant itself, so a specialist reaching for a tool it does not hold
+is denied before the handler runs. `contextRecipe`, `outputShape` and
+`modelClass` describe what the specialist is _for_ — a workflow node carries its
+own, and those are what the executor uses. See
 [SPECIALIST_AGENTS.md](SPECIALIST_AGENTS.md); the rest of this list remains
 planned.
 

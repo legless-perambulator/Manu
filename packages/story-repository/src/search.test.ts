@@ -122,6 +122,27 @@ describe("incremental index updates", () => {
     expect(await repo.searchText({ text: "quicksilver" })).toHaveLength(1);
   });
 
+  /**
+   * The index must never be authoritative over the files (MANU-008).
+   *
+   * A file changed behind the repository's back — another editor, a sync — and
+   * then adopted. The index must reflect the file, not the copy it happened to
+   * be holding, or search returns ghost content that exists nowhere on disk.
+   */
+  it("follows the file when it changes outside Manu", async () => {
+    const { store, repo } = await freshRepo();
+    await repo.writeProjectFile("notes/ghost.md", "the marionette waited");
+    expect(await repo.searchText({ text: "marionette" })).toHaveLength(1);
+
+    // Behind the repository's back: straight to the store.
+    await store.writeFile("notes/ghost.md", "the carousel waited");
+    await repo.acceptExternalChange("notes/ghost.md");
+    await repo.rebuildSearchIndex();
+
+    expect(await repo.searchText({ text: "carousel" })).toHaveLength(1);
+    expect(await repo.searchText({ text: "marionette" })).toHaveLength(0);
+  });
+
   it("removes deleted entities from the index", async () => {
     const { repo } = await freshRepo();
     const obj = await repo.addObject({ name: "Astrolabe", description: "brass instrument" });

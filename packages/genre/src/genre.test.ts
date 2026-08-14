@@ -17,7 +17,7 @@ import {
   viewsFor,
 } from "./index";
 import { GenreRuntime } from "./runtime";
-import { GenreError } from "./types";
+import { GenreError, MODULE_MATURITIES } from "./types";
 import { validateModule, validateRecord } from "./validate";
 import { MYSTERY_MODULE } from "./modules/mystery";
 import { FANTASY_MODULE } from "./modules/fantasy";
@@ -716,5 +716,36 @@ describe("one core, materially different workflows", () => {
       build.rules.some((rule) => rulesFor(["fantasy"]).some((r) => r.id === rule.ruleId)),
     ).toBe(false);
     expect(build.status).toBeDefined();
+  });
+});
+
+describe("what a module claims about itself", () => {
+  it("says how far every shipped module goes", () => {
+    // A writer switching a module on is entitled to know whether there is an
+    // engine behind it or a set of records and rules (MANU-036).
+    for (const module of MODULES) {
+      expect(MODULE_MATURITIES).toContain(module.maturity);
+    }
+    expect(MODULES.find((m) => m.id === "mystery")?.maturity).toBe("engine");
+  });
+
+  it("refuses a module that claims an engine it does not have", () => {
+    const mystery = MODULES.find((m) => m.id === "mystery");
+    expect(mystery).toBeDefined();
+    const pretender = {
+      ...(mystery as NonNullable<typeof mystery>),
+      collect: undefined,
+    };
+    expect(() => validateModule(pretender)).toThrow(/no build input of its own/);
+  });
+
+  it("refuses an unknown maturity", () => {
+    const fantasy = MODULES.find((m) => m.id === "fantasy");
+    expect(fantasy).toBeDefined();
+    const wrong = {
+      ...(fantasy as NonNullable<typeof fantasy>),
+      maturity: "aspirational",
+    } as unknown as Parameters<typeof validateModule>[0];
+    expect(() => validateModule(wrong)).toThrow(/unknown maturity/);
   });
 });

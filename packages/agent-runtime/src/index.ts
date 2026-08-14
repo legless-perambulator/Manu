@@ -41,8 +41,16 @@ export { safeToolPath, safeListPrefix } from "./tools/paths";
 export { ToolExecutor } from "./executor";
 export type { ToolCallOutcome, ToolExecutorOptions } from "./executor";
 
-export { AGENT_ANSWER_SCHEMA, ANSWER_FORMAT_INSTRUCTIONS } from "./answer";
-export type { AgentAnswer, Finding } from "./answer";
+export {
+  AGENT_ANSWER_SCHEMA,
+  ANSWER_FORMAT_INSTRUCTIONS,
+  groundAnswer,
+  repairInstructions,
+} from "./answer";
+export type { AgentAnswer, Finding, GroundingReport, SourceProblem } from "./answer";
+
+export { EvidenceLedger, collectEvidence, isWellFormedReference } from "./evidence";
+export type { EvidenceHandle, EvidenceRef, EvidenceKind, SourceVerdict } from "./evidence";
 
 export { InvestigationAgent } from "./investigator";
 export type { AgentRunResult, InvestigationAgentOptions, RunOptions } from "./investigator";

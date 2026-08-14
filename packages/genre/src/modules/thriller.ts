@@ -198,6 +198,7 @@ const asymmetryNeverUsed = moduleRule({
 export const THRILLER_MODULE: GenreModule = {
   id: "thriller",
   name: "Thriller",
+  maturity: "structured",
   summary: "Threat, clock, pursuit and who knows what — recorded so the pressure can be checked.",
   description:
     "Threats, deadlines, pursuits, operational timelines, resources and information asymmetry. Asymmetry names facts the knowledge model already tracks rather than duplicating it, and the build reports a clock that never runs out.",

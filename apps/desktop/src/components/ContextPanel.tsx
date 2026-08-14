@@ -171,6 +171,15 @@ export function ContextPanel({ repo, refreshToken }: Props) {
               {meta.includedCount} of {meta.candidateCount} candidates at full or summary fidelity ·{" "}
               {meta.tokenEstimator}
             </div>
+            <div className="hint">
+              recipe <code>{meta.recipe}</code>
+              {pkg.target !== undefined && (
+                <>
+                  {" "}
+                  · story point <code>{pkg.target.id}</code> ({pkg.target.kind})
+                </>
+              )}
+            </div>
             <button className="btn btn--ghost btn--small" onClick={() => setShowText(!showText)}>
               {showText ? "Show selection" : "Show compiled text"}
             </button>
@@ -194,6 +203,28 @@ export function ContextPanel({ repo, refreshToken }: Props) {
                         </span>
                       </div>
                       <div className="ctx__why">included because: {item.provenance.reason}</div>
+                      {/*
+                        The rule, the chain and the story boundary. "Why is this
+                        here" is only half an answer without "and what decided
+                        that" — and the boundary is the one a temporal-leakage
+                        bug would show up in (docs/CONTEXT_COMPILER.md).
+                      */}
+                      <div className="ctx__provenance">
+                        <span className="badge badge--muted">{item.provenance.rule}</span>
+                        {item.provenance.storyPoint !== undefined && (
+                          <span className="badge badge--muted">
+                            state {item.provenance.storyPoint.replace(":", " ")}
+                          </span>
+                        )}
+                        {item.revealsFuture === true && (
+                          <span className="badge badge--conflict">reveals future</span>
+                        )}
+                        {(item.provenance.via ?? []).length > 0 && (
+                          <span className="ctx__via">
+                            via {(item.provenance.via ?? []).join(" → ")}
+                          </span>
+                        )}
+                      </div>
                       {item.rendering !== "full" && (
                         <div className="ctx__downgrade">
                           {item.rendering === "summary" ? "summarised" : "reference only"} — budget

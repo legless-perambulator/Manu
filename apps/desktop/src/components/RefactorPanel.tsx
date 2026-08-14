@@ -342,18 +342,40 @@ export function RefactorPanel({ repo, secrets, refreshToken, onChanged, onSelect
                 ))}
               </ul>
             )}
-            {(plan?.modelNotes ?? []).length > 0 && (
+            {(plan?.consequences ?? []).length > 0 && (
               <>
                 <h3>
                   Consequences{" "}
                   <span className="badge debug__badge--judgement">model judgement</span>
                 </h3>
                 <ul className="state__knowledge">
-                  {(plan?.modelNotes ?? []).map((line, i) => (
-                    <li key={i}>{line}</li>
+                  {(plan?.consequences ?? []).map((claim, i) => (
+                    <li
+                      key={i}
+                      className={claim.grounded ? undefined : "agent__finding--unverified"}
+                    >
+                      {claim.statement}
+                      {claim.basis.length > 0 && (
+                        <span className="agent__sources">{claim.basis.join(" · ")}</span>
+                      )}
+                      {!claim.grounded && (
+                        <span className="agent__unverified">
+                          {claim.unsupported.length > 0
+                            ? `Unsupported — ${claim.unsupported.join(", ")} is not among the entities this change reaches.`
+                            : "Unsupported — no affected entity was cited."}
+                        </span>
+                      )}
+                    </li>
                   ))}
                 </ul>
               </>
+            )}
+            {(plan?.modelNotes ?? []).length > 0 && (
+              <ul className="state__knowledge">
+                {(plan?.modelNotes ?? []).map((line, i) => (
+                  <li key={i}>{line}</li>
+                ))}
+              </ul>
             )}
           </section>
 

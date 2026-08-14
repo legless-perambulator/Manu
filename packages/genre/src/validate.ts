@@ -3,7 +3,7 @@ import type { EntityKind, ExtensionValue } from "@jellytind/domain";
 import { isSpecialistId } from "@jellytind/agent-runtime";
 import { RECIPE_NAMES } from "@jellytind/context-compiler";
 import { BUILT_IN_SKILLS } from "@jellytind/skills";
-import { GenreError, type ExtensionKind, type GenreModule } from "./types";
+import { GenreError, MODULE_MATURITIES, type ExtensionKind, type GenreModule } from "./types";
 
 /**
  * What a module may register, checked before it can register anything.
@@ -23,6 +23,19 @@ export function validateModule(module: GenreModule, seen: ReadonlySet<string> = 
       details: { module: module.id, ...details },
     });
   };
+
+  // ── What it claims about itself ──────────────────────────────────────────
+  //
+  // `engine` is a claim a module has to be able to back: a dedicated engine
+  // means work beyond extension records and rules, and the only way that work
+  // reaches a build is a `collect` hook. A module claiming an engine without
+  // one is claiming more than it does (MANU-036).
+  if (!(MODULE_MATURITIES as readonly string[]).includes(module.maturity)) {
+    fail(`declares an unknown maturity "${module.maturity}".`);
+  }
+  if (module.maturity === "engine" && module.collect === undefined) {
+    fail("claims a dedicated engine but contributes no build input of its own.");
+  }
 
   // ── Things it names, checked against the registries that own them ─────────
   for (const agent of module.agents) {

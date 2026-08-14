@@ -72,6 +72,7 @@ const fairness = moduleRule({
 export const MYSTERY_MODULE: GenreModule = {
   id: "mystery",
   name: "Mystery",
+  maturity: "engine",
   summary: "Clues, suspects and the question of whether the reader could have got there first.",
   description:
     "Turns on the Mystery Engine: a clue board where reader exposure is tracked apart from what the characters find, deduction chains from clue to solution, alibis checked against the timeline, and a fairness audit that runs as part of every build.",

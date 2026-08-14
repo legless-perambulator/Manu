@@ -58,7 +58,8 @@ The persistent, authoritative project format.
 - Domain: `Project`, `Chapter`, `Character`, `Location`, `PlotThread`, and the
   `ProjectManifest` with schema versioning.
 - Persistence: pure path-safety, `NodeProjectStore` (atomic writes, traversal
-  prevention), and a SQLite derived index with a versioned migration runner.
+  prevention), and a derived entity catalogue. (The SQLite index built in this
+  phase was removed in Phase 30.5B3 — nothing read it; see STORY_REPOSITORY.md.)
 - `StoryRepository` service: create / open / validate / save; safe file
   read/write/list/mkdir/exists; entity creation with stable, persisted IDs.
 - Desktop app: create / open project flow, project explorer over the real

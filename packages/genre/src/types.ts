@@ -137,12 +137,31 @@ export interface MetadataField {
   readonly description?: string;
 }
 
+/**
+ * How far a module actually goes.
+ *
+ * The audit's question, asked of every subsystem, applied to modules: is this a
+ * working thing or a shape? A writer switching a module on is entitled to know
+ * which, before they build a book on it — so it is a field the interface reads,
+ * not a paragraph in a changelog (MANU-036).
+ *
+ * - `engine` — a dedicated engine behind it, not only records and rules. The
+ *   Mystery module's fairness audit and deduction chains.
+ * - `structured` — real extension records, deterministic compiler rules and
+ *   views. Everything Manu already does, applied to this genre's material.
+ *   Complete on its own terms, with no genre-specific engine.
+ */
+export const MODULE_MATURITIES = ["engine", "structured"] as const;
+export type ModuleMaturity = (typeof MODULE_MATURITIES)[number];
+
 export interface GenreModule {
   readonly id: ModuleId;
   readonly name: string;
   /** One line, in the writer's terms, about what switching this on gets them. */
   readonly summary: string;
   readonly description: string;
+  /** How far it goes. Shown to the writer before they switch it on. */
+  readonly maturity: ModuleMaturity;
 
   // Provided outright.
   readonly extensionKinds: readonly ExtensionKind[];

@@ -59,6 +59,17 @@ export interface Provenance {
   readonly rule: SelectionRule;
   readonly reason: string;
   readonly via?: readonly string[];
+  /**
+   * The story boundary this element was reconstructed at, as
+   * `before:SCENE_0042` or `after:SCENE_0042`.
+   *
+   * Present on anything derived from the state engine, absent on anything that
+   * has no story position (a character record, a style rule). Stated as a field
+   * rather than only inside `reason` so it can be *checked*: the temporal
+   * leakage tests assert that nothing in a package for scene N was
+   * reconstructed at a boundary after N (docs/CONTEXT_COMPILER.md).
+   */
+  readonly storyPoint?: string;
 }
 
 /** How much of an element made it into the package. */

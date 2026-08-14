@@ -64,7 +64,6 @@ import {
   InMemoryProjectStore,
   normalizeProjectPath,
   type ProjectStore,
-  type ProjectIndex,
 } from "@jellytind/persistence";
 import type { SearchHit, SearchQuery } from "@jellytind/search";
 import type { AgentStore } from "@jellytind/agent-runtime";
@@ -213,7 +212,6 @@ export interface CreateProjectOptions {
   readonly store: ProjectStore;
   readonly title: string;
   readonly rootPath?: string;
-  readonly index?: ProjectIndex;
   readonly now?: () => string;
   readonly projectId?: StoryProjectId;
 }
@@ -221,7 +219,6 @@ export interface CreateProjectOptions {
 export interface OpenProjectOptions {
   readonly store: ProjectStore;
   readonly rootPath?: string;
-  readonly index?: ProjectIndex;
   readonly now?: () => string;
 }
 
@@ -323,7 +320,6 @@ export class StoryRepository {
     manifest: ProjectManifest,
     ids: SequentialIdGenerator,
     private readonly rootPath: string,
-    private readonly index: ProjectIndex | undefined,
     private readonly clock: () => string,
   ) {
     // The guard sits closest to the disk, so nothing above it can overwrite a
@@ -412,18 +408,11 @@ export class StoryRepository {
     await scaffoldProject(store, title);
     await store.writeFile(PATHS.manifest, serialize(manifest));
 
-    if (options.index) {
-      options.index.init();
-      options.index.setMetadata("projectId", manifest.id);
-      options.index.setMetadata("schemaVersion", String(manifest.schemaVersion));
-    }
-
     const repo = new StoryRepository(
       store,
       manifest,
       new SequentialIdGenerator(),
       options.rootPath ?? "",
-      options.index,
       clock,
     );
     // Every project starts with a "Draft 0" checkpoint to revert back to.
@@ -449,16 +438,8 @@ export class StoryRepository {
         : ((await StoryRepository.validateProject(store)).manifest ?? validation.manifest);
 
     const ids = await loadIdGenerator(store);
-    if (options.index) options.index.init();
 
-    return new StoryRepository(
-      store,
-      manifest,
-      ids,
-      options.rootPath ?? "",
-      options.index,
-      options.now ?? nowIso,
-    );
+    return new StoryRepository(store, manifest, ids, options.rootPath ?? "", options.now ?? nowIso);
   }
 
   /** Validate that a store contains a well-formed project. Never throws. */
@@ -518,7 +499,6 @@ export class StoryRepository {
           updatedAt: this.clock(),
         };
         await this.store.writeFile(PATHS.manifest, serialize(this.manifest));
-        this.index?.setMetadata("title", this.manifest.title);
       },
     );
     return this.manifest;
@@ -3020,15 +3000,6 @@ export class StoryRepository {
       a.id.localeCompare(b.id),
     );
     await writeCatalog(this.store, next);
-
-    this.index?.upsertEntity({
-      id: record.id,
-      kind: record.kind,
-      name: record.name,
-      ...(record.filePath !== undefined ? { filePath: record.filePath } : {}),
-      createdAt: record.createdAt,
-      updatedAt: record.updatedAt,
-    });
   }
 
   private async reindexAfterUnlink(id: string): Promise<void> {
@@ -3054,7 +3025,6 @@ export class StoryRepository {
       this.store,
       catalog.filter((e) => e.id !== id),
     );
-    this.index?.removeEntity(id);
   }
 
   private async persistIdState(): Promise<void> {

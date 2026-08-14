@@ -1,18 +1,30 @@
+import { AgentError } from "../errors";
 import type { AgentPermission } from "../permissions";
 
 /**
  * The specialist registry.
  *
  * An agent here is **not a chat persona with a different role prompt**. It is a
- * configuration: which tools it can reach, which permissions it holds, which
- * context recipe it compiles, what shape its output takes, and which model
- * class suits the work. Two specialists differ because those differ — and the
- * runtime enforces every one of them.
- *
- * The tool list becomes the `allowedTools` of the permission grant, so a Copy
- * Editor that tries to call `analyse_story_refactor` is denied by the executor
- * before the tool is reached. It is not a matter of the prompt asking it not to
+ * configuration — but it is worth being exact about which parts of that
+ * configuration the runtime *enforces* and which describe intent, because the
+ * difference is the difference between an architecture and a label
  * (docs/AGENT_RUNTIME.md).
+ *
+ * **Enforced.** `tools` becomes the `allowedTools` of the permission grant, so
+ * a Copy Editor that tries to call `analyse_story_refactor` is denied by the
+ * executor before the tool is reached — not asked nicely by a prompt.
+ * `permissions` becomes the grant itself. And a workflow node that produces a
+ * draft is rejected at validation time unless its specialist holds
+ * `edit_manuscript` (`assertAgent` in @jellytind/orchestration).
+ *
+ * **Declarative.** `outputShape`, `contextRecipe` and `modelClass` describe what
+ * this specialist is *for*. They are not constraints: a workflow node carries
+ * its own `produces`, `contextRecipe` and `routingClass`, and those are what
+ * the executor uses. A reviewing pass routed to a cheap model despite a
+ * specialist declaring `reasoning` is the workflow author's call, and a
+ * reasonable one — so these fields inform and document rather than restrict.
+ * Recorded here rather than implied, because the audit's question was exactly
+ * whether a specialist differs by more than its prompt (MANU-035).
  */
 
 export const SPECIALIST_IDS = [
@@ -60,9 +72,11 @@ export interface AgentDefinition {
   /** Exactly the tools it may call. Enforced as `allowedTools`. */
   readonly tools: readonly string[];
   readonly permissions: readonly AgentPermission[];
-  /** The Context Compiler recipe it works from, when it works on a target. */
+  /** The recipe it is *meant* to work from. Advisory — the node chooses. */
   readonly contextRecipe: "scene_inspection" | "scene_rewrite" | "chapter_inspection" | null;
+  /** The kind of answer it is *for*. Advisory — the node names what it wants. */
   readonly outputShape: OutputShape;
+  /** The kind of model the work suits. Advisory — the node routes. */
   readonly modelClass: ModelClass;
   /** Specialists this one commonly hands off to, for recommendations. */
   readonly handsOffTo: readonly SpecialistId[];
@@ -314,8 +328,15 @@ const BY_ID = new Map(AGENTS.map((agent) => [agent.id, agent]));
 
 export function agentById(id: SpecialistId): AgentDefinition {
   const found = BY_ID.get(id);
+  // Typed, like every other failure in this package: a caller switches on the
+  // code rather than parsing a message (MANU-031). Unreachable through the
+  // type, but reachable from a persisted task whose specialist was renamed.
   /* istanbul ignore next — SpecialistId is closed over AGENTS. */
-  if (found === undefined) throw new Error(`Unknown specialist: ${id}`);
+  if (found === undefined) {
+    throw new AgentError("unknown_agent", `No specialist agent with id "${id}".`, {
+      details: { id },
+    });
+  }
   return found;
 }
 

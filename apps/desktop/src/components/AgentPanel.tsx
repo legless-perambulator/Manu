@@ -174,11 +174,31 @@ export function AgentPanel({ repo, secrets, onActivityLine }: Props) {
             <p className="agent__empty">Nothing in the project matched.</p>
           ) : (
             <ul className="agent__findings">
+              {/*
+                A finding whose citations did not resolve is shown, and shown as
+                unverified. Hiding it would conceal that the model invented
+                something; presenting it like the rest would be the fabrication
+                the whole check exists to prevent (MANU-007).
+              */}
               {answer.findings.map((finding, i) => (
-                <li key={`${String(i)}-${finding.statement}`}>
+                <li
+                  key={`${String(i)}-${finding.statement}`}
+                  className={finding.grounded ? undefined : "agent__finding--unverified"}
+                >
                   <span>{finding.statement}</span>
                   {finding.sources.length > 0 && (
-                    <span className="agent__sources">{finding.sources.join(" · ")}</span>
+                    <span className="agent__sources">
+                      {finding.sources
+                        .filter((source) => !finding.unverified.includes(source))
+                        .join(" · ")}
+                    </span>
+                  )}
+                  {!finding.grounded && (
+                    <span className="agent__unverified">
+                      {finding.unverified.length > 0
+                        ? `Unverified — ${finding.unverified.join(", ")} was not returned by any tool in this run.`
+                        : "Unverified — the agent cited no source for this."}
+                    </span>
                   )}
                 </li>
               ))}

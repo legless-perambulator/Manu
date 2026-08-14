@@ -7,6 +7,7 @@ import {
   type ActivityStatus,
   type AgentActivityEvent,
 } from "./activity";
+import { collectEvidence, type EvidenceRef } from "./evidence";
 import type { RegisteredTool, ToolContext, ToolRegistry } from "./tool";
 
 export interface ToolCallOutcome {
@@ -16,6 +17,15 @@ export interface ToolCallOutcome {
   /** A message safe to hand back to the model when the call failed. */
   readonly error?: string;
   readonly event: AgentActivityEvent;
+  /**
+   * Citable identifiers this call returned.
+   *
+   * Extracted here rather than by the caller because this is the only place
+   * that has seen the *validated* output — a result that failed its own schema
+   * grounds nothing (MANU-007). Empty for every failed call, which is the
+   * point: a tool that errored produced no evidence.
+   */
+  readonly evidence: readonly EvidenceRef[];
 }
 
 export interface ToolExecutorOptions {
@@ -58,6 +68,7 @@ export class ToolExecutor {
     resultSummary: string,
     status: ActivityStatus,
     durationMs: number,
+    references: readonly string[] = [],
   ): Promise<AgentActivityEvent> {
     return this.store.appendActivity({
       taskId,
@@ -67,6 +78,7 @@ export class ToolExecutor {
       resultSummary,
       status,
       durationMs,
+      ...(references.length > 0 ? { references } : {}),
     });
   }
 
@@ -93,6 +105,7 @@ export class ToolExecutor {
       ok: false,
       error: message,
       event: await this.log(taskId, toolName, argsSummary, message, status, Date.now() - startedAt),
+      evidence: [],
     });
 
     if (aborted()) {
@@ -149,6 +162,7 @@ export class ToolExecutor {
       );
     }
 
+    const evidence = collectEvidence(validated);
     return {
       ok: true,
       output: validated,
@@ -159,7 +173,9 @@ export class ToolExecutor {
         summarizeResult(validated),
         "ok",
         Date.now() - startedAt,
+        evidence.map((ref) => ref.reference),
       ),
+      evidence,
     };
   }
 }

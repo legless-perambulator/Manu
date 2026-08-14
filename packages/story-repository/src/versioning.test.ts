@@ -177,12 +177,64 @@ describe("staging transaction", () => {
     tx.discard();
     expect(await repo.readProjectFile("notes/z.md")).toBeNull();
   });
+
+  /**
+   * The failure the audit worried about: prose written, structure not.
+   *
+   * A transaction that changes the manuscript *and* the records must not be
+   * able to half-apply. If the second write fails, the first must be undone —
+   * otherwise the project is left in a state no build could make sense of, and
+   * the writer has no way to know.
+   */
+  it("leaves nothing applied when a write fails part-way through", async () => {
+    const store = new FailingStore();
+    const repo = await StoryRepository.createProject({ store, title: "Half-written" });
+    store.failOn("story/facts.json");
+
+    const tx = repo.beginTransaction("Prose and the fact it rests on");
+    tx.writeFile("manuscript/ch1.md", "She found the vault.");
+    tx.writeFile("story/facts.json", "[]");
+
+    await expect(tx.commit()).rejects.toThrow(/disk full/);
+
+    // The manuscript write is rolled back with the rest.
+    expect(await repo.readProjectFile("manuscript/ch1.md")).toBeNull();
+    // And no change set claims it happened.
+    const history = await repo.listChangeSets();
+    expect(history.some((c) => c.summary === "Prose and the fact it rests on")).toBe(false);
+  });
+
+  it("rolls a failed mutation back without losing what was already there", async () => {
+    const store = new FailingStore();
+    const repo = await StoryRepository.createProject({ store, title: "Kept" });
+    await repo.writeProjectFile("notes/first.md", "already here");
+    store.failOn("notes/second.md");
+
+    const tx = repo.beginTransaction();
+    tx.writeFile("notes/first.md", "overwritten");
+    tx.writeFile("notes/second.md", "will fail");
+    await expect(tx.commit()).rejects.toThrow();
+
+    // The pre-existing file is restored, not left holding the staged version.
+    expect(await repo.readProjectFile("notes/first.md")).toBe("already here");
+  });
 });
 
-/** A store that throws on writes to one path — to exercise failed-write rollback. */
+/**
+ * A store that throws on writes to one path — to exercise failed-write
+ * rollback. The failure is armed *after* the project is scaffolded, so the
+ * failing path can be one the scaffold itself writes.
+ */
 class FailingStore implements ProjectStore {
   private readonly inner = new InMemoryProjectStore();
-  constructor(private readonly failPath: string) {}
+  private failPath: string | null;
+  constructor(failPath: string | null = null) {
+    this.failPath = failPath;
+  }
+  /** Arm the failure after construction, for a path the scaffold also writes. */
+  failOn(path: string): void {
+    this.failPath = path;
+  }
   readFile(p: string) {
     return this.inner.readFile(p);
   }

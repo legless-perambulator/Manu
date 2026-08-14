@@ -50,7 +50,7 @@ export async function planRefactor(
       "Nothing in the project would change. Check the target and the terms.",
     );
   }
-  return { steps, modelNotes: [] };
+  return { steps, modelNotes: [], consequences: [] };
 }
 
 // ── Rename ───────────────────────────────────────────────────────────────────

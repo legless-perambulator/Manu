@@ -10,8 +10,29 @@ over structured state rather than by a model re-reading the manuscript.
   the rule registry, twelve deterministic rules, configuration, build history
   and comparison, the agent tools and the Story Build view are built, and the
   build runs the writer's deterministic Story Tests
-  ([STORY_TESTS.md](STORY_TESTS.md)). Semantic checks, semantic test evaluation
+  ([STORY_TESTS.md](STORY_TESTS.md)). Every rule is covered by a reachability
+  test that drives it until it emits, so none can quietly become a stub
+  (`rule-audit.test.ts`, Phase 30.5B3). Semantic checks, semantic test evaluation
   and full incremental compilation are **PLANNED**.
+
+### The rule audit
+
+The Phase 30.5A audit planted five defects and reported that the compiler caught
+four. It did not say which one it missed, so Phase 30.5B3 rebuilt the probe. The
+missed defect was **knowledge continuity**: the `referenced_without_knowledge`
+check only ever tested a scene's POV character, and `pov` is optional — a scene
+with a cast and no POV could name a fact nobody had learned and the build stayed
+green. It now tests the POV where there is one, and otherwise asks whether
+_anybody present_ holds the fact, naming who was checked. A scene with no cast at
+all is expository narration and is still not reported. All five are now caught,
+and the probe is permanent
+(`packages/story-repository/src/planted-defects.test.ts`).
+
+Alongside it, every registered rule is asserted to be reachable, deterministic,
+evidenced and navigable — and a rule added without an audit case fails the
+build. `world_rules` remains the one rule that reports what it _cannot_ evaluate:
+a hard rule with no deterministic reading comes back as `info` rather than
+passing silently, so a green build never implies it was checked.
 
 ## The premise
 

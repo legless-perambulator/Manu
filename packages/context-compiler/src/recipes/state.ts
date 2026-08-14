@@ -75,6 +75,11 @@ function boundaryWords(asOf: { sceneId: string; position: "before" | "after" }):
   return `${asOf.position === "before" ? "immediately before" : "immediately after"} ${asOf.sceneId}`;
 }
 
+/** The same boundary in a form a test can compare: `before:SCENE_0042`. */
+function point(asOf: { sceneId: string; position: "before" | "after" }): string {
+  return `${asOf.position}:${asOf.sceneId}`;
+}
+
 /**
  * Where a character is, spelled out with the places containing it.
  *
@@ -174,6 +179,7 @@ export function stateCandidates(input: StateCandidateInput): Candidate[] {
         "character_state",
         `story state of ${characterId} ${boundaryWords(asOf)}, who is involved in ${becauseOf}`,
         [becauseOf, characterId],
+        point(asOf),
       ),
       full: renderCharacterState(state, input.facts, locations),
     });
@@ -191,6 +197,7 @@ export function stateCandidates(input: StateCandidateInput): Candidate[] {
         "object_state",
         `story state of ${objectId} ${boundaryWords(asOf)}, which appears in ${becauseOf}`,
         [becauseOf, objectId],
+        point(asOf),
       ),
       full: renderObjectState(state, locations),
     });
@@ -208,6 +215,7 @@ export function stateCandidates(input: StateCandidateInput): Candidate[] {
         "established_fact",
         `facts true in the story world ${boundaryWords(asOf)}`,
         [becauseOf],
+        point(asOf),
       ),
       full: [
         `FACTS TRUE ${boundaryWords(asOf).toUpperCase()}`,
@@ -270,6 +278,7 @@ export function knowledgeCandidates(input: {
         "false_belief",
         `beliefs held entering ${scene.id} that the story world contradicts`,
         [scene.id as string],
+        point(asOf),
       ),
       full: [
         `FALSE BELIEFS ENTERING ${scene.id}`,
@@ -297,6 +306,7 @@ export function knowledgeCandidates(input: {
         "information_asymmetry",
         `what the characters in ${scene.id} do not share entering it`,
         [scene.id as string],
+        point(asOf),
       ),
       full: [
         `INFORMATION ASYMMETRIES ENTERING ${scene.id}`,
@@ -328,6 +338,7 @@ export function knowledgeCandidates(input: {
         "fact_knowledge",
         `${scene.id} references ${factId}, so who holds it entering the scene matters`,
         [scene.id as string, factId],
+        point(asOf),
       ),
       full: [
         `POSITIONS ON ${factId} ENTERING ${scene.id}`,
@@ -410,6 +421,7 @@ export function relationshipCandidates(input: {
           "relationship_state",
           `relationship between ${r.characterAId} and ${r.characterBId} ${boundaryWords(asOf)}, both of whom are in ${becauseOf}`,
           [becauseOf, r.id as string],
+          point(asOf),
         ),
         full: renderRelationship(state),
         summary: describeRelationship(state),

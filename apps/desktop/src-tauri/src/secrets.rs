@@ -52,7 +52,9 @@ fn fallback_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 fn read_fallback(app: &tauri::AppHandle) -> Result<BTreeMap<String, String>, String> {
     let path = fallback_path(app)?;
     match fs::read_to_string(&path) {
-        Ok(text) => serde_json::from_str(&text).map_err(|e| format!("credential file corrupt: {e}")),
+        Ok(text) => {
+            serde_json::from_str(&text).map_err(|e| format!("credential file corrupt: {e}"))
+        }
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(BTreeMap::new()),
         Err(e) => Err(format!("credential file read failed: {e}")),
     }
@@ -94,7 +96,11 @@ pub fn secret_backend() -> SecretBackend {
 }
 
 #[tauri::command]
-pub fn secret_set(app: tauri::AppHandle, key: String, value: String) -> Result<SecretBackend, String> {
+pub fn secret_set(
+    app: tauri::AppHandle,
+    key: String,
+    value: String,
+) -> Result<SecretBackend, String> {
     if let Ok(e) = entry(&key) {
         if e.set_password(&value).is_ok() {
             return Ok(SecretBackend::Keychain);

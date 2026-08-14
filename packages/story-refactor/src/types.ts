@@ -1,4 +1,5 @@
 import { AppError } from "@jellytind/shared";
+import type { GroundedClaim } from "@jellytind/shared";
 import type { BlastRadius } from "@jellytind/story-causality";
 import type { Diagnostic, StoryBuild, TestRunSummary } from "@jellytind/story-compiler";
 import type { FileChange } from "@jellytind/story-repository";
@@ -216,8 +217,21 @@ export interface RefactorPlan {
   readonly steps: readonly PlanStep[];
   /** Set when a model helped write the plan. Its contribution is labelled. */
   readonly modelId?: string;
-  /** The model's reading of what else the change implies. Never a fact. */
+  /**
+   * Operational notes about the plan itself — chiefly that a model could not be
+   * reached. Not claims about the story.
+   */
   readonly modelNotes: readonly string[];
+  /**
+   * The model's reading of what else the change implies, each claim citing the
+   * affected entities it rests on.
+   *
+   * Never a fact, and never presented as one: a consequence citing an entity
+   * the deterministic analysis did not find is kept and marked unsupported,
+   * because a claim resting on invented evidence is the failure worth seeing
+   * (docs/STORY_REFACTOR.md).
+   */
+  readonly consequences: readonly GroundedClaim[];
 }
 
 // ── Run ──────────────────────────────────────────────────────────────────────

@@ -143,6 +143,14 @@ export function ModulesPanel({ repo, refreshToken, onChanged }: Props) {
                 <span className="modules__name">
                   {module.name}
                   {isOn(module) && <span className="badge badge--created">on</span>}
+                  {/*
+                    How far the module actually goes, before the writer builds a
+                    book on it. A shape and a working engine should not look the
+                    same in a list (MANU-036).
+                  */}
+                  <span className={`badge badge--${module.maturity}`}>
+                    {module.maturity === "engine" ? "dedicated engine" : "records and checks"}
+                  </span>
                 </span>
                 <button
                   className={isOn(module) ? "btn btn--small" : "btn btn--primary btn--small"}

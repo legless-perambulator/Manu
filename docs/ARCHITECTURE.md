@@ -168,7 +168,7 @@ structurally and implements `AgentStore` for `.writer/agents/`, which is why the
 
 `@jellytind/persistence` has two entry points. The main barrel is **browser-safe**
 (pure TypeScript, no `node:*`) and is what the renderer bundles transitively via
-`@jellytind/story-repository`. Node-only filesystem/SQLite adapters live behind the
+`@jellytind/story-repository`. Node-only filesystem adapters live behind the
 `@jellytind/persistence/node` subpath and are imported only by tests and Node
 hosts — never by the renderer. The desktop app reaches the real filesystem through
 root-confined Rust commands (see [`STORY_REPOSITORY.md`](STORY_REPOSITORY.md)).
@@ -259,16 +259,16 @@ history / model memory (never authoritative). See
 
 ## Tooling
 
-| Concern                | Tool                                                                       |
-| ---------------------- | -------------------------------------------------------------------------- |
-| Language               | TypeScript (strict; `noUncheckedIndexedAccess`, `verbatimModuleSyntax`, …) |
-| UI                     | React 18 + Vite 6                                                          |
-| Desktop shell          | Tauri 2 (Rust host)                                                        |
-| Unit tests             | Vitest 2 (+ `expectTypeOf` for type-level tests)                           |
-| Lint                   | ESLint 9 (flat config) + typescript-eslint                                 |
-| Format                 | Prettier 3                                                                 |
-| Package manager        | pnpm 10 workspaces                                                         |
-| Structured local state | SQLite (PLANNED adapter behind `StateStore`)                               |
+| Concern                | Tool                                                                                                                          |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Language               | TypeScript (strict; `noUncheckedIndexedAccess`, `verbatimModuleSyntax`, …)                                                    |
+| UI                     | React 18 + Vite 6                                                                                                             |
+| Desktop shell          | Tauri 2 (Rust host)                                                                                                           |
+| Unit tests             | Vitest 2 (+ `expectTypeOf` for type-level tests)                                                                              |
+| Lint                   | ESLint 9 (flat config) + typescript-eslint                                                                                    |
+| Format                 | Prettier 3                                                                                                                    |
+| Package manager        | pnpm 10 workspaces                                                                                                            |
+| Structured local state | Plain files + a derived in-memory index. `StateStore` is a declared port with only an in-memory implementation — **PLANNED**. |
 
 ## Root commands
 

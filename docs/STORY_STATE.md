@@ -6,6 +6,15 @@ Explicit, machine-readable story state so the LLM does not have to reconstruct e
 - **Depends on:** `@jellytind/domain`, `@jellytind/shared`
 - **Status (Phase 10 V1, extended in Phase 11):** **Implemented and tested.** Character location, alive/dead status, object ownership and location, canonical facts, a full **knowledge and belief graph** — states, acquisition sources, false beliefs, transfer chains and deterministic violation checks — and **dynamic relationship state** with optional analytical dimensions, all reconstructable at any scene boundary, with manual editing, AI extraction and Context Compiler integration. Phase 13 adds the **story-world chronology** — see [TIMELINE.md](TIMELINE.md) — which supplies this same replay engine with a second scene order, and Phase 14 adds **object continuity and nested locations** — see [OBJECTS_LOCATIONS.md](OBJECTS_LOCATIONS.md). Physical condition, goals and reader knowledge are **PLANNED**.
 
+**No future leakage** is a permanent regression fixture rather than a claim: one
+story with a setup in chapter one and a reveal in chapter three, checked at the
+earlier point across story state, knowledge, relationships, ordering, compiled
+context, the reader simulator and the character simulator. Every "must not
+contain" case is paired with a positive control at the later point, so a fixture
+that silently recorded nothing cannot pass. The fixture is exported as
+`leakageFixture` from `@jellytind/story-repository` so all three guards check the
+same story (Phase 30.5B3).
+
 ## State is transitions, not a snapshot
 
 State is **not** stored as "what is true now". It is a set of changes, each
@@ -376,7 +385,7 @@ plain list.
 | `told_without_knowing`                       | error    | Someone passed on in good faith what they did not hold.                    |
 | `knowledge_before_fact`                      | error    | A character holds a true fact before the story establishes it.             |
 | `contradictory_transitions`                  | error    | One scene records two different positions for the same character and fact. |
-| `referenced_without_knowledge`               | warning  | A scene puts a fact on the page its POV character does not hold.           |
+| `referenced_without_knowledge`               | warning  | A scene puts a fact on the page nobody in it holds.                        |
 | `source_not_present` / `learner_not_present` | warning  | A transfer names someone who is not in the scene.                          |
 
 **Deception is exempt from `told_without_knowing`.** A liar conveying something
@@ -384,8 +393,17 @@ they know to be false is the whole point of deception; flagging it would make th
 system unable to represent the genre it exists for. `told` requires the source to
 hold it; `deceived` does not; `read` names a document rather than a mind.
 
-`referenced_without_knowledge` is a _warning_ on purpose — a scene referencing a
-fact its POV does not hold is often dramatic irony rather than a mistake, so it
+`referenced_without_knowledge` asks the POV character where a scene has one,
+because a fact on the page of a scene told from inside someone's head is a fact
+that person is expected to hold. Where there is no POV — the ordinary case, since
+`pov` is optional — it asks whether _anybody present_ holds it, and names who was
+checked. Before Phase 30.5B3 it asked only about the POV, which made it
+unreachable for most scenes and was the one planted defect the audit's compiler
+probe missed (MANU-034). A scene with no characters at all is expository or
+off-page narration and is still not reported.
+
+It is a _warning_ on purpose — a scene referencing a
+fact nobody in it holds is often dramatic irony rather than a mistake, so it
 is reported without being called wrong.
 
 Because knowledge is time-indexed and separate from truth, this detects _Mara

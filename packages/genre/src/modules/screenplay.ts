@@ -158,6 +158,7 @@ const sceneWithoutHeading = moduleRule({
 export const SCREENPLAY_MODULE: GenreModule = {
   id: "screenplay",
   name: "Screenplay",
+  maturity: "structured",
   summary: "Scene headings and production notes, over the same scenes and characters.",
   description:
     "Domain extensions only: INT/EXT, location, time of day, estimated duration and production notes, attached to the project's own scenes. Formatting and production tooling are deliberately not here yet.",

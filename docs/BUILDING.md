@@ -178,7 +178,7 @@ outside a sandbox, and nothing more:
 | `--share=network`                                          | Provider HTTP, still scoped to the configured endpoint by `capabilities/default.json`       |
 | `--talk-name=org.freedesktop.secrets`                      | Provider API keys in the OS secure store                                                    |
 
-Local storage, the SQLite index, project file access and the Tauri capability
+Local storage, project file access and the Tauri capability
 set are unchanged — the Flatpak wraps the same binary the `.deb` installs.
 
 ### What is and is not in the bundle

@@ -1,5 +1,5 @@
 // Browser-safe barrel. Must not import `node:*` (the renderer bundles this).
-// Node-only filesystem/SQLite adapters live in "@jellytind/persistence/node".
+// Node-only filesystem adapters live in "@jellytind/persistence/node".
 export type { ProjectStore } from "./project-store";
 export { InMemoryProjectStore } from "./project-store";
 
@@ -19,12 +19,3 @@ export { PathEscapeError, normalizeProjectPath, isSafeProjectPath } from "./path
 
 export { GuardedProjectStore, ExternalChangeError, fingerprint } from "./guarded-store";
 export type { GuardOptions } from "./guarded-store";
-
-export type { SqlDatabase, SqlValue, Migration, EntityRecord } from "./sql";
-export {
-  MIGRATIONS,
-  runMigrations,
-  latestSchemaVersion,
-  currentSchemaVersion,
-  ProjectIndex,
-} from "./sql";

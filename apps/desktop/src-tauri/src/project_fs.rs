@@ -60,10 +60,7 @@ pub fn write_atomic_impl(root: &str, rel: &str, contents: &str) -> Result<(), St
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_nanos())
         .unwrap_or(0);
-    let file_name = path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("file");
+    let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("file");
     let tmp = parent.join(format!(".{file_name}.{nanos}.tmp"));
 
     {
@@ -122,7 +119,9 @@ fn walk(dir: &Path, root: &Path, out: &mut Vec<String>) -> Result<(), String> {
     for entry in entries {
         let entry = entry.map_err(|e| format!("dir entry failed: {e}"))?;
         let path = entry.path();
-        let file_type = entry.file_type().map_err(|e| format!("file_type failed: {e}"))?;
+        let file_type = entry
+            .file_type()
+            .map_err(|e| format!("file_type failed: {e}"))?;
         if file_type.is_dir() {
             walk(&path, root, out)?;
         } else if file_type.is_file() {
@@ -133,7 +132,6 @@ fn walk(dir: &Path, root: &Path, out: &mut Vec<String>) -> Result<(), String> {
     }
     Ok(())
 }
-
 
 // ── Atomic project creation ─────────────────────────────────────────────────
 //
@@ -187,7 +185,8 @@ pub fn promote_impl(parent: &str, from: &str, to: &str) -> Result<String, String
     if target.exists() {
         return Err(format!("\"{to}\" already exists in that folder."));
     }
-    fs::rename(&source, &target).map_err(|e| format!("could not finish creating the project: {e}"))?;
+    fs::rename(&source, &target)
+        .map_err(|e| format!("could not finish creating the project: {e}"))?;
     Ok(target.to_string_lossy().to_string())
 }
 
@@ -237,7 +236,10 @@ mod creation_tests {
 
     fn temp_parent() -> PathBuf {
         let mut dir = std::env::temp_dir();
-        let nanos = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
         dir.push(format!("manu-create-{nanos}"));
         fs::create_dir_all(&dir).unwrap();
         fs::canonicalize(&dir).unwrap()
@@ -368,7 +370,10 @@ mod tests {
         let root_str = root.to_str().unwrap();
         write_atomic_impl(root_str, "notes/a.md", "v1").unwrap();
         write_atomic_impl(root_str, "notes/a.md", "v2").unwrap();
-        assert_eq!(read_text_impl(root_str, "notes/a.md").unwrap().unwrap(), "v2");
+        assert_eq!(
+            read_text_impl(root_str, "notes/a.md").unwrap().unwrap(),
+            "v2"
+        );
         let leftovers: Vec<_> = fs::read_dir(root.join("notes"))
             .unwrap()
             .filter_map(|e| e.ok())

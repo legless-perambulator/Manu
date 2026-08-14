@@ -22,6 +22,15 @@ export interface AgentActivityEvent {
   readonly resultSummary: string;
   readonly status: ActivityStatus;
   readonly durationMs?: number;
+  /**
+   * The identifiers this call returned: entity IDs and project file paths.
+   *
+   * Result *identity*, not result content — the log stays a record of what
+   * happened rather than a second copy of the manuscript. It is what makes a
+   * finished run inspectable after the fact: which call produced the evidence a
+   * claim rests on (docs/AGENT_RUNTIME.md — "Provenance").
+   */
+  readonly references?: readonly string[];
 }
 
 const MAX_SUMMARY = 120;

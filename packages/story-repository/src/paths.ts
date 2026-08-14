@@ -57,7 +57,6 @@ export const PATHS = {
   manifest: MANIFEST_PATH,
   idSequences: `${WRITER_DIR}/state/id-sequences.json`,
   entitiesCatalog: `${WRITER_DIR}/index/entities.json`,
-  derivedDb: `${WRITER_DIR}/index/derived.sqlite`,
   scenes: "scenes/scenes.json",
   plotThreads: "plot/plot_threads.json",
   facts: "story/facts.json",

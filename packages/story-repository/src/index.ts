@@ -125,3 +125,11 @@ export type {
   CharacterVoiceCheck,
   VoiceCheckFinding,
 } from "./character-voice";
+
+/**
+ * A story with a reveal, shared by the temporal-leakage guards in this package,
+ * `@jellytind/reader-sim` and `@jellytind/character-sim` — exported for the same
+ * reason the Story Compiler exports its broken novel: three guards checking
+ * three different stories would drift apart.
+ */
+export { leakageFixture, REVEAL_TOKEN } from "./leakage-fixture";

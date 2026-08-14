@@ -1,5 +1,13 @@
 import { ModelError, type LanguageModel, type ModelMessage } from "@jellytind/model-router";
-import { AGENT_ANSWER_SCHEMA, ANSWER_FORMAT_INSTRUCTIONS, type AgentAnswer } from "./answer";
+import {
+  AGENT_ANSWER_SCHEMA,
+  ANSWER_FORMAT_INSTRUCTIONS,
+  groundAnswer,
+  repairInstructions,
+  type AgentAnswer,
+  type GroundingReport,
+} from "./answer";
+import { EvidenceLedger, type EvidenceHandle } from "./evidence";
 import { describeActivity, type AgentActivityEvent } from "./activity";
 import { AgentError } from "./errors";
 import type { ToolExecutor } from "./executor";
@@ -8,6 +16,14 @@ import { transition, type AgentTask } from "./task";
 
 const DEFAULT_MAX_STEPS = 8;
 const MAX_RESULT_CHARS = 4_000;
+/**
+ * How many times a model may be asked to fix its citations.
+ *
+ * One. A model that invents an ID twice in a row is not going to be talked out
+ * of it, and the honest outcome — showing the claim as unverified — is better
+ * than an unbounded argument with it.
+ */
+const MAX_GROUNDING_REPAIRS = 1;
 
 const SYSTEM_PROMPT = `You are the investigating agent inside Manu, a fiction development environment.
 
@@ -26,6 +42,10 @@ export interface AgentRunResult {
   readonly answer?: AgentAnswer;
   readonly events: readonly AgentActivityEvent[];
   readonly steps: number;
+  /** Everything the tools actually returned, citable by the answer. */
+  readonly evidence: readonly EvidenceHandle[];
+  /** What checking the citations found. Absent when there is no answer. */
+  readonly grounding?: GroundingReport;
 }
 
 export interface InvestigationAgentOptions {
@@ -89,6 +109,9 @@ export class InvestigationAgent {
 
     let current = await this.store.saveTask(transition(task, "running", { now: this.now() }));
     const events: AgentActivityEvent[] = [];
+    // One ledger per run. A previous task's retrievals must not ground this
+    // task's claims.
+    const ledger = new EvidenceLedger(this.now);
     const messages: ModelMessage[] = [{ role: "user", content: current.goal }];
     const tools = this.executor.describeAvailableTools();
     let steps = 0;
@@ -110,7 +133,7 @@ export class InvestigationAgent {
       // ── Investigation loop ───────────────────────────────────────────────
       for (; steps < this.maxSteps; steps += 1) {
         if (options.signal?.aborted === true) {
-          return { task: await finish("cancelled"), events, steps };
+          return { task: await finish("cancelled"), events, steps, evidence: ledger.handles() };
         }
 
         const turn = await this.model.runWithTools(
@@ -126,10 +149,11 @@ export class InvestigationAgent {
             ...(options.signal !== undefined ? { signal: options.signal } : {}),
           });
           events.push(outcome.event);
+          ledger.absorb(outcome.event.id, call.name, outcome.evidence);
           options.onActivity?.(outcome.event, describeActivity(outcome.event));
 
           if (outcome.event.status === "cancelled") {
-            return { task: await finish("cancelled"), events, steps };
+            return { task: await finish("cancelled"), events, steps, evidence: ledger.handles() };
           }
           results.push(
             outcome.ok
@@ -146,30 +170,63 @@ export class InvestigationAgent {
       }
 
       if (options.signal?.aborted === true) {
-        return { task: await finish("cancelled"), events, steps };
+        return { task: await finish("cancelled"), events, steps, evidence: ledger.handles() };
       }
 
       // ── Grounded answer ──────────────────────────────────────────────────
-      const answer = await this.model.generateStructured(
-        {
-          system: SYSTEM_PROMPT,
-          messages: [
-            ...messages,
-            {
-              role: "user",
-              content: `Answer the original request using only what the tools returned.\n\nOriginal request: ${current.goal}\n\n${ANSWER_FORMAT_INSTRUCTIONS}`,
-            },
-          ],
-          schema: AGENT_ANSWER_SCHEMA,
-          maxOutputTokens: 2048,
-        },
-        { ...(options.signal !== undefined ? { signal: options.signal } : {}) },
-      );
+      const ask = async (extra: readonly ModelMessage[]): Promise<AgentAnswer> =>
+        this.model.generateStructured(
+          {
+            system: SYSTEM_PROMPT,
+            messages: [
+              ...messages,
+              {
+                role: "user",
+                content: `Answer the original request using only what the tools returned.\n\nOriginal request: ${current.goal}\n\n${ANSWER_FORMAT_INSTRUCTIONS}`,
+              },
+              ...extra,
+            ],
+            schema: AGENT_ANSWER_SCHEMA,
+            maxOutputTokens: 2048,
+          },
+          { ...(options.signal !== undefined ? { signal: options.signal } : {}) },
+        );
 
-      return { task: await finish("completed"), answer, events, steps };
+      let grounding = groundAnswer(await ask([]), ledger);
+
+      // Bounded repair. The model is told exactly which citations were rejected
+      // and exactly what it may cite instead; if it still cannot support a
+      // finding, the finding survives marked unverified rather than being
+      // quietly deleted or quietly trusted (MANU-007).
+      for (let attempt = 0; attempt < MAX_GROUNDING_REPAIRS; attempt += 1) {
+        if (grounding.problems.length === 0) break;
+        // No abort check here: `ask` carries the signal, and a cancellation
+        // during the retry arrives as a `cancelled` ModelError that the catch
+        // below turns into a cancelled task.
+        const retry = await ask([
+          { role: "assistant", content: JSON.stringify(grounding.answer) },
+          {
+            role: "user",
+            content: repairInstructions(grounding.problems, ledger.references()),
+          },
+        ]);
+        const repaired = groundAnswer(retry, ledger);
+        // Only accept the retry if it is genuinely better. A second attempt that
+        // invents more than the first is not an improvement.
+        if (repaired.problems.length < grounding.problems.length) grounding = repaired;
+      }
+
+      return {
+        task: await finish("completed"),
+        answer: grounding.answer,
+        events,
+        steps,
+        evidence: ledger.handles(),
+        grounding,
+      };
     } catch (cause) {
       if (cause instanceof ModelError && cause.modelCode === "cancelled") {
-        return { task: await finish("cancelled"), events, steps };
+        return { task: await finish("cancelled"), events, steps, evidence: ledger.handles() };
       }
       const reason = cause instanceof Error ? cause.message : String(cause);
       const failed = await finish("failed", reason);

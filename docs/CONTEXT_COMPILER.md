@@ -4,7 +4,7 @@ The Context Compiler constructs the best possible working context for every AI o
 
 - **Package:** `@jellytind/context-compiler`
 - **Depends on:** `@jellytind/domain`, `@jellytind/search`, `@jellytind/shared`
-- **Status (Phase 8, extended through Phase 13):** **V1 implemented and tested.** The `ContextPackage`, provenance model, token budget with prioritised degradation, three explicit recipes, package rendering and the Inspect Context UI are built, plus story state, knowledge, relationship and temporal sources. Semantic retrieval and hierarchical summaries are **PLANNED**.
+- **Status (Phase 8, extended through Phase 13):** **V1 implemented and tested.** The `ContextPackage`, provenance model, token budget with prioritised degradation, three explicit recipes, package rendering and the Inspect Context UI are built, plus story state, knowledge, relationship and temporal sources. Provenance carries the story boundary each element was reconstructed at, and a permanent regression fixture asserts no future material reaches an earlier point (Phase 30.5B3). Semantic retrieval and hierarchical summaries are **PLANNED**.
 
 ## Principle
 
@@ -43,6 +43,7 @@ interface Provenance {
   rule: SelectionRule; // machine-readable, e.g. "participant_character"
   reason: string; // what a user reads
   via?: string[]; // the IDs that led here
+  storyPoint?: string; // "before:SCENE_0042" — the boundary it was rebuilt at
 }
 ```
 
@@ -51,11 +52,28 @@ Rendered in the inspector — and, by default, in the text handed to the model:
 ```
 CHAR_0002 — Elias
 included because: participant in SCENE_0042
+character_state · state before SCENE_0042 · via SCENE_0042 → CHAR_0002
 ```
 
 `via` records the chain, so any element can be traced back to the target that
 pulled it in. Provenance is not decoration: it is what makes a compiled context
 debuggable instead of a black box.
+
+### The story point
+
+Anything derived from the state engine carries the boundary it was reconstructed
+at. _State before Scene 42_ and _state after Scene 42_ are different answers to
+different questions, and until Phase 30.5B3 that distinction lived only inside
+the human-readable `reason` — where nothing could check it.
+
+As a field it is checkable, and it is checked: the temporal-leakage tests assert
+that **no element in a package compiled for scene N was reconstructed at a
+boundary later than N**. A fact learned in chapter twenty cannot reach a scene in
+chapter five through the compiler, and the test that says so does not rely on
+reading English (see `packages/reader-sim/src/temporal-leakage.test.ts`).
+
+Elements with no story position — a character record, a style rule — have no
+`storyPoint`, and the absence is meaningful rather than missing data.
 
 ## Recipes
 

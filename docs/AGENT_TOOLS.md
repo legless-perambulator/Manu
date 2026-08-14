@@ -39,7 +39,7 @@ executor restores safety by validating every value through the schemas.
 
 ```
 resolve in registry → check permission → validate input → run handler
-                    → validate output → log activity
+                    → validate output → collect evidence → log activity
 ```
 
 A model that asks for an unregistered tool, a forbidden tool, or malformed
@@ -118,9 +118,18 @@ Everything else addresses entities by **stable ID**, and an ID of the wrong kind
 - **IDs, not names.** Tools address entities by stable ID wherever practical;
   raw paths are accepted only where a writer genuinely works in files.
 - **Auditable actions.** Every call — success, denial or failure — is logged to
-  the activity feed. Every future _mutating_ call additionally yields a revision
-  entry with agent, model, task, affected entities, before/after, reason and
-  approval status.
+  the activity feed with its tool, task, argument summary, result summary,
+  timestamp, status and duration. A successful call also records the
+  identifiers it returned (`references`), which is what makes a finished run
+  inspectable afterwards: which call produced the evidence a claim rests on.
+  Every future _mutating_ call additionally yields a revision entry with agent,
+  model, task, affected entities, before/after, reason and approval status.
+- **Results are evidence.** Validated output is scanned for entity IDs and
+  project file paths, and those become the only things an agent may cite
+  (AGENT_RUNTIME.md — "Citations are checked, not requested"). A call that
+  failed its permission check, its input schema or its own output schema
+  produces no evidence, so an ID that appeared only in a failed call's arguments
+  cannot launder itself into a citation.
 - **Scoped.** A call must respect the calling task's `allowedTools` and the
   agent's permission set (see [AGENT_RUNTIME.md](AGENT_RUNTIME.md)).
 - **Context-aware generation tools** (`draft_scene`, `continue_scene`, …) will

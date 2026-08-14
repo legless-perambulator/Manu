@@ -1,5 +1,6 @@
 import { ContextCompiler, renderContextPackage } from "@jellytind/context-compiler";
 import { ModelError, type LanguageModel, type OutputSchema } from "@jellytind/model-router";
+import { groundClaims } from "@jellytind/shared";
 import type { StoryRepository } from "@jellytind/story-repository";
 import { RefactorError, type PlanStep, type RefactorAnalysis, type RefactorPlan } from "./types";
 
@@ -31,6 +32,7 @@ Rules:
 - Consequences: say what stops working. "The inheritance motive rests on them being brothers" is useful; "this may affect the story" is not. Name entity IDs where you can.
 - Rewrites: only where swapping the word alone would leave a sentence wrong — a possessive, a family term, a line of dialogue that names the relation. Quote the original sentence EXACTLY as it appears, character for character, and give the rewritten sentence.
 - If a sentence would read correctly after the plain substitution, do not propose a rewrite for it.
+- Every consequence must cite, in "basis", the affected entity IDs it rests on — from the list you were given and no other. Citations are checked: an ID that was not in the analysis is reported to the writer as unsupported.
 - Never invent entity IDs, scenes or facts. Use only what you were given.
 - Do not rewrite anything the change does not require. A refactor that quietly improves prose is a refactor a writer cannot review.
 - Be brief and specific. This is read by someone deciding whether to proceed.`;
@@ -53,7 +55,7 @@ const PLAN_SCHEMA: OutputSchema<RawPlan> = {
 
 const FORMAT = `Reply with JSON only, matching:
 {
-  "consequences": ["what stops working, and why"],
+  "consequences": [{ "statement": "what stops working, and why", "basis": ["CHAR_0002", "THREAD_0001"] }],
   "manual": ["something a person has to decide or rewrite, stated as a task"],
   "rewrites": [
     {
@@ -115,6 +117,7 @@ export class RefactorPlanner {
         return {
           ...plan,
           modelNotes: [`The model could not be reached (${cause.message}). The plan is unchanged.`],
+          consequences: [],
           rejectedRewrites: [],
         };
       }
@@ -184,10 +187,23 @@ export class RefactorPlanner {
       });
     }
 
+    // Consequences are the model's claims about the story, so each is checked
+    // against the entities the deterministic analysis actually found. One that
+    // cites something the analysis never produced survives, marked unsupported
+    // (AGENTS.md — "Canon vs Inference").
+    const affected = new Set(analysis.affected.map((entry) => entry.id));
+    const consequences = groundClaims(
+      array(raw.consequences)
+        .map((entry) => ({ statement: text(entry.statement), cited: strings(entry.basis) }))
+        .filter((claim) => claim.statement !== ""),
+      affected,
+    );
+
     return {
       steps,
       modelId: model.id,
-      modelNotes: strings(raw.consequences),
+      modelNotes: [],
+      consequences,
       rejectedRewrites,
     };
   }

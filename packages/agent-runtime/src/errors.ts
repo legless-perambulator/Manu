@@ -7,6 +7,7 @@ import { AppError } from "@jellytind/shared";
  */
 export type AgentErrorCode =
   | "unknown_tool"
+  | "unknown_agent"
   | "duplicate_tool"
   | "invalid_arguments"
   | "invalid_output"

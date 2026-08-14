@@ -2667,3 +2667,38 @@ code {
 .providers__models .hint {
   margin-top: 8px;
 }
+
+/* A finding whose citations did not resolve. Shown, and shown as unverified. */
+.agent__finding--unverified {
+  border-left: 2px solid var(--manu-warning);
+  padding-left: 8px;
+}
+.agent__unverified {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--manu-text-xs);
+  color: var(--manu-warning);
+}
+
+/* Context inspector: what decided an inclusion, not only why. */
+.ctx__provenance {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 3px;
+}
+.ctx__via {
+  font-size: var(--manu-text-xs);
+  color: var(--manu-ink-subtle);
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+}
+
+/* How far a genre module goes: a shape and an engine must not look alike. */
+.badge--engine {
+  border-color: var(--manu-success);
+  color: var(--manu-success);
+}
+.badge--structured {
+  color: var(--manu-ink-subtle);
+}

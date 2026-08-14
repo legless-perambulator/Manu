@@ -232,6 +232,7 @@ const artefactWithoutObject = moduleRule({
 export const FANTASY_MODULE: GenreModule = {
   id: "fantasy",
   name: "Fantasy",
+  maturity: "structured",
   summary: "Somewhere to put the world, wired to the story rather than beside it.",
   description:
     "Schema support for cultures, species, factions, religions, magic systems, artefacts, genealogies, historical eras, languages and geography. Records attach to the characters, locations and objects the manuscript already tracks — there is no second world model.",

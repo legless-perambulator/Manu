@@ -175,6 +175,7 @@ const obstacleWithoutConflict = moduleRule({
 export const ROMANCE_MODULE: GenreModule = {
   id: "romance",
   name: "Romance",
+  maturity: "structured",
   summary: "The shape of a relationship, laid over the relationship state already being tracked.",
   description:
     "Beats — attraction, intimacy, conflict, separation, reconciliation, commitment — placed at scenes and attached to relationships. The build checks that a reconciliation has something to reconcile and that a stated obstacle is tested somewhere.",

@@ -161,21 +161,44 @@ export function checkKnowledgeViolations(input: CheckInput): KnowledgeViolation[
       }
     }
 
-    // A scene that puts a fact on the page its POV character does not hold.
-    if (scene?.pov !== undefined) {
-      const pov = scene.pov as string;
-      for (const factId of scene.factIds as readonly string[]) {
-        const after = timeline.knows(pov, factId, { sceneId, position: "after" }, view);
-        if (after === null || !holdsAsTrue(after.state)) {
+    // A scene that puts a fact on the page nobody in it holds.
+    //
+    // This used to test the POV character and nothing else, which made it
+    // unreachable for the ordinary case: `pov` is optional and most scenes do
+    // not set one, so a scene could reference a fact no character had ever
+    // learned and the build stayed silent. That was the one planted defect the
+    // audit's compiler probe did not catch (MANU-034).
+    //
+    // With a POV the POV is the test, because a fact on the page of a scene
+    // told from inside someone's head is a fact that person is expected to
+    // hold. Without one, the question is whether *anybody* present holds it —
+    // reporting a fact nobody in the room knows, rather than picking a
+    // character arbitrarily.
+    if (scene !== undefined) {
+      const povId = scene.pov === undefined ? null : (scene.pov as string);
+      const cast = povId === null ? [...castOf(scene)] : [povId];
+      // A scene with no cast at all is expository or off-page narration. Nobody
+      // can hold anything, and saying so every time would be noise.
+      if (cast.length > 0) {
+        for (const factId of scene.factIds as readonly string[]) {
+          const holder = cast.find((characterId) => {
+            const after = timeline.knows(characterId, factId, { sceneId, position: "after" }, view);
+            return after !== null && holdsAsTrue(after.state);
+          });
+          if (holder !== undefined) continue;
+
           out.push({
             kind: "referenced_without_knowledge",
             severity: "warning",
             sceneId,
-            characterId: pov,
+            ...(povId === null ? {} : { characterId: povId }),
             factId,
             message:
-              `${sceneId} references ${factId}, but its POV character ${pov} does not hold it ` +
-              `even by the end of the scene. Intentional dramatic irony, or a continuity slip?`,
+              povId === null
+                ? `${sceneId} references ${factId}, but none of its characters (${cast.join(", ")}) ` +
+                  `hold it even by the end of the scene. Intentional dramatic irony, or a continuity slip?`
+                : `${sceneId} references ${factId}, but its POV character ${povId} does not hold it ` +
+                  `even by the end of the scene. Intentional dramatic irony, or a continuity slip?`,
           });
         }
       }

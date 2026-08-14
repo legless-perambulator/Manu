@@ -56,7 +56,13 @@ export const provenance = (
   rule: SelectionRule,
   reason: string,
   via?: readonly string[],
-): Provenance => ({ rule, reason, ...(via !== undefined ? { via } : {}) });
+  storyPoint?: string,
+): Provenance => ({
+  rule,
+  reason,
+  ...(via !== undefined ? { via } : {}),
+  ...(storyPoint !== undefined ? { storyPoint } : {}),
+});
 
 // ── Candidate builders, shared by recipes ───────────────────────────────────
 

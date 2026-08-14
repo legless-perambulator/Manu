@@ -441,3 +441,260 @@ limitation, not hidden.
 **Cost accounting and privacy routing** remain PLANNED. `TokenUsage` is returned
 by every call and `costMetadata` lives on descriptors, but nothing yet turns
 those into limits.
+
+---
+
+# REMEDIATION 30.5B3 — Agent grounding, engine defects and architectural cleanup
+
+The third and last remediation pass over the Phase 30.5A audit, scoped to the
+intelligence and architecture waves. Nothing in the data-safety or provider work
+above was reopened.
+
+| Issue    | Original | Status                         |
+| -------- | -------- | ------------------------------ |
+| MANU-007 | P1       | **FIXED**                      |
+| MANU-008 | P2       | **RESOLVED** (removed)         |
+| MANU-011 | P2       | **MITIGATED** (labelled)       |
+| MANU-013 | P2       | **FIXED** (CI, beyond `check`) |
+| MANU-031 | P4       | **FIXED**                      |
+| MANU-034 | new      | **FIXED** — the missed defect  |
+| MANU-035 | new      | **DOCUMENTED** — specialists   |
+| MANU-036 | new      | **FIXED** — module honesty     |
+
+Verification: **1235 TypeScript tests** (67 files, up from 1167/61) and
+**9 Rust tests**, typecheck, lint, format, `cargo fmt` and `cargo clippy` all
+passing. The file count fell by one and the test count rose by 68: the SQLite
+suite went with the subsystem it tested.
+
+---
+
+## MANU-007 — Agent citations are never verified — FIXED
+
+**Root cause.** `answer.ts` validated `sources` as "an array of strings" and
+nothing compared those strings to anything. The enforcement mechanism was the
+sentence _Do not invent IDs_ in a system prompt — the one place this codebase's
+"structure it, don't prompt it" discipline lapsed. A fabricated citation is
+worse than an uncited guess, because it looks verified.
+
+**Fix.** An evidence ledger, in three parts.
+
+1. **Evidence comes from validated tool output only.** `ToolExecutor` scans each
+   result that passed its own output schema for entity IDs and project file
+   paths, and returns them with the call. A failed call — denied, malformed
+   arguments, bad output — yields nothing, so an ID that appeared only in a
+   failed call's _arguments_ cannot launder itself into a citation. IDs
+   appearing inside retrieved prose _do_ count: the agent genuinely received
+   that text, and refusing to let it cite what it read would be its own
+   dishonesty.
+2. **Three verdicts, not a boolean.** `verified`, `unknown` and `malformed` are
+   different failures. `SCENE_0099` is a well-formed reference to something
+   never retrieved — the model invented a plausible ID. "the vault scene" is not
+   a reference at all — the model misunderstood the field. They want different
+   repairs, so they are told apart.
+3. **One bounded repair, then disclosure.** The model is told exactly which
+   citations were rejected and exactly what it may cite, once; a retry is
+   accepted only if it is genuinely better. Whatever survives keeps its
+   statement and is marked `grounded: false` with the offending sources listed.
+   **Nothing is deleted.** Deleting an ungrounded finding would hide that the
+   model made something up, which is precisely what a reader needs to know, and
+   the Agent panel renders it as unverified rather than as project fact.
+
+An uncited finding is not grounded either. It may be a sensible reading; it is
+not something the project said, and the distinction is the product's whole
+claim.
+
+**Beyond the investigator.** The same check, from one implementation
+(`groundClaim` in `@jellytind/shared`), now runs over the other two places a
+model interprets retrieved material: Story Debugger diagnoses (which already had
+their own copy of this logic — now the shared one) and Story Refactor
+consequences, which were previously free-form strings with nothing behind them.
+A consequence must cite the affected entities the deterministic analysis found,
+and one that cites something else is shown as unsupported.
+
+**Provenance.** Activity events now record the identifiers a call returned
+(`references`) — result _identity_, not result content, so the log stays a
+record of what happened rather than a second copy of the manuscript. It is what
+makes a finished run inspectable: which call produced the evidence a claim rests
+on.
+
+**Tests.** 20, including the audit's exact case — a scripted model fabricates a
+source ID and the runtime rejects it — plus the near misses: one real source
+beside one invented one, a repair that invents _more_ than the first attempt, an
+ID that appeared only in a failed call's arguments, and a file path cited after
+a successful read.
+
+## MANU-034 — The compiler's missed planted defect — FIXED
+
+The audit reported four of five planted defects caught and did not say which one
+it missed; its harness was deleted. Rebuilding the probe found it.
+
+**The missed defect: knowledge continuity.** The rule existed and was correct,
+but `referenced_without_knowledge` only ever tested a scene's POV character, and
+`pov` is optional. A scene with a cast and no POV — the ordinary case — could
+name a fact nobody in the project had ever been recorded learning, and the build
+stayed green. Not a broken rule; a rule that was unreachable for most scenes.
+
+**Fix.** With a POV, the POV is still the test: a fact on the page of a scene
+told from inside someone's head is a fact that person is expected to hold, and
+another character knowing it does not settle the question. Without one, the
+question becomes whether _anybody present_ holds it, and the message names who
+was checked rather than picking a character arbitrarily. A scene with no cast at
+all is expository narration and is still not reported — reporting it every time
+would be noise, not a finding.
+
+**Tests.** The probe is permanent
+(`packages/story-repository/src/planted-defects.test.ts`): all five defects, the
+unbroken project staying silent, and the three boundary cases around the new
+behaviour.
+
+## The rule audit — no stubs
+
+Every one of the twelve registered rules is now driven until it emits, in one
+table checked against the registry, so a rule that stops being able to fire
+fails the build and a rule added without a case fails it too. Alongside:
+diagnostic quality as an invariant — every finding carries a rule id, a
+severity, a message, something navigable, its chapter where it names a scene,
+and its evidence — and determinism, asserted by building each case twice.
+
+Two findings worth stating: no rule was a stub, and `world_rules` is honest
+about its floor. A hard world rule with no deterministic reading is reported as
+`info` saying it was _not evaluated_, rather than passing silently — so a green
+build never implies it was checked.
+
+## MANU-008 — SQLite derived index is dead code — RESOLVED by removal
+
+**The decision, and why.** `ProjectIndex` was written to on every entity change
+and **read by nothing**. Its only reader, `listEntities`, had no caller; entity
+listing is served by the file catalogue and search by the lexical index, both
+verified working. The desktop never constructed one, and the packaged app has no
+SQLite binding at all — so "wire it properly" was not connecting an existing
+tier but building a new one, complete with a Rust binding and an IPC surface.
+
+A write path with no read path can only drift. It was removed: the `sql/`
+directory, the Node binding, the repository's `index` option, the `derivedDb`
+path, and the documentation describing an architecture that was not there.
+
+MASTER_BUILD permits a structured database "where indexing, relationships, query
+performance or derived state make it useful" — a condition, not a mandate. It
+remains a reasonable thing to reach for when a query needs one. Nothing today
+does, and the portable-files principle is untouched.
+
+**Index consistency (§20).** The two derived structures that _are_ live — the
+entity catalogue and the lexical search index — can never be authoritative. A
+test now writes to a file behind the repository's back, adopts the external
+version, and asserts search follows the file rather than the copy it was
+holding: no ghost content that exists nowhere on disk.
+
+## MANU-013 — Rust host untested by the pipeline — FIXED
+
+`pnpm check` gained `cargo test` in Phase 30.5B1; it now also runs `cargo fmt
+--check` and `cargo clippy -D warnings`. There was no CI at all, so
+`.github/workflows/verify.yml` was added: a TypeScript job (typecheck, lint,
+format, tests), a Rust job (fmt, clippy, tests) and — after both — a production
+packaging job that builds the AppImage and launches it headlessly under Xvfb.
+That last check is the audit's own manual probe, automated: it catches an entire
+class of "works in dev" packaging failures.
+
+## MANU-031 — `agentById` throws a raw Error — FIXED
+
+Now an `AgentError("unknown_agent")`, like every other failure in the package, so
+a caller switches on the code rather than parsing a message.
+
+## MANU-011 — Semantic story tests — MITIGATED, not fixed
+
+They are still never evaluated, and this phase did not implement model judgement.
+What was checked is that nothing implies otherwise: the builder's option group
+reads _Semantic — recorded, not yet evaluated_, the run summary says model
+judgement is not implemented and that an unanswered question is not a passing
+one, a semantic test never becomes a diagnostic, and the docs say the same. The
+audit's objection — "the UI still invites writers to create tests that can never
+pass or fail" — stands as a product judgement: recording an intention the engine
+cannot yet check is defensible **because it is labelled**. If that labelling ever
+weakens, the objection returns.
+
+## MANU-035 — Specialist agents: what is enforced — DOCUMENTED
+
+The registry's own comment claimed that a specialist differs by tools,
+permissions, context recipe, output shape and model class, "and the runtime
+enforces every one of them". Two of the five are enforced: `tools` becomes the
+executor's grant, `permissions` becomes the grant itself, and a workflow node
+producing a draft is rejected at validation time unless its specialist holds
+`edit_manuscript`. The other three are not — a workflow node carries its own
+`produces`, `contextRecipe` and `routingClass`, and those are what the executor
+uses. `node.produces` and `outputShape` are in fact two different vocabularies
+that overlap by coincidence on two names.
+
+Making them constraints would break shipped workflows for no gain: routing a
+review pass to a cheap model despite the specialist declaring `reasoning` is the
+workflow author's call, and a reasonable one. So the fields are now documented as
+advisory and the overclaim is gone. Unifying the two vocabularies is a redesign,
+and out of scope here.
+
+## MANU-036 — Genre module honesty — FIXED
+
+Modules now declare how far they go, and the interface shows it before a writer
+switches one on: `engine` (a dedicated engine behind it — Mystery's fairness
+audit and deduction chains) or `structured` (real extension records,
+deterministic compiler rules and views, complete on its own terms). Validation
+refuses an unknown maturity, and refuses `engine` from a module that contributes
+no build input of its own — a claim a module has to be able to back.
+
+## Temporal leakage — the permanent fixture
+
+The audit treated future leakage as critical and could not test it. One story
+now carries the guard: a setup in chapter one, a reveal in chapter three, and
+every surface that takes a story point asked for chapter one and checked for
+chapter three — story state, knowledge, relationships, ordering, compiled
+context, the reader simulator's packet and exposure, and the character
+simulator's snapshot.
+
+Two disciplines make it worth something. The reveal chapter's prose contains a
+token that appears nowhere else, so a leak of any size is a substring search
+rather than a judgement call. And every "must not contain" case is paired with a
+positive control at the later point — otherwise a fixture that silently recorded
+nothing would pass every assertion while proving nothing.
+
+The Context Compiler half is machine-checkable rather than textual:
+`Provenance.storyPoint` records the boundary each state element was
+reconstructed at, and the test asserts no element in a package for scene N was
+rebuilt at a boundary later than N.
+
+The fixture is exported from `@jellytind/story-repository` so the three guards
+check the same story, for the same reason the Story Compiler exports its broken
+novel.
+
+## Partial-commit protection
+
+`versioning.test.ts` carried a `FailingStore` helper and one test using it. Two
+more now cover the failure the audit named directly: a transaction changing the
+manuscript _and_ the records must not half-apply. A failed second write rolls the
+first back, no change set claims it happened, and a pre-existing file is restored
+rather than left holding the staged version.
+
+## Suppression audit
+
+Three suppressions exist in the whole codebase, all legitimate and all
+documented: one `eslint-disable` for a control-character regex where control
+characters are the point, and two `@ts-expect-error` in the ID tests asserting
+that branded types _reject_ wrong assignments — which is the test. No
+`@ts-ignore`, no skipped tests, no `it.todo`. Fifteen `istanbul ignore next`
+comments mark defensive branches made unreachable by a closed type or a prior
+guard, each with its reason; one of them was hiding MANU-031, which is now
+fixed.
+
+## Still open
+
+- **MANU-010** (search matches whole words only) — a matching-quality change,
+  not an architectural defect. Untouched here.
+- **MANU-016, MANU-018, MANU-019, MANU-022–MANU-030, MANU-032, MANU-033** —
+  bundle size, settings storage, export, cancellation, progress, compact layout,
+  accessibility, brand. Out of scope for this phase by instruction.
+- **MANU-014, MANU-015, MANU-017** — credential-file write ordering, symlink
+  escape, fsync after rename. Rust-host hardening, now at least _covered_ by CI
+  (MANU-013) but not yet fixed.
+- **`StateStore`** remains a declared port with only an in-memory
+  implementation, labelled PLANNED in ARCHITECTURE.md. It is not dead code in
+  the MANU-008 sense — nothing claims it works — but it is a second interface
+  with no production implementation, and it should either grow one or go.
+- **Semantic evaluation** — story tests, world rules and the Story Compiler's
+  semantic checks all wait on the same missing piece.

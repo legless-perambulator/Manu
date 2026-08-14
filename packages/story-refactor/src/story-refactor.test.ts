@@ -544,20 +544,54 @@ describe("model-assisted planning", () => {
   }
 
   it("adds labelled consequences and keeps the deterministic plan", async () => {
-    const { enriched } = await planned(
-      planning({
-        consequences: ["The inheritance motive rests on them being brothers (THREAD_0001)."],
+    const { repo, relationship } = await mystery();
+    const request = { ...BROTHERS, relationshipId: relationship.id as string };
+    const analysis = await analyseRefactor(repo, request);
+    const base = await planRefactor(repo, request, analysis);
+    const cited = analysis.affected[0]?.id as string;
+
+    const enriched = await new RefactorPlanner({
+      repo,
+      model: planning({
+        consequences: [
+          { statement: "The inheritance motive rests on them being brothers.", basis: [cited] },
+        ],
         manual: ["Decide how Marcus has access to the estate."],
         rewrites: [],
       }),
-    );
+    }).enrich(analysis, base);
 
     expect(enriched.modelId).toBe("mock:test");
-    expect(enriched.modelNotes[0]).toContain("inheritance motive");
+    expect(enriched.consequences[0]?.statement).toContain("inheritance motive");
+    expect(enriched.consequences[0]?.grounded).toBe(true);
+    expect(enriched.consequences[0]?.basis).toEqual([cited]);
     expect(enriched.steps.some((s) => s.kind === "update_entity")).toBe(true);
     expect(
       enriched.steps.some((s) => s.kind === "manual" && s.description.includes("access")),
     ).toBe(true);
+  });
+
+  it("marks a consequence citing something the analysis never found as unsupported", async () => {
+    // The refactor equivalent of a fabricated citation: the claim is kept, and
+    // kept visibly unverified, rather than sitting beside deterministic
+    // findings looking like one of them.
+    const { enriched } = await planned(
+      planning({
+        consequences: [
+          { statement: "The vault subplot collapses.", basis: ["THREAD_9999"] },
+          { statement: "Nothing cited at all." },
+        ],
+        manual: [],
+        rewrites: [],
+      }),
+    );
+
+    expect(enriched.consequences).toHaveLength(2);
+    expect(enriched.consequences[0]?.grounded).toBe(false);
+    expect(enriched.consequences[0]?.unsupported).toEqual(["THREAD_9999"]);
+    // An uncited claim is not grounded either. It may be sensible; it is not
+    // something the project said.
+    expect(enriched.consequences[1]?.grounded).toBe(false);
   });
 
   it("applies a rewrite it quoted exactly", async () => {
@@ -641,6 +675,7 @@ describe("model-assisted planning", () => {
 
     expect(enriched.steps.some((s) => s.kind === "update_entity")).toBe(true);
     expect(enriched.modelNotes[0]).toContain("could not be reached");
+    expect(enriched.consequences).toEqual([]);
     expect(enriched.rejectedRewrites).toEqual([]);
   });
 });

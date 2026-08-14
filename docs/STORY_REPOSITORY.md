@@ -4,7 +4,7 @@ The Story Repository is the authoritative project source. Chat history, model me
 
 - **Packages:** `@jellytind/persistence` (storage boundary), `@jellytind/story-repository` (the service)
 - **Depends on:** `@jellytind/domain`, `@jellytind/shared`
-- **Status (Phases 1 & 3):** **Implemented and tested.** Create / open / validate / save projects on real disk; atomic writes; path-traversal prevention; stable entity IDs; a SQLite derived index with migrations; a full fiction-domain **entity graph** with referential integrity; and a desktop create/open/edit flow with a project explorer, entities browser and context-sensitive inspector.
+- **Status (Phases 1 & 3):** **Implemented and tested.** Create / open / validate / save projects on real disk; atomic writes; path-traversal prevention; stable entity IDs; a derived entity catalogue; a full fiction-domain **entity graph** with referential integrity; and a desktop create/open/edit flow with a project explorer, entities browser and context-sensitive inspector.
 
 The principle is fixed: **story information exists as structured project data, not trapped inside prompts or chat history.**
 
@@ -71,14 +71,25 @@ persisted in `.writer/state/id-sequences.json`; on open it is reloaded (or
 reconstructed from existing IDs), so IDs stay stable and never collide across
 sessions.
 
-## SQLite derived index
+## Derived indexes
 
-An optional `ProjectIndex` (`@jellytind/persistence`) mirrors entity metadata into
-SQLite for fast querying. It is **derived and reconstructable** — never the
-exclusive home of manuscript content. Schema is applied by a versioned migration
-runner (`schema_migrations`, `project_metadata`, `entities`). The Node binding
-uses the built-in `node:sqlite` (zero native deps); the browser/host binding is a
-Tauri/rusqlite adapter (attached host-side).
+Two derived structures exist, and both are reconstructable from the files:
+
+- **The entity catalogue** (`.writer/index/entities.json`) — id, kind, name and
+  file path for every entity, so listing does not walk the tree.
+- **The lexical search index** (`@jellytind/search`) — built in memory on first
+  search, updated incrementally on every write, and rebuilt on open.
+
+Neither is ever authoritative. A file changed outside Manu and then adopted
+updates the index, not the other way round, and a test asserts it: search must
+never return content that exists nowhere on disk.
+
+**There is no SQLite index.** One was built, migrated and unit-tested through
+Phase 3, and the audit found that nothing ever constructed it in production and
+nothing ever read it — a write path with no read path, which can only drift
+(MANU-008). It was removed in Phase 30.5B3 rather than left as architecture that
+does not exist. A structured database remains a reasonable thing to add _if a
+query needs one_; nothing today does.
 
 ## The fiction-domain graph (Phase 3)
 
@@ -88,8 +99,8 @@ first-class story entities linked by stable ID (see
 
 ### Where entities live
 
-Each entity kind has an **authoritative** store; the SQLite/catalog index is
-derived from these.
+Each entity kind has an **authoritative** store; the catalogue and search
+indexes are derived from these.
 
 | Kind         | Storage                     | Format                          |
 | ------------ | --------------------------- | ------------------------------- |
@@ -171,8 +182,8 @@ needed yet at v1.
 
 - **Portable.** The writer's creative work must never depend on a proprietary cloud-only format.
 - **Human-readable where it matters.** Markdown for prose, YAML/JSON for structured data.
-- **Local-first.** A local structured database (SQLite) is used for indexing, relationships, query performance and derived state — but the manuscript itself remains plain files.
-- **Derived ≠ canonical.** Anything under `.writer/index/` or SQLite is regeneratable from source and never overrides source canon.
+- **Local-first.** Everything is on the writer's machine, and the manuscript is plain files. A local structured database is available to reach for where indexing or query performance needs one — it is not in use today (see "Derived indexes").
+- **Derived ≠ canonical.** Anything under `.writer/index/` is regeneratable from source and never overrides source canon.
 
 ## Conceptual project structure
 
@@ -243,7 +254,7 @@ MY_NOVEL/
 | Story builds                     | `.writer/builds/`                         | No (derived)   |
 | Debug reports                    | `.writer/debug/`                          | No (derived)   |
 | Revisions, branches, checkpoints | `.writer/revisions/`, `.writer/branches/` | Yes (history)  |
-| Full-text / vector index         | `.writer/index/` + SQLite                 | No (derived)   |
+| Full-text index                  | `.writer/index/`, rebuilt on open         | No (derived)   |
 | Summaries                        | derived store                             | No (derived)   |
 | Agents, skills, commands         | `.writer/`                                | Config         |
 
@@ -251,9 +262,9 @@ MY_NOVEL/
 
 Export must preserve the writer's actual manuscript independently from internal AI metadata. A reader should never need `.writer/` to read the book. See [VERSIONING.md](VERSIONING.md) for how history is stored without polluting the prose.
 
-## SQLite usage
+## Structured databases
 
-Use a local structured database where indexing, relationships, query performance or derived state make it useful — entity indexes, cross-references, full-text search, repetition statistics, graph edges, embeddings. Everything in SQLite must be reconstructable from the portable files, so a project remains valid if the database is deleted.
+A local structured database is worth reaching for where indexing, relationships, query performance or derived state genuinely need one — cross-references, repetition statistics, graph edges, embeddings. Two rules apply whenever that happens: everything in it must be reconstructable from the portable files, so a project stays valid if the database is deleted; and it must have a reader, because an index nothing reads is not an optimisation, it is drift waiting to happen.
 
 ## Portability guarantee
 

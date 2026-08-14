@@ -8,9 +8,10 @@
  * compiler are the same ones under every genre (docs/GENRE_MODULES.md).
  */
 
-export { MODULE_IDS, isModuleId, FIELD_TYPES, GenreError } from "./types";
+export { MODULE_IDS, isModuleId, FIELD_TYPES, GenreError, MODULE_MATURITIES } from "./types";
 export type {
   DisableImpact,
+  ModuleMaturity,
   ExtensionField,
   ExtensionKind,
   FieldType,

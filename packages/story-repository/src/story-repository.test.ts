@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { InMemoryProjectStore, PathEscapeError, ProjectIndex } from "@jellytind/persistence";
+import { InMemoryProjectStore, PathEscapeError } from "@jellytind/persistence";
 import { MANIFEST_PATH, SCHEMA_VERSION } from "@jellytind/domain";
 import { StoryRepository } from "./story-repository";
 import { RepositoryError } from "./errors";
@@ -177,23 +177,5 @@ describe("entities and stable IDs", () => {
     expect(chapters.map((c) => c.title)).toEqual(["One", "Two"]);
     expect(chapters[0]?.order).toBe(0);
     expect(chapters[1]?.order).toBe(1);
-  });
-});
-
-describe("SQLite index integration", () => {
-  it("mirrors created entities into the derived index", async () => {
-    const store = new InMemoryProjectStore();
-    // In-memory SQLite for the derived index.
-    const { NodeSqlDatabase } = await import("@jellytind/persistence/node");
-    const index = new ProjectIndex(new NodeSqlDatabase());
-    const repo = await StoryRepository.createProject({ store, title: "Indexed", index });
-
-    await repo.addCharacter({ name: "Mara" });
-    await repo.addChapter({ title: "Ch1" });
-
-    expect(index.getMetadata("projectId")).toBe(repo.getManifest().id);
-    expect(index.listEntities("character").map((e) => e.name)).toEqual(["Mara"]);
-    expect(index.listEntities("chapter")).toHaveLength(1);
-    index.close();
   });
 });

@@ -5,6 +5,7 @@ import {
   type PermissionGrant,
 } from "@jellytind/agent-runtime";
 import { ModelError, type LanguageModel, type OutputSchema } from "@jellytind/model-router";
+import { groundClaim } from "@jellytind/shared";
 import type { StoryRepository } from "@jellytind/story-repository";
 import {
   CONFIDENCE_LEVELS,
@@ -210,12 +211,20 @@ export class DiagnosisAnalyst {
       { timeoutMs: 120_000 },
     );
 
-    const known = new Set(trace.evidence.map((item) => item.id));
-    const cited = strings(raw.diagnosis?.basis);
     const statement = text(raw.diagnosis?.statement);
     if (statement === "") {
       throw new EditError("empty_response", "The model returned no diagnosis.");
     }
+
+    // The same check the agent runtime and the refactor planner apply, from the
+    // same implementation: cited evidence that resolves is basis, cited
+    // evidence that does not is kept and shown as unsupported. A citation to
+    // nothing is the thing worth seeing (@jellytind/shared — claims.ts).
+    const claim = groundClaim(
+      statement,
+      strings(raw.diagnosis?.basis),
+      new Set(trace.evidence.map((item) => item.id)),
+    );
 
     return {
       diagnosis: {
@@ -223,9 +232,8 @@ export class DiagnosisAnalyst {
         reasoning: text(raw.diagnosis?.reasoning),
         confidence: confidenceOf(raw.diagnosis?.confidence),
         uncertainty: strings(raw.diagnosis?.uncertainty),
-        basis: cited.filter((id) => known.has(id)),
-        // Kept, not dropped: a citation to nothing is the thing worth seeing.
-        unsupported: cited.filter((id) => !known.has(id)),
+        basis: claim.basis,
+        unsupported: claim.unsupported,
       },
       interventions: interventionsOf(raw.interventions),
     };
