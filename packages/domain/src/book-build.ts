@@ -205,6 +205,8 @@ export interface BookBuild {
   readonly approvalPolicy: BookApprovalPolicy;
   readonly autoConfirmObjective: boolean;
   readonly gates: BookQualityGates;
+  /** Unresolved [RESEARCH: …] policy passed down to every chapter build (Phase 35 §20). */
+  readonly researchGapPolicy?: "pause" | "proceed";
   /**
    * The models each class of work resolves to. Refreshed on resume so a model
    * changed mid-build is used for future operations only — earlier chapters

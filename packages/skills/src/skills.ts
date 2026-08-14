@@ -214,6 +214,21 @@ export const FAIRNESS_AUDIT = defineSkill({
   ],
 });
 
+export const RESEARCH_PASS = defineSkill({
+  id: "research_pass",
+  command: "/research-pass",
+  name: "Research Pass",
+  description:
+    "Sweep the manuscript for unresolved [RESEARCH: …] placeholders, collect the open research questions, and group them for review. Nothing is researched or rewritten here — the approved questions are worked from the Research library.",
+  inputs: [CHAPTER_INPUT],
+  steps: [
+    { operationId: "scan_research_gaps" },
+    { operationId: "collect_research_tasks" },
+    { operationId: "group_research_questions" },
+    { operationId: "compile_report" },
+  ],
+});
+
 export const BUILT_IN_SKILLS: readonly SkillDefinition[] = [
   CHARACTER_PASS,
   CONTINUITY_AUDIT,
@@ -223,6 +238,7 @@ export const BUILT_IN_SKILLS: readonly SkillDefinition[] = [
   SCENE_PURPOSE_AUDIT,
   REMOVE_AI_TENDENCIES,
   FAIRNESS_AUDIT,
+  RESEARCH_PASS,
 ];
 
 export function skillById(id: string, extra: readonly SkillDefinition[] = []): SkillDefinition {

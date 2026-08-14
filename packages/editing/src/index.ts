@@ -78,3 +78,11 @@ export type { ActBuildModels, ActBuilderOptions, StartActBuildOptions } from "./
 
 export { BookBuilder } from "./book-builder";
 export type { BookBuilderOptions, StartBookBuildOptions } from "./book-builder";
+
+export { ResearchAgent } from "./research-agent";
+export type {
+  ResearchAgentOptions,
+  ResearchRunResult,
+  ResearchSearchProvider,
+  ResearchSource,
+} from "./research-agent";

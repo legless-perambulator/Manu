@@ -130,7 +130,7 @@ export const PANELS: readonly PanelDefinition[] = [
     id: "research",
     group: "write",
     label: "Research",
-    purpose: "What you looked up while writing",
+    purpose: "What you looked up while writing — sourced, linked, never canon",
     side: "left",
   },
   {

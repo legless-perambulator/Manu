@@ -6,6 +6,7 @@ import {
 } from "@jellytind/agent-runtime";
 import { ContextCompiler, renderContextPackage } from "@jellytind/context-compiler";
 import {
+  findResearchPlaceholders,
   isBuildFinished,
   isBuildResumable,
   EMPTY_COST,
@@ -99,6 +100,8 @@ export interface StartBuildOptions {
   readonly maxRevisions?: number;
   /** Continuation calls allowed for one long scene (§5). */
   readonly maxContinuations?: number;
+  /** What an unresolved [RESEARCH: …] placeholder does to the build (Phase 35 §20). */
+  readonly researchGapPolicy?: "pause" | "proceed";
 }
 
 export interface ChapterBuilderOptions {
@@ -239,6 +242,9 @@ export class ChapterBuilder {
       modelAssignments: this.assignments(),
       maxRevisions: options.maxRevisions ?? 1,
       maxContinuations: options.maxContinuations ?? 3,
+      ...(options.researchGapPolicy !== undefined
+        ? { researchGapPolicy: options.researchGapPolicy }
+        : {}),
       targets: { ...planTargets, ...options.targets },
       ...(planPin !== null ? { ...planPin } : {}),
       ...(planConstraints.length > 0 ? { planConstraints } : {}),
@@ -484,7 +490,7 @@ export class ChapterBuilder {
    * address. Missing markers are appended in scene order as one ordinary
    * change set — the file stays a plain, portable Markdown document.
    */
-  private async stepPrerequisites(build: Working): Promise<"continue"> {
+  private async stepPrerequisites(build: Working): Promise<"continue" | "stop"> {
     build.status = "planning";
     const { chapter, scenes } = await this.chapterAndScenes(build);
     if (scenes.length === 0) {
@@ -516,6 +522,34 @@ export class ChapterBuilder {
           operation: "build_chapter",
           taskId: build.taskId,
         });
+    }
+
+    // Phase 35 §20–21: unresolved research placeholders are a declared
+    // dependency, not prose. They never trigger research automatically — the
+    // policy decides whether the build waits for it or carries them along.
+    const gaps = [
+      ...findResearchPlaceholders(file),
+      ...scenes.flatMap((scene) => findResearchPlaceholders(scene.purpose.join("\n"))),
+    ];
+    if (gaps.length > 0) {
+      const questions = [...new Set(gaps.map((gap) => gap.question))];
+      if (build.researchGapPolicy === "pause") {
+        build.status = "paused";
+        this.note(
+          build,
+          "warning",
+          "validate_prerequisites",
+          `paused: ${String(questions.length)} research question(s) unresolved in ${chapter.title} — ${questions.join("; ")}. Research them (the Research panel collects placeholders), then resume.`,
+        );
+        await this.log(build, "research_gap", questions.join("; "));
+        return "stop";
+      }
+      this.note(
+        build,
+        "info",
+        "validate_prerequisites",
+        `${String(questions.length)} research question(s) unresolved in ${chapter.title}: ${questions.join("; ")}. Building with the placeholders in place.`,
+      );
     }
 
     // §13: the pre-build checkpoint. The whole build reverts here in one move.

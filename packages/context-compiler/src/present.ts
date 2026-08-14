@@ -20,6 +20,7 @@ const HEADINGS: Readonly<Record<ContextSectionName, string>> = {
   storyState: "STORY STATE",
   styleRules: "STYLE",
   worldRules: "WORLD RULES",
+  research: "RESEARCH (REAL-WORLD REFERENCE, NOT STORY CANON)",
   additionalRetrievedContext: "ADDITIONAL CONTEXT",
 };
 

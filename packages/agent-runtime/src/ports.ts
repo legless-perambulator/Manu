@@ -266,6 +266,23 @@ export interface ProjectAccess {
     options?: { actor?: "human" | "agent"; note?: string },
   ): Promise<ChapterPlanLike>;
   validateChapterPlan?(plan: ChapterPlanLike): Promise<PlanFindingLike[]>;
+
+  /**
+   * The research library (docs/RESEARCH.md). Optional like plans. Agents may
+   * read and search research, and — under `run_research` — create items. There
+   * is deliberately no delete on this port, and no path from research to
+   * canon: canonisation is the writer's action, taken in the library.
+   */
+  listResearchItems?(): Promise<ResearchItemLike[]>;
+  searchResearch?(query: {
+    text?: string;
+    tag?: string;
+    linkedId?: string;
+  }): Promise<ResearchItemLike[]>;
+  addResearchItem?(
+    item: ResearchItemLike,
+    options?: { actor?: "human" | "agent"; taskId?: string; modelId?: string },
+  ): Promise<ResearchItemLike>;
 }
 
 /**
@@ -284,6 +301,21 @@ export interface PlanFindingLike {
   readonly code: string;
   readonly message: string;
   readonly sceneKey?: string;
+}
+
+/**
+ * Structural stand-in for a research item — the runtime treats the record's
+ * details as opaque; the repository's own types apply at the implementation.
+ */
+export interface ResearchItemLike {
+  readonly id?: string;
+  readonly title: string;
+  readonly status: string;
+  readonly summary?: string;
+  readonly tags: readonly string[];
+  readonly linkedEntityIds: readonly string[];
+  readonly linkedSceneIds: readonly string[];
+  readonly facts: readonly unknown[];
 }
 
 /**

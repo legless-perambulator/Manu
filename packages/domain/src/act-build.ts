@@ -180,6 +180,8 @@ export interface ActBuild {
   readonly chapterApprovalPolicy?: ApprovalPolicy;
   /** Scene revision bound passed to every child build (bounded repair). */
   readonly maxSceneRevisions?: number;
+  /** Unresolved [RESEARCH: …] policy passed to every child build (Phase 35 §20). */
+  readonly researchGapPolicy?: "pause" | "proceed";
   readonly modelAssignments: Readonly<Partial<Record<RoutingClass, string>>>;
   /** Checkpoint taken before anything was written. The whole act reverts here. */
   readonly checkpointId?: string;

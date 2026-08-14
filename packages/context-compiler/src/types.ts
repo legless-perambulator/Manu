@@ -42,6 +42,8 @@ export type SelectionRule =
   | "scene_payoff"
   | "authorial_intent"
   | "lexical_search"
+  /** A research item linked to the target scene or its entities (docs/RESEARCH.md). */
+  | "linked_research"
   /** The chapter a simulated reader is reading now (docs/SIMULATIONS.md). */
   | "chapter_being_read"
   /** A chapter that reader has already read, by distance behind them. */
@@ -92,6 +94,7 @@ export type ContextSectionName =
   | "storyState"
   | "styleRules"
   | "worldRules"
+  | "research"
   | "additionalRetrievedContext";
 
 /** Section order in a compiled package. Fixed, so packages are comparable. */
@@ -106,6 +109,7 @@ export const SECTION_ORDER: readonly ContextSectionName[] = [
   "storyState",
   "styleRules",
   "worldRules",
+  "research",
   "additionalRetrievedContext",
 ];
 

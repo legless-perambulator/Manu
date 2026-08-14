@@ -50,6 +50,17 @@ export function refactorAccess(repo: StoryRepository): ProjectAccess {
     validateChapterPlan: (plan) =>
       repo.validateChapterPlan(plan as Parameters<StoryRepository["validateChapterPlan"]>[0]),
 
+    // Research (Phase 35). Read, search and file items — never canonise or
+    // delete; those are the writer's actions, taken in the library.
+    listResearchItems: () => repo.listResearchItems(),
+    searchResearch: (query) => repo.searchResearch(query),
+    addResearchItem: (item, options) =>
+      repo.addResearchItem(item as Parameters<StoryRepository["addResearchItem"]>[0], {
+        actor: options?.actor ?? "agent",
+        ...(options?.taskId !== undefined ? { taskId: options.taskId } : {}),
+        ...(options?.modelId !== undefined ? { modelId: options.modelId } : {}),
+      }),
+
     traceStoryProblem: (request) => repo.traceStoryProblem(request),
     listDebugReports: (limit) => repo.listDebugReports(limit),
     getDebugReport: (id) => repo.getDebugReport(id),

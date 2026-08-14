@@ -80,6 +80,15 @@ change set during prerequisites if missing). There is no parallel AI
 manuscript: human and built scenes are one file, told apart by provenance in
 history, not by location.
 
+## Research gaps (Phase 35)
+
+At prerequisites the builder finds every unresolved `[RESEARCH: …]`
+placeholder in the chapter and its scene purposes. The `researchGapPolicy`
+(threaded down from act and book builds) decides what they mean: `proceed`
+(default) drafts with the placeholders in place and says so; `pause` stops
+before drafting so the research can happen first ([RESEARCH.md](RESEARCH.md)).
+Nothing is researched automatically.
+
 ## Length and continuation
 
 A plan may give a scene `minWords`/`maxWords`, or neither. A draft short of its

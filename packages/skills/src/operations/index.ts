@@ -4,6 +4,7 @@ import { CONTINUITY_OPERATIONS } from "./continuity";
 import { DIALOGUE_OPERATIONS } from "./dialogue";
 import { MYSTERY_OPERATIONS } from "./mystery";
 import { REPORT_OPERATIONS } from "./report";
+import { RESEARCH_OPERATIONS } from "./research";
 import { STRUCTURE_OPERATIONS } from "./structure";
 import { TENDENCY_OPERATIONS } from "./tendencies";
 
@@ -22,6 +23,7 @@ export const OPERATIONS: readonly SkillOperation[] = [
   ...STRUCTURE_OPERATIONS,
   ...TENDENCY_OPERATIONS,
   ...MYSTERY_OPERATIONS,
+  ...RESEARCH_OPERATIONS,
   ...REPORT_OPERATIONS,
 ];
 
@@ -120,4 +122,5 @@ export * from "./dialogue";
 export * from "./structure";
 export * from "./tendencies";
 export * from "./mystery";
+export * from "./research";
 export * from "./report";

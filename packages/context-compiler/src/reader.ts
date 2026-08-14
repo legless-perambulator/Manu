@@ -9,6 +9,7 @@ import type {
   PlotThread,
   Project,
   Relationship,
+  ResearchItem,
   Scene,
   Setup,
   StoryEvent,
@@ -81,6 +82,13 @@ export interface ProjectReader {
     appliedShifts: readonly string[];
     examples: readonly string[];
   } | null>;
+
+  /**
+   * The research library (docs/RESEARCH.md). Optional: a fixture project has
+   * none, and the research section is simply absent. Recipes retrieve items by
+   * link and by pin — never the whole library.
+   */
+  listResearchItems?(): Promise<ResearchItem[]>;
 
   listProjectFiles(prefix?: string): Promise<string[]>;
   readProjectFile(path: string): Promise<string | null>;

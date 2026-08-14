@@ -82,6 +82,7 @@ import { ChapterBuildPanel } from "./ChapterBuildPanel";
 import { ChapterPlanPanel } from "./ChapterPlanPanel";
 import { ActBuildPanel } from "./ActBuildPanel";
 import { BookBuildPanel } from "./BookBuildPanel";
+import { ResearchPanel } from "./ResearchPanel";
 import { RefactorPanel } from "./RefactorPanel";
 
 interface WorkspaceProps {
@@ -521,7 +522,6 @@ export function Workspace({
           />
         );
       case "notes":
-      case "research":
         return (
           <DocumentsPanel
             repo={repo}
@@ -530,6 +530,16 @@ export function Workspace({
             onOpenFile={setOpenPath}
             refreshToken={refreshToken}
             onChanged={refresh}
+          />
+        );
+      case "research":
+        return (
+          <ResearchPanel
+            repo={repo}
+            secrets={secrets}
+            refreshToken={refreshToken}
+            onChanged={refresh}
+            selectedEntityId={selectedEntityId}
           />
         );
       case "characters":

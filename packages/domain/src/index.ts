@@ -381,6 +381,27 @@ export type {
   ActPending,
 } from "./act-build";
 
+// ── Research (Phase 35) ─────────────────────────────────────────────────────
+export {
+  RESEARCH_PLACEHOLDER_PATTERN,
+  RESEARCH_STATUSES,
+  RESEARCH_TASK_STATUSES,
+  RESEARCH_TYPES,
+  emptyResearchItem,
+  findResearchPlaceholders,
+} from "./research";
+export type {
+  ResearchFact,
+  ResearchGap,
+  ResearchItem,
+  ResearchProvenance,
+  ResearchScope,
+  ResearchStatus,
+  ResearchTask,
+  ResearchTaskStatus,
+  ResearchType,
+} from "./research";
+
 // ── Book planning and book builds (Phase 34) ────────────────────────────────
 export { emptyBookPlan } from "./book-plan";
 export type { BookAct, BookPlan, BookPlanFinding, BookPlanRevision } from "./book-plan";

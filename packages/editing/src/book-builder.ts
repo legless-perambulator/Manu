@@ -63,6 +63,8 @@ export interface StartBookBuildOptions {
   readonly autoConfirmObjective?: boolean;
   /** Quality gates (§18); omitted fields take the defaults. */
   readonly gates?: Partial<BookBuild["gates"]>;
+  /** Unresolved [RESEARCH: …] policy for every chapter build (Phase 35 §20). */
+  readonly researchGapPolicy?: BookBuild["researchGapPolicy"];
 }
 
 export interface BookBuilderOptions {
@@ -196,6 +198,9 @@ export class BookBuilder {
       autoConfirmObjective:
         options.autoConfirmObjective ?? (policy === "auto_until_error" || policy === "autonomous"),
       gates: { ...DEFAULT_QUALITY_GATES, ...options.gates },
+      ...(options.researchGapPolicy !== undefined
+        ? { researchGapPolicy: options.researchGapPolicy }
+        : {}),
       modelAssignments: this.assignments(),
       currentStep: "validate_prerequisites",
       acts: plan.acts.map((member): MutableAct => ({
@@ -626,6 +631,9 @@ export class BookBuilder {
         generateMissingPlans: build.approvalPolicy === "autonomous",
         ...(mapped.chapter !== undefined ? { chapterApprovalPolicy: mapped.chapter } : {}),
         maxSceneRevisions: build.gates.maxSceneRepairs,
+        ...(build.researchGapPolicy !== undefined
+          ? { researchGapPolicy: build.researchGapPolicy }
+          : {}),
       });
       record.actBuildId = child.id;
     }

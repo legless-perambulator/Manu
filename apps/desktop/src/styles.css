@@ -4144,3 +4144,174 @@ progress {
   color: var(--manu-ink-muted);
   line-height: 1.5;
 }
+
+/* ── Research library (Phase 35) ─────────────────────────── */
+/* Sourced knowledge beside the manuscript: a quiet list, a sourced detail
+   view, and the one bright line — research is never canon. */
+.rsrch {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  overflow: auto;
+  flex: 1;
+}
+.rsrch__bar {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.rsrch__search {
+  flex: 1;
+  min-width: 0;
+}
+.rsrch__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.rsrch__row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  width: 100%;
+  background: none;
+  border: none;
+  border-radius: var(--manu-radius-sm);
+  padding: 5px 6px;
+  cursor: pointer;
+  text-align: left;
+  color: var(--manu-ink);
+  font: inherit;
+}
+.rsrch__row:hover {
+  background: var(--manu-accent-wash);
+}
+.rsrch__row-title {
+  font-size: var(--manu-text-base);
+}
+.rsrch__row-meta,
+.rsrch__task-meta,
+.rsrch__fact-meta {
+  font-size: var(--manu-text-xs);
+  color: var(--manu-ink-subtle);
+}
+.rsrch__new input {
+  width: 100%;
+}
+.rsrch__actions {
+  display: flex;
+  gap: 8px;
+}
+.rsrch__tasks > summary,
+.rsrch__import > summary,
+.rsrch__content > summary {
+  cursor: pointer;
+  font-size: var(--manu-text-sm);
+  color: var(--manu-ink-muted);
+}
+.rsrch__tasks ul,
+.rsrch__import ul {
+  list-style: none;
+  margin: 6px 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.rsrch__ask {
+  display: flex;
+  gap: 6px;
+  margin: 6px 0;
+}
+.rsrch__ask input {
+  flex: 1;
+  min-width: 0;
+}
+.rsrch__task,
+.rsrch__doc,
+.rsrch__link,
+.rsrch__fact {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: var(--manu-text-sm);
+}
+.rsrch__task-q,
+.rsrch__doc span:first-child,
+.rsrch__fact > span:first-child {
+  flex: 1;
+  min-width: 0;
+}
+.rsrch__detail {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.rsrch__head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.rsrch__pin {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  font-size: var(--manu-text-xs);
+  color: var(--manu-ink-muted);
+  cursor: pointer;
+  margin-left: auto;
+}
+.rsrch__title {
+  margin: 0;
+  font-size: var(--manu-text-lg);
+  font-weight: 500;
+}
+.rsrch__summary {
+  margin: 0;
+  font-size: var(--manu-text-base);
+  line-height: 1.5;
+}
+.rsrch__source {
+  margin: 0;
+  font-size: var(--manu-text-sm);
+  color: var(--manu-ink-muted);
+}
+.rsrch__source a {
+  color: var(--manu-accent-text);
+}
+.rsrch__prov {
+  margin: 0;
+  font-size: var(--manu-text-xs);
+  color: var(--manu-ink-subtle);
+}
+.rsrch__content blockquote {
+  margin: 6px 0 0;
+  padding: 6px 10px;
+  border-left: 2px solid var(--manu-border-strong);
+  font-size: var(--manu-text-sm);
+  color: var(--manu-ink-muted);
+  white-space: pre-wrap;
+}
+.rsrch__facts h4,
+.rsrch__links h4 {
+  margin: 0 0 4px;
+  font-size: var(--manu-text-xs);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: var(--manu-tracking-label);
+  color: var(--manu-ink-subtle);
+}
+.rsrch__facts ul,
+.rsrch__links ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}

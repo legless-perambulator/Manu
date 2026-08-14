@@ -6,6 +6,7 @@ import type { ProjectReader } from "../reader";
 import { renderChapter, summariseChapter } from "../render";
 import { adjacentChapters, scenesOfChapter } from "../sequence";
 import { buildTimeline, chapterInvolvement, stateCandidates } from "./state";
+import { researchCandidates } from "./research";
 import {
   byId,
   characterCandidate,
@@ -167,6 +168,23 @@ export async function gatherChapterInspection(
   }
 
   candidates.push(...worldRuleCandidates(snap.worldRules, chapter.id));
+
+  // Research linked to this chapter's scenes or the people and things in
+  // them — an explicit source, never the whole library (docs/RESEARCH.md).
+  candidates.push(
+    ...(await researchCandidates(reader, {
+      sceneIds: scenes.map((scene) => scene.id as string),
+      entityIds: [
+        ...scenes.flatMap((scene) => scene.characterIds as readonly string[]),
+        ...scenes.flatMap((scene) =>
+          scene.locationId !== undefined ? [scene.locationId as string] : [],
+        ),
+        ...scenes.flatMap((scene) => scene.objectIds as readonly string[]),
+        ...scenes.flatMap((scene) => scene.plotThreadIds as readonly string[]),
+      ],
+      targetId: chapter.id as string,
+    })),
+  );
 
   return { candidates, snapshot: snap, chapter };
 }

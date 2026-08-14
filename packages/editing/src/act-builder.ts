@@ -81,6 +81,8 @@ export interface StartActBuildOptions {
   readonly chapterApprovalPolicy?: ActBuild["chapterApprovalPolicy"];
   /** Scene revision bound for every child build (bounded repair, §19/34). */
   readonly maxSceneRevisions?: number;
+  /** Unresolved [RESEARCH: …] policy for every child build (Phase 35 §20). */
+  readonly researchGapPolicy?: ActBuild["researchGapPolicy"];
 }
 
 export interface ActBuilderOptions {
@@ -210,6 +212,9 @@ export class ActBuilder {
         : {}),
       ...(options.maxSceneRevisions !== undefined
         ? { maxSceneRevisions: options.maxSceneRevisions }
+        : {}),
+      ...(options.researchGapPolicy !== undefined
+        ? { researchGapPolicy: options.researchGapPolicy }
         : {}),
       modelAssignments: this.assignments(),
       currentStep: "validate_prerequisites",
@@ -732,6 +737,9 @@ export class ActBuilder {
         approvalPolicy: build.chapterApprovalPolicy ?? "auto_until_error",
         autoConfirmObjective: build.autoConfirmObjective,
         ...(build.maxSceneRevisions !== undefined ? { maxRevisions: build.maxSceneRevisions } : {}),
+        ...(build.researchGapPolicy !== undefined
+          ? { researchGapPolicy: build.researchGapPolicy }
+          : {}),
       });
       record.chapterBuildId = child.id;
     }

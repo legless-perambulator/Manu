@@ -199,6 +199,13 @@ export interface ChapterBuild {
    */
   readonly maxRevisions: number;
   readonly maxContinuations: number;
+  /**
+   * What an unresolved `[RESEARCH: …]` placeholder in the chapter does to the
+   * build (Phase 35 §20): `pause` stops before drafting so the research can
+   * happen first; `proceed` (the default) builds with the placeholders in
+   * place and says so. Nothing is ever researched automatically.
+   */
+  readonly researchGapPolicy?: "pause" | "proceed";
   /** Length targets per scene, where the plan supplied one. */
   readonly targets: Readonly<Record<string, SceneLengthTarget>>;
   /** Checkpoint taken before anything was written. The whole build reverts here. */

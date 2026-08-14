@@ -13,6 +13,7 @@ import {
 } from "./state";
 import { buildChronology, temporalCandidates } from "./temporal";
 import { readNarrative, threadCandidates } from "./threads";
+import { researchCandidates } from "./research";
 import {
   byId,
   characterCandidate,
@@ -175,6 +176,22 @@ export async function gatherSceneInspection(
   );
 
   candidates.push(...worldRuleCandidates(snap.worldRules, scene.id));
+
+  // Research linked to this scene or the things in it — an explicit source,
+  // never the whole library (docs/RESEARCH.md).
+  candidates.push(
+    ...(await researchCandidates(reader, {
+      sceneIds: [scene.id as string],
+      entityIds: [
+        ...(scene.pov !== undefined ? [scene.pov as string] : []),
+        ...(scene.characterIds as readonly string[]),
+        ...(scene.locationId !== undefined ? [scene.locationId as string] : []),
+        ...(scene.objectIds as readonly string[]),
+        ...(scene.plotThreadIds as readonly string[]),
+      ],
+      targetId: scene.id as string,
+    })),
+  );
 
   return { candidates, snapshot: snap, scene };
 }

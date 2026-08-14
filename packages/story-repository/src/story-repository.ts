@@ -161,6 +161,10 @@ import { ActBuildStore } from "./act-build-store";
 import { BookPlanStore } from "./book-plan-store";
 import { BookBuildStore } from "./book-build-store";
 import type { BookPlan, BookPlanFinding } from "@jellytind/domain";
+import { ResearchStore } from "./research-store";
+import { findResearchPlaceholders } from "@jellytind/domain";
+import type { ResearchItem, ResearchScope, ResearchTask } from "@jellytind/domain";
+import { listSceneSpans } from "./scene-text";
 import type { ChapterPlan, PlanFinding, PlannedScene } from "@jellytind/domain";
 import {
   summariseGoalReport,
@@ -324,6 +328,8 @@ export class StoryRepository {
   readonly bookPlan: BookPlanStore;
   /** Book builds, resumable across sessions and hours (docs/BOOK_BUILDER.md). */
   readonly bookBuilds: BookBuildStore;
+  /** The research library — sourced knowledge, apart from canon (docs/RESEARCH.md). */
+  readonly research: ResearchStore;
   /** Clues, suspects and deductions (docs/MYSTERY_ENGINE.md). */
   readonly mysteries: MysteryStore;
   /** Which genre modules are switched on (docs/GENRE_MODULES.md). */
@@ -404,6 +410,9 @@ export class StoryRepository {
     this.bookPlan = new BookPlanStore(this.store);
     // Not journaled, same reasoning as every other build record.
     this.bookBuilds = new BookBuildStore(rawStore);
+    // Items journal (they are authored knowledge, written inside recordChange
+    // sessions below); tasks live under .writer/ and pass through unrecorded.
+    this.research = new ResearchStore(this.store);
     // Journaled: who did it, and what each clue really means, is canon.
     this.mysteries = new MysteryStore(this.store);
     // Not journaled: which modules are switched on is a setting about the
@@ -3792,6 +3801,340 @@ export class StoryRepository {
       updatedAt: plan.updatedAt,
       revisions: [],
     });
+  }
+
+  // ── Research (Phase 35) ─────────────────────────────────────────────────────
+
+  /**
+   * Add a research item — sourced real-world knowledge, kept structurally
+   * apart from canon (§1). Links are validated; provenance is stored verbatim
+   * and never stripped (§3). An item created by an agent always arrives
+   * `unreviewed` — trust is the author's judgement, never a default (§4).
+   */
+  async addResearchItem(
+    input: Omit<ResearchItem, "id" | "createdAt" | "updatedAt">,
+    options: { actor?: "human" | "agent"; taskId?: string; modelId?: string } = {},
+  ): Promise<ResearchItem> {
+    await this.assertResearchLinks(input.linkedEntityIds, input.linkedSceneIds);
+    const now = this.clock();
+    const item: ResearchItem = {
+      ...input,
+      status: options.actor === "agent" ? "unreviewed" : input.status,
+      id: await this.research.nextItemId(),
+      createdAt: now,
+      updatedAt: now,
+    };
+    await this.recordChange(
+      {
+        actor: options.actor ?? "human",
+        operation: "add_research",
+        summary: `Research: ${item.title}`,
+        ...(options.taskId !== undefined ? { taskId: options.taskId } : {}),
+        ...(options.modelId !== undefined ? { modelId: options.modelId } : {}),
+      },
+      async () => {
+        await this.research.saveItem(item);
+        await this.touch();
+      },
+    );
+    return item;
+  }
+
+  /**
+   * Update a research item. Provenance is immutable — how something was
+   * obtained is a fact about the past, not an editable field (§3).
+   */
+  async updateResearchItem(
+    id: string,
+    patch: Partial<Omit<ResearchItem, "id" | "provenance" | "createdAt" | "updatedAt">>,
+    options: { actor?: "human" | "agent" } = {},
+  ): Promise<ResearchItem> {
+    const held = await this.research.getItem(id);
+    if (held === null) {
+      throw new RepositoryError("entity_not_found", `No research item with id ${id}.`);
+    }
+    await this.assertResearchLinks(
+      patch.linkedEntityIds ?? held.linkedEntityIds,
+      patch.linkedSceneIds ?? held.linkedSceneIds,
+    );
+    const updated: ResearchItem = {
+      ...held,
+      ...patch,
+      id: held.id,
+      provenance: held.provenance,
+      createdAt: held.createdAt,
+      updatedAt: this.clock(),
+    };
+    await this.recordChange(
+      {
+        actor: options.actor ?? "human",
+        operation: "edit_research",
+        summary: `Research: ${updated.title}`,
+      },
+      async () => {
+        await this.research.saveItem(updated);
+        await this.touch();
+      },
+    );
+    return updated;
+  }
+
+  /** Delete a research item. A writer's action — no agent path leads here (§25). */
+  async deleteResearchItem(id: string): Promise<void> {
+    const held = await this.research.getItem(id);
+    if (held === null) {
+      throw new RepositoryError("entity_not_found", `No research item with id ${id}.`);
+    }
+    await this.recordChange(
+      { actor: "human", operation: "delete_research", summary: `Delete research: ${held.title}` },
+      async () => {
+        await this.research.removeItem(id);
+        await this.touch();
+      },
+    );
+  }
+
+  listResearchItems(): Promise<ResearchItem[]> {
+    return this.research.listItems();
+  }
+
+  getResearchItem(id: string): Promise<ResearchItem | null> {
+    return this.research.getItem(id);
+  }
+
+  /**
+   * Search the library (§23) — lexical over title, summary, content, notes and
+   * facts, filtered by tag, status, type, source and linked entity. Distinct
+   * from manuscript search: research is a different kind of truth.
+   */
+  async searchResearch(query: {
+    text?: string;
+    tag?: string;
+    status?: ResearchItem["status"];
+    type?: ResearchItem["type"];
+    linkedId?: string;
+    source?: string;
+  }): Promise<ResearchItem[]> {
+    const items = await this.research.listItems();
+    const needle = query.text?.toLowerCase().trim();
+    return items.filter((item) => {
+      if (query.tag !== undefined && !item.tags.includes(query.tag)) return false;
+      if (query.status !== undefined && item.status !== query.status) return false;
+      if (query.type !== undefined && item.type !== query.type) return false;
+      if (
+        query.linkedId !== undefined &&
+        !item.linkedEntityIds.includes(query.linkedId) &&
+        !item.linkedSceneIds.includes(query.linkedId)
+      ) {
+        return false;
+      }
+      if (
+        query.source !== undefined &&
+        !`${item.sourceTitle ?? ""} ${item.sourceUrl ?? ""} ${item.sourceAuthor ?? ""}`
+          .toLowerCase()
+          .includes(query.source.toLowerCase())
+      ) {
+        return false;
+      }
+      if (needle !== undefined && needle !== "") {
+        const haystack = [
+          item.title,
+          item.summary ?? "",
+          item.content ?? "",
+          item.notes ?? "",
+          item.tags.join(" "),
+          ...item.facts.map((fact) => fact.statement),
+        ]
+          .join("\n")
+          .toLowerCase();
+        if (!haystack.includes(needle)) return false;
+      }
+      return true;
+    });
+  }
+
+  // ── Research tasks (§17) ────────────────────────────────────────────────────
+
+  async addResearchTask(input: { question: string; scope?: ResearchScope }): Promise<ResearchTask> {
+    if (input.scope !== undefined) {
+      const ids = [
+        ...(input.scope.sceneId !== undefined ? [input.scope.sceneId] : []),
+        ...(input.scope.chapterId !== undefined ? [input.scope.chapterId] : []),
+        ...(input.scope.entityIds ?? []),
+      ];
+      for (const id of ids) {
+        if ((await this.getEntity(id)) === null) {
+          throw new RepositoryError(
+            "entity_not_found",
+            `The research task's scope references "${id}", which does not exist in this project.`,
+          );
+        }
+      }
+    }
+    const now = this.clock();
+    const task: ResearchTask = {
+      id: await this.research.nextTaskId(),
+      question: input.question,
+      ...(input.scope !== undefined ? { scope: input.scope } : {}),
+      status: "pending",
+      findingItemIds: [],
+      createdAt: now,
+      updatedAt: now,
+    };
+    await this.research.saveTask(task);
+    return task;
+  }
+
+  async updateResearchTask(
+    id: string,
+    patch: Partial<Pick<ResearchTask, "status" | "findingItemIds" | "failureReason">>,
+  ): Promise<ResearchTask> {
+    const held = await this.research.getTask(id);
+    if (held === null) {
+      throw new RepositoryError("entity_not_found", `No research task with id ${id}.`);
+    }
+    const updated: ResearchTask = { ...held, ...patch, updatedAt: this.clock() };
+    await this.research.saveTask(updated);
+    return updated;
+  }
+
+  listResearchTasks(): Promise<ResearchTask[]> {
+    return this.research.listTasks();
+  }
+
+  getResearchTask(id: string): Promise<ResearchTask | null> {
+    return this.research.getTask(id);
+  }
+
+  /**
+   * Every unresolved `[RESEARCH: …]` placeholder in the manuscript (§19, §21),
+   * attributed to the scene whose span holds it. Deterministic; the research
+   * skill and the builders read this, and nothing acts on it automatically.
+   */
+  async findResearchGaps(): Promise<
+    { chapterId: string; chapterTitle: string; sceneId?: string; question: string }[]
+  > {
+    const chapters = await this.listChapters();
+    const out: { chapterId: string; chapterTitle: string; sceneId?: string; question: string }[] =
+      [];
+    for (const chapter of chapters) {
+      const file = (await this.readProjectFile(chapter.filePath)) ?? "";
+      const spans = listSceneSpans(file);
+      for (const gap of findResearchPlaceholders(file)) {
+        const span = spans.find((s) => gap.index >= s.start && gap.index < s.end);
+        out.push({
+          chapterId: chapter.id as string,
+          chapterTitle: chapter.title,
+          ...(span !== undefined ? { sceneId: span.sceneId } : {}),
+          question: gap.question,
+        });
+      }
+    }
+    return out;
+  }
+
+  /**
+   * "Use in Story" (§15): the one bridge from research to canon, and it is the
+   * writer crossing it. Creates the entity through the ordinary paths — a Fact
+   * (with the research source carried in its `source` field), a World Rule, or
+   * a note appended to an existing entity — then records the promotion on the
+   * research fact so the bridge is visible from both sides. Nothing else in
+   * the system converts research into story truth.
+   */
+  async canoniseResearchFact(
+    itemId: string,
+    factIndex: number,
+    target:
+      | { kind: "fact"; objectiveTruth?: boolean }
+      | { kind: "world_rule"; name: string; severity?: WorldRuleSeverity }
+      | { kind: "entity_note"; entityId: string },
+  ): Promise<{ item: ResearchItem; entityId: string }> {
+    const item = await this.research.getItem(itemId);
+    if (item === null) {
+      throw new RepositoryError("entity_not_found", `No research item with id ${itemId}.`);
+    }
+    const fact = item.facts[factIndex];
+    if (fact === undefined) {
+      throw new RepositoryError(
+        "entity_not_found",
+        `${itemId} has no research fact at position ${String(factIndex)}.`,
+      );
+    }
+    const source = `Research: ${item.title}${
+      item.sourceTitle !== undefined ? ` — ${item.sourceTitle}` : ""
+    }${item.sourceUrl !== undefined ? ` (${item.sourceUrl})` : ""} [${item.id}]`;
+
+    let entityId: string;
+    if (target.kind === "fact") {
+      const created = await this.addFact({
+        statement: fact.statement,
+        objectiveTruth: target.objectiveTruth ?? true,
+        source,
+      });
+      entityId = created.id as string;
+    } else if (target.kind === "world_rule") {
+      const created = await this.addWorldRule({
+        name: target.name,
+        description: `${fact.statement}\n\n${source}`,
+        severity: target.severity ?? "soft",
+      });
+      entityId = created.id as string;
+    } else {
+      const entity = await this.getEntity(target.entityId);
+      if (entity === null) {
+        throw new RepositoryError(
+          "entity_not_found",
+          `No entity with id ${target.entityId} to attach the research to.`,
+        );
+      }
+      const record = entity as unknown as { notes?: unknown };
+      if (typeof record.notes !== "string") {
+        throw new RepositoryError(
+          "invalid_reference",
+          `${target.entityId} has no notes field to carry the research detail.`,
+        );
+      }
+      const appended = `${record.notes === "" ? "" : `${record.notes}\n\n`}${fact.statement}\n(${source})`;
+      await this.updateEntity(target.entityId, { notes: appended } as never);
+      entityId = target.entityId;
+    }
+
+    const updated: ResearchItem = {
+      ...item,
+      facts: item.facts.map((held, index) =>
+        index === factIndex ? { ...held, canonisedAs: entityId } : held,
+      ),
+      linkedEntityIds: item.linkedEntityIds.includes(entityId)
+        ? item.linkedEntityIds
+        : [...item.linkedEntityIds, entityId],
+      updatedAt: this.clock(),
+    };
+    await this.recordChange(
+      {
+        actor: "human",
+        operation: "canonise_research",
+        summary: `Use in story: "${fact.statement}" from ${item.title}`,
+      },
+      async () => {
+        await this.research.saveItem(updated);
+        await this.touch();
+      },
+    );
+    return { item: updated, entityId };
+  }
+
+  private async assertResearchLinks(
+    entityIds: readonly string[],
+    sceneIds: readonly string[],
+  ): Promise<void> {
+    for (const id of [...entityIds, ...sceneIds]) {
+      if ((await this.getEntity(id)) === null) {
+        throw new RepositoryError(
+          "entity_not_found",
+          `This research links to "${id}", which does not exist in this project.`,
+        );
+      }
+    }
   }
 
   beginTransaction(summary = "Staged changes", meta: TransactionMeta = {}): StagedTransaction {

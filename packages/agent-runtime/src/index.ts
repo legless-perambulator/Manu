@@ -34,6 +34,7 @@ export type {
 export { createProjectTools, READ_ONLY_TOOL_NAMES } from "./tools/project-tools";
 export { createBuildTools, BUILD_TOOL_NAMES } from "./tools/build-tools";
 export { createPlanTools, PLAN_TOOL_NAMES } from "./tools/plan-tools";
+export { createResearchTools, RESEARCH_TOOL_NAMES } from "./tools/research-tools";
 export { createTestTools, TEST_TOOL_NAMES } from "./tools/test-tools";
 export { createDebugTools, DEBUG_TOOL_NAMES } from "./tools/debug-tools";
 export { createRefactorTools, REFACTOR_TOOL_NAMES } from "./tools/refactor-tools";
