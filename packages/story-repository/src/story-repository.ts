@@ -153,6 +153,8 @@ import { DebugStore } from "./debug-store";
 import { SkillRunStore } from "./skill-run-store";
 import { WorkflowRunStore } from "./workflow-run-store";
 import { ChapterBuildStore } from "./chapter-build-store";
+import { ChapterPlanStore } from "./chapter-plan-store";
+import type { ChapterPlan, PlanFinding, PlannedScene } from "@jellytind/domain";
 import { ReaderSimulationStore } from "./reader-sim-store";
 import { PersonalityStore } from "./personality-store";
 import { MysteryStore } from "./mystery-store";
@@ -298,6 +300,8 @@ export class StoryRepository {
   readonly readerSims: ReaderSimulationStore;
   /** Author-confirmed personality, for character simulation (docs/SIMULATIONS.md). */
   readonly personalities: PersonalityStore;
+  /** Chapter plans — the layer between outline and builder (docs/PLANNING.md). */
+  readonly plans: ChapterPlanStore;
   /** Clues, suspects and deductions (docs/MYSTERY_ENGINE.md). */
   readonly mysteries: MysteryStore;
   /** Which genre modules are switched on (docs/GENRE_MODULES.md). */
@@ -366,6 +370,9 @@ export class StoryRepository {
     // Journaled: what a character is really like is as authored as any other
     // piece of canon, and changing it is a change to the story.
     this.personalities = new PersonalityStore(this.store);
+    // Journaled: a plan is the writer's working document, and editing it is a
+    // change to the project like editing any plot file (docs/PLANNING.md).
+    this.plans = new ChapterPlanStore(this.store);
     // Journaled: who did it, and what each clue really means, is canon.
     this.mysteries = new MysteryStore(this.store);
     // Not journaled: which modules are switched on is a setting about the
@@ -2806,6 +2813,322 @@ export class StoryRepository {
    * writes, `preview()` them, then `commit()` (records one change set) or
    * `discard()`. The primitive future AI workflows use to stay reversible.
    */
+  // ── Chapter planning (Phase 32) ─────────────────────────────────────────────
+
+  /**
+   * Save a chapter plan through the journal.
+   *
+   * The store's own `save` writes the file; this wrapper is what makes the
+   * write an ordinary change set — visible in History, diffable, revertible —
+   * which is the whole of the plan-versioning story beyond the bounded
+   * structured snapshots (§16). Reads go straight to `repo.plans`.
+   */
+  async saveChapterPlan(
+    plan: Parameters<ChapterPlanStore["save"]>[0],
+    options: { note?: string; actor?: "human" | "agent"; taskId?: string; modelId?: string } = {},
+  ): Promise<ChapterPlan> {
+    let stored!: ChapterPlan;
+    await this.recordChange(
+      {
+        actor: options.actor ?? "human",
+        operation: "edit_plan",
+        summary: `Plan ${plan.chapterId}${options.note === undefined ? "" : ` — ${options.note}`}`,
+        ...(options.taskId !== undefined ? { taskId: options.taskId } : {}),
+        ...(options.modelId !== undefined ? { modelId: options.modelId } : {}),
+      },
+      async () => {
+        stored = await this.plans.save(plan, {
+          now: this.clock(),
+          ...(options.note !== undefined ? { note: options.note } : {}),
+        });
+        await this.touch();
+      },
+    );
+    return stored;
+  }
+
+  /**
+   * Check whether a chapter plan contradicts the project before anything is
+   * drafted from it (docs/PLANNING.md §6).
+   *
+   * Deterministic throughout: unknown references, POV absent from the scene,
+   * forbidden knowledge the plan itself grants, payoffs with no setup, objects
+   * and characters recorded elsewhere at the chapter's entry boundary, and
+   * planned revelations whose source does not hold the information. Semantic
+   * judgement about whether the plan is *good* is not this method's business.
+   */
+  async validateChapterPlan(plan: ChapterPlan): Promise<PlanFinding[]> {
+    const findings: PlanFinding[] = [];
+    const [characters, locations, threads, facts, setups, objects, scenes, chapters] =
+      await Promise.all([
+        this.listCharacters(),
+        this.listLocations(),
+        this.listPlotThreads(),
+        this.listFacts(),
+        this.listSetups(),
+        this.listObjects(),
+        this.listScenes(),
+        this.listChapters(),
+      ]);
+    const known = {
+      character: new Set(characters.map((c) => c.id as string)),
+      location: new Set(locations.map((l) => l.id as string)),
+      thread: new Set(threads.map((t) => t.id as string)),
+      fact: new Set(facts.map((f) => f.id as string)),
+      setup: new Set(setups.map((s) => s.id as string)),
+      object: new Set(objects.map((o) => o.id as string)),
+    };
+    const setupById = new Map(setups.map((s) => [s.id as string, s]));
+
+    if (plan.scenes.length === 0) {
+      findings.push({
+        severity: "warning",
+        code: "empty_plan",
+        message: "The plan has no scenes yet.",
+      });
+    }
+
+    // The chapter's entry boundary: the last scene, in telling order, of any
+    // chapter that comes before this one. State "entering the chapter" means
+    // state after that scene; a first chapter has no boundary and the
+    // state-dependent checks are skipped rather than guessed.
+    const chapterOrder = new Map(chapters.map((c) => [c.id as string, c.order]));
+    const myOrder = chapterOrder.get(plan.chapterId);
+    let entrySceneId: string | null = null;
+    if (myOrder !== undefined) {
+      for (const scene of orderScenes(scenes, chapters)) {
+        const order =
+          scene.chapterId === undefined ? undefined : chapterOrder.get(scene.chapterId as string);
+        if (order !== undefined && order < myOrder) entrySceneId = scene.id as string;
+      }
+    }
+    const boundary =
+      entrySceneId === null ? null : { sceneId: entrySceneId, position: "after" as const };
+
+    const missing = (kind: keyof typeof known, id: string, sceneKey: string, what: string) => {
+      if (!known[kind].has(id)) {
+        findings.push({
+          severity: "error",
+          code: "unknown_reference",
+          message: `${what} references ${id}, which does not exist in this project.`,
+          sceneKey,
+        });
+        return true;
+      }
+      return false;
+    };
+
+    const plantedEarlier = new Set<string>();
+    for (const planned of plan.scenes) {
+      const where = `Planned scene "${planned.title}"`;
+      if (planned.pov !== undefined) missing("character", planned.pov, planned.key, `${where} POV`);
+      if (planned.locationId !== undefined)
+        missing("location", planned.locationId, planned.key, `${where} location`);
+      for (const id of planned.characterIds) missing("character", id, planned.key, where);
+      for (const id of planned.objectIds) missing("object", id, planned.key, where);
+      for (const id of planned.plotThreadIds) missing("thread", id, planned.key, where);
+      for (const id of planned.requiredFactIds) missing("fact", id, planned.key, where);
+      for (const id of planned.setupIds) missing("setup", id, planned.key, where);
+      for (const id of planned.payoffSetupIds) missing("setup", id, planned.key, where);
+
+      if (
+        planned.pov !== undefined &&
+        known.character.has(planned.pov) &&
+        planned.characterIds.length > 0 &&
+        !planned.characterIds.includes(planned.pov)
+      ) {
+        findings.push({
+          severity: "warning",
+          code: "pov_not_present",
+          message: `${where}: the POV character ${planned.pov} is not among the scene's characters.`,
+          sceneKey: planned.key,
+        });
+      }
+
+      // The plan granting knowledge its own constraints forbid — the check that
+      // makes "she must not yet understand what it opens" enforceable.
+      for (const change of planned.knowledgeChanges) {
+        if (missing("character", change.characterId, planned.key, `${where} knowledge change`))
+          continue;
+        if (missing("fact", change.factId, planned.key, `${where} knowledge change`)) continue;
+        const forbidden = plan.forbiddenFacts.find(
+          (f) =>
+            f.factId === change.factId &&
+            (f.characterId === undefined || f.characterId === change.characterId) &&
+            change.to !== "unknown",
+        );
+        if (forbidden !== undefined) {
+          findings.push({
+            severity: "error",
+            code: "forbidden_fact_granted",
+            message: `${where} lets ${change.characterId} come to "${change.to}" ${change.factId}, which the plan itself forbids${forbidden.reason === undefined ? "" : ` (${forbidden.reason})`}.`,
+            sceneKey: planned.key,
+          });
+        }
+
+        // A planned revelation from a source who does not hold the information.
+        if (
+          change.sourceEntityId !== undefined &&
+          change.sourceEntityId.startsWith("CHAR_") &&
+          known.character.has(change.sourceEntityId) &&
+          boundary !== null
+        ) {
+          const graph = await this.getFactKnowledgeGraph(change.factId, boundary);
+          const holder = graph.holders.find((h) => h.characterId === change.sourceEntityId);
+          if (
+            holder === undefined ||
+            holder.state === "unknown" ||
+            holder.state === "disbelieved"
+          ) {
+            findings.push({
+              severity: "error",
+              code: "revelation_unavailable",
+              message: `${where} has ${change.sourceEntityId} revealing ${change.factId} to ${change.characterId}, but entering this chapter ${change.sourceEntityId} does not hold it${holder === undefined ? "" : ` (state: ${holder.state})`}.`,
+              sceneKey: planned.key,
+            });
+          }
+        }
+      }
+
+      // A payoff whose setup was never planted — and is not planted earlier in
+      // this same plan.
+      for (const id of planned.payoffSetupIds) {
+        const setup = setupById.get(id);
+        if (setup === undefined) continue;
+        if (setup.payoffSceneIds.length > 0) {
+          findings.push({
+            severity: "warning",
+            code: "setup_already_paid",
+            message: `${where} pays off ${id}, which is already paid off elsewhere.`,
+            sceneKey: planned.key,
+          });
+        }
+        if (setup.setupSceneIds.length === 0 && !plantedEarlier.has(id)) {
+          findings.push({
+            severity: "error",
+            code: "payoff_without_setup",
+            message: `${where} pays off ${id}, but nothing has planted it — not in the manuscript, and not earlier in this plan.`,
+            sceneKey: planned.key,
+          });
+        }
+      }
+      for (const id of planned.setupIds) plantedEarlier.add(id);
+
+      // Things recorded elsewhere at the entry boundary. Movement inside the
+      // chapter is normal, so these are advisory, not refusals.
+      if (
+        boundary !== null &&
+        planned.locationId !== undefined &&
+        known.location.has(planned.locationId)
+      ) {
+        for (const id of planned.objectIds) {
+          if (!known.object.has(id)) continue;
+          const at = await this.getObjectLocation(id, boundary);
+          if (at !== undefined && at !== planned.locationId) {
+            findings.push({
+              severity: "warning",
+              code: "object_elsewhere",
+              message: `${where} uses ${id} at ${planned.locationId}, but entering the chapter it is recorded at ${at}. Plan the move, or accept the jump.`,
+              sceneKey: planned.key,
+            });
+          }
+        }
+        const people =
+          planned.pov === undefined ? planned.characterIds : [planned.pov, ...planned.characterIds];
+        for (const id of new Set(people)) {
+          if (!known.character.has(id)) continue;
+          const state = await this.getCharacterState(id, boundary);
+          if (state.locationId !== undefined && state.locationId !== planned.locationId) {
+            findings.push({
+              severity: "info",
+              code: "character_elsewhere",
+              message: `${where}: ${id} was last recorded at ${state.locationId}; this scene is at ${planned.locationId}.`,
+              sceneKey: planned.key,
+            });
+          }
+        }
+      }
+    }
+    return findings;
+  }
+
+  /**
+   * Approve the current plan for a chapter, materialising its scenes.
+   *
+   * This is the moment a plan stops being a proposal: planned scenes without a
+   * record get one (through the ordinary `addScene`, so IDs, journaling and
+   * validation all apply), planned scenes with one are updated to match, and
+   * the plan is stamped approved at a single pinned version the Chapter
+   * Builder can hold on to. Nothing else in the project reads a draft plan.
+   */
+  async approveChapterPlan(chapterId: string): Promise<ChapterPlan> {
+    const plan = await this.plans.get(chapterId);
+    if (plan === null) {
+      throw new RepositoryError("entity_not_found", `No plan exists for ${chapterId}.`);
+    }
+    const chapter = (await this.listChapters()).find((c) => (c.id as string) === chapterId);
+    if (chapter === undefined) {
+      throw new RepositoryError("entity_not_found", `No chapter exists with ID "${chapterId}".`);
+    }
+
+    const existing = new Map((await this.listScenes()).map((scene) => [scene.id as string, scene]));
+    const materialised: PlannedScene[] = [];
+    for (const planned of plan.scenes) {
+      // Beats are the scene's purpose; a quick plan's objective stands in when
+      // no beats were written. The builder reads purpose, so this is the exact
+      // hand-off between the plan and Phase 31.
+      const purpose =
+        planned.beats.length > 0
+          ? planned.beats
+          : [planned.objective, planned.conflict, planned.exitState].filter(
+              (line): line is string => line !== undefined && line.trim() !== "",
+            );
+
+      if (planned.sceneId !== undefined && existing.has(planned.sceneId)) {
+        await this.updateEntity<Scene>(planned.sceneId, {
+          title: planned.title,
+          characterIds: planned.characterIds as Scene["characterIds"],
+          plotThreadIds: planned.plotThreadIds as Scene["plotThreadIds"],
+          objectIds: planned.objectIds as Scene["objectIds"],
+          purpose,
+          ...(planned.pov !== undefined ? { pov: planned.pov as Scene["pov"] } : {}),
+          ...(planned.locationId !== undefined
+            ? { locationId: planned.locationId as Scene["locationId"] }
+            : {}),
+        });
+        materialised.push(planned);
+      } else {
+        const scene = await this.addScene({
+          title: planned.title,
+          chapterId: chapter.id,
+          characterIds: planned.characterIds as Scene["characterIds"],
+          plotThreadIds: planned.plotThreadIds as Scene["plotThreadIds"],
+          objectIds: planned.objectIds as Scene["objectIds"],
+          purpose,
+          status: "planned",
+          ...(planned.pov !== undefined ? { pov: planned.pov as Scene["pov"] } : {}),
+          ...(planned.locationId !== undefined
+            ? { locationId: planned.locationId as Scene["locationId"] }
+            : {}),
+        });
+        materialised.push({ ...planned, sceneId: scene.id as string });
+      }
+    }
+    let approved!: ChapterPlan;
+    await this.recordChange(
+      {
+        actor: "human",
+        operation: "approve_plan",
+        summary: `Approve the plan for ${chapter.title}`,
+      },
+      async () => {
+        approved = await this.plans.approve(chapterId, materialised, { now: this.clock() });
+        await this.touch();
+      },
+    );
+    return approved;
+  }
+
   beginTransaction(summary = "Staged changes", meta: TransactionMeta = {}): StagedTransaction {
     return new StagedTransaction(
       (path) => this.store.readFile(path),

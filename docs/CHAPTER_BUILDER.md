@@ -51,6 +51,18 @@ Statuses: `pending · planning · awaiting_approval · drafting · validating ·
 revising · completed · failed · cancelled · paused`. `paused` and `failed` are
 resumable; `completed` and `cancelled` are terminal.
 
+## The approved chapter plan (Phase 32)
+
+When the chapter has an **approved** `ChapterPlan` ([PLANNING.md](PLANNING.md)),
+`start` consumes it directly: the build record pins `planId` and `planVersion`
+(the approved version number, exactly), per-scene word targets come from the
+plan, and the plan's constraints — forbidden knowledge resolved to plain
+sentences — are appended to **every** drafting instruction as hard constraints.
+The scene records the builder drafts from are the very ones approval
+materialised, so there is one representation of the chapter's shape, not two.
+A plan still in `draft` is noted in the build's diagnostics and ignored; only
+the writer's approval makes a plan an input.
+
 ## Scene-by-scene generation
 
 Each scene is drafted from a freshly compiled `scene_rewrite` context: purpose,
@@ -185,14 +197,12 @@ build continues.
 
 - **Act Builder / `/write-book`** — building more than one chapter as one
   operation is deliberately out of scope.
-- **A structured chapter-plan document.** The plan is the chapter's scene
-  records and their purpose lines; a first-class plan artifact (as the chapter
-  workflow produces) is not yet an input.
 - **Token accounting.** Usage counts calls per class; the model interface does
   not yet expose token totals for structured calls.
 
 ## Relationship to other subsystems
 
+- [PLANNING.md](PLANNING.md) — the approved chapter plan a build consumes.
 - [AI_EDITING.md](AI_EDITING.md) — the single-edit machinery this reuses.
 - [ORCHESTRATION.md](ORCHESTRATION.md) — the multi-agent workflow engine; the
   chapter builder is a purpose-built loop, not a workflow graph, because its

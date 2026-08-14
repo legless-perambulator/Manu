@@ -252,6 +252,38 @@ export interface ProjectAccess {
   getScenesByCharacter(id: CharacterId): Promise<Scene[]>;
   getScenesByLocation(id: LocationId): Promise<Scene[]>;
   getScenesByPlotThread(id: PlotThreadId): Promise<Scene[]>;
+
+  /**
+   * Chapter plans — the structured layer between outline and drafting
+   * (docs/PLANNING.md). Optional like the build: a project without planning
+   * simply does not register the plan tools. `saveChapterPlan` writes a
+   * **draft**; approval is not on this port at all, because approving a plan
+   * is the writer's decision and no agent tool may take it.
+   */
+  getChapterPlan?(chapterId: string): Promise<ChapterPlanLike | null>;
+  saveChapterPlan?(
+    plan: ChapterPlanLike,
+    options?: { actor?: "human" | "agent"; note?: string },
+  ): Promise<ChapterPlanLike>;
+  validateChapterPlan?(plan: ChapterPlanLike): Promise<PlanFindingLike[]>;
+}
+
+/**
+ * Structural stand-in, so the runtime does not depend on planning domain
+ * details. Scenes are opaque here: the tools treat them as records, and the
+ * repository's own types apply at the implementation.
+ */
+export interface ChapterPlanLike {
+  readonly chapterId: string;
+  readonly status: string;
+  readonly version?: number;
+  readonly scenes: readonly unknown[];
+}
+export interface PlanFindingLike {
+  readonly severity: string;
+  readonly code: string;
+  readonly message: string;
+  readonly sceneKey?: string;
 }
 
 /**

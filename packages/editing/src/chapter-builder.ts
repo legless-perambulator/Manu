@@ -187,6 +187,32 @@ export class ChapterBuilder {
     }
 
     const policy = options.approvalPolicy ?? "auto_until_error";
+
+    // §15 (Phase 32): consume the approved plan directly. Targets, the pinned
+    // version and the plan's constraints all come off the plan; the scene
+    // records themselves were materialised when the writer approved it.
+    const plan = await this.repo.plans.get(chapter.id as string);
+    const planTargets: Record<string, SceneLengthTarget> = {};
+    const planConstraints: string[] = [];
+    let planPin: { planId: string; planVersion: number } | null = null;
+    if (plan !== null && plan.status === "approved") {
+      planPin = { planId: plan.id, planVersion: plan.approvedVersion ?? plan.version };
+      for (const planned of plan.scenes) {
+        if (planned.sceneId !== undefined && planned.targetWords !== undefined) {
+          planTargets[planned.sceneId] = planned.targetWords;
+        }
+      }
+      const facts = new Map(
+        (await this.repo.listFacts()).map((fact) => [fact.id as string, fact.statement]),
+      );
+      for (const forbidden of plan.forbiddenFacts) {
+        const statement = facts.get(forbidden.factId) ?? forbidden.factId;
+        planConstraints.push(
+          `${forbidden.characterId === undefined ? "No character" : forbidden.characterId} may come to understand: "${statement}"${forbidden.reason === undefined ? "" : ` (${forbidden.reason})`}. Do not reveal, imply or let dialogue confirm it.`,
+        );
+      }
+      planConstraints.push(...plan.constraints);
+    }
     const task = createTask({
       id: await this.repo.agents.nextTaskId(),
       goal: `build_chapter: ${chapter.title}`,
@@ -213,7 +239,9 @@ export class ChapterBuilder {
       modelAssignments: this.assignments(),
       maxRevisions: options.maxRevisions ?? 1,
       maxContinuations: options.maxContinuations ?? 3,
-      targets: options.targets ?? {},
+      targets: { ...planTargets, ...options.targets },
+      ...(planPin !== null ? { ...planPin } : {}),
+      ...(planConstraints.length > 0 ? { planConstraints } : {}),
       currentStep: "validate_prerequisites",
       scenes: [],
       diagnostics: [],
@@ -221,6 +249,14 @@ export class ChapterBuilder {
       resumeCount: 0,
     };
 
+    if (plan !== null && plan.status !== "approved") {
+      this.note(
+        build,
+        "info",
+        "validate_prerequisites",
+        `a ${plan.status} plan exists for this chapter but only an approved plan is consumed; building from the scene records alone`,
+      );
+    }
     await this.persist(build);
     return this.runLoop(build);
   }
@@ -562,6 +598,10 @@ export class ChapterBuilder {
         ? ""
         : `\n\nThe scene's planned beats:\n${record.beats.map((b) => `- ${b}`).join("\n")}`;
     const lengthNote = describeTarget(record.target);
+    const constraints =
+      build.planConstraints === undefined || build.planConstraints.length === 0
+        ? ""
+        : `\n\nHard constraints from the approved plan — these override everything else:\n${build.planConstraints.map((c) => `- ${c}`).join("\n")}`;
 
     const proposed = await this.callModel(build, "premium_prose", {
       system: EDITOR_SYSTEM_PROMPT,
@@ -569,7 +609,7 @@ export class ChapterBuilder {
         { role: "user", content: renderContextPackage(pkg) },
         {
           role: "user",
-          content: `Write the prose for ${record.sceneId} ("${record.title}") in full, working from its structured purpose and the compiled context. This scene has no prose yet — you are drafting it, not editing it.${beats}${lengthNote}\n\n${RESPONSE_FORMAT}`,
+          content: `Write the prose for ${record.sceneId} ("${record.title}") in full, working from its structured purpose and the compiled context. This scene has no prose yet — you are drafting it, not editing it.${beats}${constraints}${lengthNote}\n\n${RESPONSE_FORMAT}`,
         },
       ],
     });

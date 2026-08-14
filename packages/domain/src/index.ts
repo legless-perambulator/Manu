@@ -317,3 +317,20 @@ export type {
   SceneBuildStatus,
   SceneLengthTarget,
 } from "./chapter-build";
+
+// ── Chapter and scene planning (Phase 32) ───────────────────────────────────
+export { PLAN_STATUSES, comparePlanVersions, emptyPlannedScene, planImpact } from "./planning";
+export type {
+  ChapterPlan,
+  FactConstraint,
+  KnowledgeChangePlan,
+  PlanComparison,
+  PlanFinding,
+  PlanImpact,
+  PlanRevision,
+  PlanStatus,
+  PlannedKnowledgeState,
+  PlannedScene,
+  RelationshipChangePlan,
+  WordRange,
+} from "./planning";

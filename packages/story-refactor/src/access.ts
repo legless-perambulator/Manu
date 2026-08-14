@@ -39,6 +39,17 @@ export function refactorAccess(repo: StoryRepository): ProjectAccess {
     listStoryTests: () => repo.listStoryTests(),
     runStoryTests: () => repo.runStoryTests(),
 
+    // Chapter plans (Phase 32). Draft writes only; approval is not on the
+    // port, because approving a plan is the writer's decision.
+    getChapterPlan: (chapterId) => repo.plans.get(chapterId),
+    saveChapterPlan: (plan, options) =>
+      repo.saveChapterPlan(plan as Parameters<StoryRepository["saveChapterPlan"]>[0], {
+        actor: options?.actor ?? "agent",
+        ...(options?.note !== undefined ? { note: options.note } : {}),
+      }),
+    validateChapterPlan: (plan) =>
+      repo.validateChapterPlan(plan as Parameters<StoryRepository["validateChapterPlan"]>[0]),
+
     traceStoryProblem: (request) => repo.traceStoryProblem(request),
     listDebugReports: (limit) => repo.listDebugReports(limit),
     getDebugReport: (id) => repo.getDebugReport(id),

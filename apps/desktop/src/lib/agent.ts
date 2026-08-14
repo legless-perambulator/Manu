@@ -3,6 +3,7 @@ import {
   createTestTools,
   createDebugTools,
   createRefactorTools,
+  createPlanTools,
   createProjectTools,
   createTask,
   InvestigationAgent,
@@ -67,6 +68,7 @@ export async function startInvestigation(
     ...createTestTools(access),
     ...createDebugTools(access),
     ...createRefactorTools(access),
+    ...createPlanTools(access),
   );
 
   // This registry holds no editing tool, so nothing run here can write to the

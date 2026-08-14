@@ -64,3 +64,11 @@ export type {
   ChapterBuilderOptions,
   StartBuildOptions,
 } from "./chapter-builder";
+
+export { PlanArchitect } from "./plan-architect";
+export type {
+  CoverageVerdict,
+  PlanArchitectOptions,
+  PlanProposalResult,
+  SceneCoverage,
+} from "./plan-architect";

@@ -15,6 +15,7 @@ export type AgentPermission =
   | "read_canon"
   | "edit_manuscript"
   | "edit_story_state"
+  | "edit_plans"
   | "create_entities"
   | "delete_entities"
   | "run_research"

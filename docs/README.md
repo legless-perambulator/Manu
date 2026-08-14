@@ -30,6 +30,8 @@ These documents are **living**: update the relevant document whenever an archite
 | [ORCHESTRATION.md](ORCHESTRATION.md)               | Multi-agent workflows, structured handoffs and approval gates.  |
 | [MODEL_ROUTER.md](MODEL_ROUTER.md)                 | Provider-independent model abstraction and routing.             |
 | [AI_EDITING.md](AI_EDITING.md)                     | Controlled AI manuscript editing: propose, review, apply.       |
+| [PLANNING.md](PLANNING.md)                         | Chapter plans, scene plans and beats between outline and prose. |
+| [CHAPTER_BUILDER.md](CHAPTER_BUILDER.md)           | Scene-by-scene chapter production under harness control.        |
 | [AUTHOR_VOICE.md](AUTHOR_VOICE.md)                 | The writer's stylistic preferences, structured and inspectable. |
 | [CHARACTER_VOICE.md](CHARACTER_VOICE.md)           | Persistent speech identities, differentiation and voice check.  |
 | [VERSIONING.md](VERSIONING.md)                     | Revisions, diffs, checkpoints, branches, audit trail.           |

@@ -31,17 +31,17 @@ and would be refused if it asked.
 
 ## The nine
 
-| Specialist               | Works on                                    | Reaches                                                    | Never                          |
-| ------------------------ | ------------------------------------------- | ---------------------------------------------------------- | ------------------------------ |
-| **Story Architect**      | the shape of the whole book                 | causality, thread queries, refactor **analysis**, versions | prose                          |
-| **Scene Director**       | what a scene is doing before it is written  | scene/character/location queries, ranged reads             | writing the scene              |
-| **Drafter**              | the prose itself                            | canon + reads, under the `scene_rewrite` recipe            | deciding what the scene is for |
-| **Continuity Editor**    | the book against what the project knows     | the whole build/test/debug surface                         | judging prose quality          |
-| **Character Editor**     | whether people behave like themselves       | character scenes, the debugger                             | prose craft                    |
-| **Dialogue Editor**      | what people say and how                     | scenes, characters, ranged reads                           | narration, structure           |
-| **Prose Editor**         | the sentence                                | the passage and its file — nothing else                    | story or character decisions   |
-| **Developmental Editor** | what is not working, as an editor would say | build, tests, threads, the file list                       | rewriting anything             |
-| **Copy Editor**          | mechanics only                              | three read tools                                           | anything that changes meaning  |
+| Specialist               | Works on                                    | Reaches                                                                             | Never                          |
+| ------------------------ | ------------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------ |
+| **Story Architect**      | the shape of the whole book                 | causality, thread queries, refactor **analysis**, versions, **draft chapter plans** | prose                          |
+| **Scene Director**       | what a scene is doing before it is written  | scene/character/location queries, ranged reads, **draft chapter plans**             | writing the scene              |
+| **Drafter**              | the prose itself                            | canon + reads, under the `scene_rewrite` recipe                                     | deciding what the scene is for |
+| **Continuity Editor**    | the book against what the project knows     | the whole build/test/debug surface                                                  | judging prose quality          |
+| **Character Editor**     | whether people behave like themselves       | character scenes, the debugger                                                      | prose craft                    |
+| **Dialogue Editor**      | what people say and how                     | scenes, characters, ranged reads                                                    | narration, structure           |
+| **Prose Editor**         | the sentence                                | the passage and its file — nothing else                                             | story or character decisions   |
+| **Developmental Editor** | what is not working, as an editor would say | build, tests, threads, the file list                                                | rewriting anything             |
+| **Copy Editor**          | mechanics only                              | three read tools                                                                    | anything that changes meaning  |
 
 The Continuity Editor is the only specialist holding the whole deterministic
 checking surface, and the Story Architect the only one holding
@@ -50,6 +50,13 @@ checking surface, and the Story Architect the only one holding
 **Analysis, never execution.** No specialist holds `apply_refactors` or
 `delete_entities`. Staging and committing a structural change stays with the
 writer ([STORY_REFACTOR.md](STORY_REFACTOR.md)).
+
+**Draft plans, never approval.** The Story Architect and the Scene Director
+carry `edit_plans` and the four plan tools (`inspect_scene_plan`,
+`validate_scene_plan`, `create_scene_plan`, `revise_scene_plan`) — structured
+plan data, not prose advice ([PLANNING.md](PLANNING.md)). The write tools touch
+**draft** plans only: an approved plan is refused, and there is deliberately no
+tool that approves one. Approval is the writer's alone.
 
 ## Different work, different context
 

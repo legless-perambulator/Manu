@@ -20,6 +20,7 @@
 export const LEFT_PANELS = [
   "manuscript",
   "outline",
+  "chapterplan",
   "notes",
   "research",
   "characters",
@@ -107,6 +108,13 @@ export const PANELS: readonly PanelDefinition[] = [
     group: "write",
     label: "Outline",
     purpose: "The shape of the book, chapter by scene",
+    side: "left",
+  },
+  {
+    id: "chapterplan",
+    group: "write",
+    label: "Chapter plan",
+    purpose: "Plan a chapter's scenes and beats before drafting",
     side: "left",
   },
   {

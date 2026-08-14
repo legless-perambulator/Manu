@@ -79,6 +79,7 @@ import { ModulesPanel } from "./ModulesPanel";
 import { WorldPanel } from "./WorldPanel";
 import { CausalityPanel } from "./CausalityPanel";
 import { ChapterBuildPanel } from "./ChapterBuildPanel";
+import { ChapterPlanPanel } from "./ChapterPlanPanel";
 import { RefactorPanel } from "./RefactorPanel";
 
 interface WorkspaceProps {
@@ -632,6 +633,15 @@ export function Workspace({
         );
       case "agent":
         return <AgentPanel repo={repo} secrets={secrets} onActivityLine={showActivity} />;
+      case "chapterplan":
+        return (
+          <ChapterPlanPanel
+            repo={repo}
+            secrets={secrets}
+            refreshToken={refreshToken}
+            onChanged={refresh}
+          />
+        );
       case "chapterbuild":
         return (
           <ChapterBuildPanel

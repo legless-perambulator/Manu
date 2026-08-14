@@ -3590,3 +3590,147 @@ progress {
   font-size: var(--manu-text-xs);
   white-space: nowrap;
 }
+
+/* ── Chapter plan (Phase 32) ─────────────────────────────── */
+/* A working document: quick fields on the card, depth behind disclosures.
+   Everything here works with no model configured. */
+.cplan {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 14px;
+  overflow: auto;
+  flex: 1;
+}
+.cplan__meta {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  font-size: var(--manu-text-xs);
+}
+.cplan__status--approved {
+  color: var(--manu-success);
+}
+.cplan__status--draft {
+  color: var(--manu-ink-muted);
+}
+.cplan__source {
+  color: var(--manu-ink-subtle);
+}
+.cplan__scenes {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.cplan__scene {
+  border: 1px solid var(--manu-border);
+  border-radius: var(--manu-radius-md);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.cplan__scene-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.cplan__scene-title {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  border-bottom: 1px solid transparent;
+  color: var(--manu-ink);
+  font: inherit;
+  font-size: var(--manu-text-md);
+  font-weight: 500;
+  padding: 2px 0;
+}
+.cplan__scene-title:focus-visible {
+  outline: none;
+  box-shadow: none;
+  border-bottom-color: var(--manu-accent);
+}
+.cplan__scene-tools {
+  display: flex;
+  gap: 2px;
+}
+.cplan__tool {
+  background: none;
+  border: none;
+  color: var(--manu-ink-subtle);
+  font-size: var(--manu-text-sm);
+  line-height: 1;
+  padding: 3px 5px;
+  border-radius: var(--manu-radius-sm);
+  cursor: pointer;
+}
+.cplan__tool:hover:not(:disabled) {
+  color: var(--manu-ink);
+  background: var(--manu-surface-raised);
+}
+.cplan__tool:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+.cplan__scene-who {
+  margin: 0;
+  font-size: var(--manu-text-xs);
+  color: var(--manu-ink-subtle);
+}
+.field--quiet {
+  display: grid;
+  grid-template-columns: 68px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+.field--quiet > span {
+  font-size: var(--manu-text-xs);
+  color: var(--manu-ink-subtle);
+  text-transform: uppercase;
+  letter-spacing: var(--manu-tracking-label);
+}
+.cplan__beats summary {
+  cursor: pointer;
+  font-size: var(--manu-text-sm);
+  color: var(--manu-ink-muted);
+}
+.cplan__beats textarea {
+  width: 100%;
+  margin-top: 6px;
+  font-family: var(--manu-font-ui);
+  font-size: var(--manu-text-base);
+  line-height: 1.6;
+}
+.cplan__actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.cplan__impact {
+  border-left: 2px solid var(--manu-border-strong);
+  padding: 4px 10px;
+  font-size: var(--manu-text-sm);
+  color: var(--manu-ink-muted);
+}
+.cplan__impact p {
+  margin: 2px 0;
+}
+.cplan__findings,
+.cplan__scene-findings {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--manu-text-sm);
+}
+.cplan__generate summary {
+  cursor: pointer;
+  font-size: var(--manu-text-sm);
+  color: var(--manu-ink-muted);
+}
+.cplan__instruction {
+  width: 100%;
+  margin: 6px 0;
+}

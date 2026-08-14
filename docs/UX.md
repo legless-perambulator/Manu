@@ -113,7 +113,7 @@ the question a writer is asking:
 
 | Group        | Panels                                                                                                   |
 | ------------ | -------------------------------------------------------------------------------------------------------- |
-| **Write**    | Manuscript · Outline · Notes · Research                                                                  |
+| **Write**    | Manuscript · Outline · Chapter plan · Notes · Research                                                   |
 | **Story**    | Characters · Story bible · State · Knowledge · Relationships · Objects · Plot threads · Timeline · World |
 | **Assist**   | Details · Manu Agent · Context · Find in project                                                         |
 | **Check**    | Story Build · Story tests · Diagnose · Passes · Workflows · Readers · Behaviour · Mystery · Voice        |
@@ -209,6 +209,10 @@ never through it.
 - **Outline** — chapters and the scenes inside them. Reordering rewrites the
   chapter's `order` through the ordinary journalled mutation path; it moves a
   chapter's place in the telling and never moves, renames or touches a file.
+- **Chapter plan** — a chapter's scenes and beats before any prose exists:
+  quick fields (POV, goal, conflict, outcome), reorder/split/merge, a
+  deterministic check, and approval — all usable with no model configured
+  (docs/PLANNING.md).
 - **Characters** — a sheet to read while writing a scene: name, role,
   description, what they want, who they are to other people, where they appear.
   **Progressive disclosure is the rule**: a field with nothing in it is not

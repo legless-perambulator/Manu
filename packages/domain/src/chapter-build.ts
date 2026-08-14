@@ -171,6 +171,19 @@ export interface ChapterBuild {
   readonly requestedBy: "human";
   /** The agent task the build's activity is logged under. */
   readonly taskId: string;
+  /**
+   * The approved chapter plan this build consumes, pinned at start (Phase 32
+   * §15, §17). The build works from the scene records that plan materialised
+   * and the constraints below; a plan edited after the pin does not move a
+   * running build.
+   */
+  readonly planId?: string;
+  readonly planVersion?: number;
+  /**
+   * Constraints carried from the plan into every drafting instruction —
+   * forbidden knowledge above all, resolved to sentences at pin time.
+   */
+  readonly planConstraints?: readonly string[];
   readonly approvalPolicy: ApprovalPolicy;
   /**
    * Auto-confirm objective, high-confidence state transitions (locations,
