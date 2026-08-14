@@ -1,8 +1,34 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 import type { EditRequest } from "@jellytind/editing";
 import type { StoryRepository } from "@jellytind/story-repository";
-import { AiEditBar } from "./AiEditBar";
+import { SelectionBar } from "./SelectionBar";
+import { FindBar, type Options as FindOptions } from "./FindBar";
+import { ManuscriptPreview } from "./ManuscriptPreview";
 import { clearDraft, findDraft, keepDraft } from "../lib/drafts";
+import {
+  countWords,
+  insertSceneBreak,
+  outlineOf,
+  replaceAll as replaceAllIn,
+  replaceMatch,
+  setBlockStyle,
+  toggleInline,
+  type BlockStyle,
+  type Edit,
+  type InlineMark,
+} from "../lib/markdown";
+import { areaName, documentTitle, isProsePath } from "../lib/naming";
+import { splitFrontMatter, titleOf } from "../lib/front-matter";
+import { styleVariables, type ManuscriptStyle } from "../lib/typography";
+import { UndoStack } from "../lib/undo";
 
 interface Props {
   repo: StoryRepository;
@@ -19,6 +45,17 @@ interface Props {
   onDirtyChange?: (dirty: boolean) => void;
   /** Given a flush function that saves now and resolves when it is safe to go. */
   onRegisterFlush?: (flush: (() => Promise<boolean>) | null) => void;
+  /** How the writer has asked for the manuscript to be set. */
+  style: ManuscriptStyle;
+  /** Focus Mode: the page and nothing else. */
+  focus?: boolean;
+  onToggleFocus?: () => void;
+  /** Live word count of the open document, for the status bar. */
+  onWords?: (path: string, words: number) => void;
+  /** Where the writer was, restored when a project is reopened. */
+  initialCaret?: number;
+  /** Told where the caret is now, so the place can be remembered. */
+  onCaret?: (path: string, caret: number) => void;
 }
 
 /**
@@ -51,6 +88,12 @@ export function Editor({
   aiBusy = false,
   onDirtyChange,
   onRegisterFlush,
+  style,
+  focus = false,
+  onToggleFocus,
+  onWords,
+  initialCaret,
+  onCaret,
 }: Props) {
   const [content, setContent] = useState("");
   const [loaded, setLoaded] = useState(false);
@@ -61,10 +104,22 @@ export function Editor({
   const [selection, setSelection] = useState<{ text: string; start: number; end: number } | null>(
     null,
   );
+  const [caret, setCaret] = useState(0);
+  const [showFind, setShowFind] = useState(false);
+  const [reading, setReading] = useState(false);
+  const [showOutline, setShowOutline] = useState(false);
   const area = useRef<HTMLTextAreaElement | null>(null);
   /** Characters of front matter the textarea is not showing. */
   const hidden = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /**
+   * Manu's own undo history.
+   *
+   * A textarea's built-in stack is emptied by any programmatic write, and every
+   * formatting command, every Replace and every accepted proposal is one. Undo
+   * has to survive them or a writer stops trusting ⌘Z (lib/undo.ts).
+   */
+  const history = useRef(new UndoStack({ text: "", start: 0, end: 0 }));
 
   // Latest values, for the flush that runs on close or when switching away.
   const latest = useRef({ path, content, state });
@@ -74,6 +129,51 @@ export function Editor({
   useEffect(() => {
     onDirtyChange?.(dirty);
   }, [dirty, onDirtyChange]);
+
+  // Manuscript prose is set as prose. The records that describe it are data,
+  // and are set as data.
+  const prose = path !== null && isProsePath(path);
+  // Front matter is kept and rewritten, never shown. Only prose files hide it:
+  // in a `.json` record the structure *is* the content.
+  const { head, body } = prose ? splitFrontMatter(content) : { head: "", body: content };
+  hidden.current = head.length;
+
+  const words = useMemo(() => (prose ? countWords(body) : 0), [prose, body]);
+  useEffect(() => {
+    if (path !== null && loaded) onWords?.(path, words);
+  }, [path, words, loaded, onWords]);
+
+  const outline = useMemo(() => (prose ? outlineOf(body) : []), [prose, body]);
+
+  /**
+   * Apply an edit to the prose, keeping everything else true.
+   *
+   * One funnel for every programmatic change — formatting, replace, scene break
+   * — so each of them records an undo step, marks the document dirty, schedules
+   * the same autosave and restores the selection the writer expects. A second
+   * path here is how one of those four gets forgotten.
+   */
+  const applyEdit = useCallback(
+    (edit: Edit) => {
+      const next = head + edit.text;
+      setContent(next);
+      history.current.push({ text: edit.text, start: edit.start, end: edit.end }, "command");
+      if (state !== "conflict") setState("dirty");
+      scheduleSaveRef.current?.(next);
+      // The textarea has not re-rendered yet, so the selection is restored on
+      // the next frame — the ordinary React ordering, made explicit.
+      requestAnimationFrame(() => {
+        const el = area.current;
+        if (el === null) return;
+        el.focus();
+        el.setSelectionRange(edit.start, edit.end);
+        captureSelection();
+      });
+    },
+    // `captureSelection` is hoisted and the save scheduler is held in a ref,
+    // so neither belongs in this dependency list.
+    [head, state],
+  );
 
   /**
    * Track the selection so an AI edit can address exactly that range.
@@ -87,6 +187,8 @@ export function Editor({
     if (el === null) return;
     const { selectionStart: start, selectionEnd: end } = el;
     const shift = hidden.current;
+    setCaret(start);
+    if (path !== null) onCaret?.(path, start);
     setSelection(
       start === end
         ? null
@@ -143,6 +245,8 @@ export function Editor({
     if (timer.current !== null) clearTimeout(timer.current);
     setExternal(null);
     setRecovered(false);
+    setShowFind(false);
+    setSelection(null);
     if (path === null) {
       setContent("");
       setLoaded(false);
@@ -156,15 +260,26 @@ export function Editor({
       .then((text) => {
         if (!active) return;
         const draft = findDraft(root, path);
-        if (draft !== null && draft.content !== (text ?? "")) {
-          setContent(draft.content);
-          setRecovered(true);
-          setState("dirty");
-        } else {
-          setContent(text ?? "");
-          setState("saved");
-        }
+        const recoveredDraft = draft !== null && draft.content !== (text ?? "");
+        const loadedText = recoveredDraft ? draft.content : (text ?? "");
+        setContent(loadedText);
+        setRecovered(recoveredDraft);
+        setState(recoveredDraft ? "dirty" : "saved");
         setLoaded(true);
+        // History belongs to a document: undoing across a file switch would
+        // write one chapter's words into another.
+        const visible = isProsePath(path) ? splitFrontMatter(loadedText).body : loadedText;
+        history.current.reset({ text: visible, start: 0, end: 0 });
+        // Put the writer back where they were, clamped against a file that may
+        // have got shorter since (§28).
+        const place = Math.min(Math.max(0, initialCaret ?? 0), visible.length);
+        requestAnimationFrame(() => {
+          const el = area.current;
+          if (el === null || place === 0) return;
+          el.setSelectionRange(place, place);
+          el.blur();
+          el.focus();
+        });
       })
       .catch((e: unknown) => {
         if (active) setError(e instanceof Error ? e.message : String(e));
@@ -172,18 +287,25 @@ export function Editor({
     return () => {
       active = false;
     };
+    // `initialCaret` is read once per document deliberately: it is where the
+    // writer *was*, not a control that should move the caret while they write.
   }, [repo, path, root]);
 
   /** Debounced autosave. Never runs while a conflict is unresolved. */
-  function scheduleSave(next: string) {
-    if (path === null) return;
-    keepDraft({ root, path, content: next, at: new Date().toISOString() });
-    if (timer.current !== null) clearTimeout(timer.current);
-    if (state === "conflict") return;
-    timer.current = setTimeout(() => {
-      void save({ path, content: next });
-    }, AUTOSAVE_MS);
-  }
+  const scheduleSave = useCallback(
+    (next: string) => {
+      if (path === null) return;
+      keepDraft({ root, path, content: next, at: new Date().toISOString() });
+      if (timer.current !== null) clearTimeout(timer.current);
+      if (state === "conflict") return;
+      timer.current = setTimeout(() => {
+        void save({ path, content: next });
+      }, AUTOSAVE_MS);
+    },
+    [path, root, state, save],
+  );
+  const scheduleSaveRef = useRef(scheduleSave);
+  scheduleSaveRef.current = scheduleSave;
 
   useEffect(
     () => () => {
@@ -192,30 +314,124 @@ export function Editor({
     [],
   );
 
+  /** Move the caret and bring it into view — used by Find and by the outline. */
+  const goTo = useCallback((start: number, end: number) => {
+    const el = area.current;
+    if (el === null) return;
+    el.focus();
+    el.setSelectionRange(start, end);
+    // A textarea will not scroll to a selection on its own. Scrolling by the
+    // proportion of the document is close enough to land the line on screen and
+    // costs nothing to compute.
+    const ratio = el.value.length === 0 ? 0 : start / el.value.length;
+    el.scrollTop = Math.max(0, ratio * el.scrollHeight - el.clientHeight / 2);
+  }, []);
+
+  const runUndo = useCallback(
+    (direction: "undo" | "redo") => {
+      const snapshot = direction === "undo" ? history.current.undo() : history.current.redo();
+      if (snapshot === null) return;
+      setContent(head + snapshot.text);
+      if (state !== "conflict") setState("dirty");
+      scheduleSaveRef.current(head + snapshot.text);
+      requestAnimationFrame(() => {
+        const el = area.current;
+        if (el === null) return;
+        el.focus();
+        el.setSelectionRange(snapshot.start, snapshot.end);
+      });
+    },
+    [head, state],
+  );
+
+  const format = useCallback(
+    (mark: InlineMark) => {
+      const el = area.current;
+      if (el === null) return;
+      applyEdit(toggleInline(el.value, el.selectionStart, el.selectionEnd, mark));
+    },
+    [applyEdit],
+  );
+
+  const block = useCallback(
+    (blockStyle: BlockStyle) => {
+      const el = area.current;
+      if (el === null) return;
+      applyEdit(setBlockStyle(el.value, el.selectionStart, el.selectionEnd, blockStyle));
+    },
+    [applyEdit],
+  );
+
+  const sceneBreak = useCallback(() => {
+    const el = area.current;
+    if (el === null) return;
+    applyEdit(insertSceneBreak(el.value, el.selectionStart));
+  }, [applyEdit]);
+
+  /**
+   * The editor's own keyboard layer.
+   *
+   * Bound to the textarea rather than the window, so the workbench's shortcuts
+   * and the manuscript's cannot fight over the same chord depending on focus.
+   */
+  function onKeyDown(event: ReactKeyboardEvent<HTMLTextAreaElement>) {
+    const chord = event.metaKey || event.ctrlKey;
+    if (!chord) return;
+    const key = event.key.toLowerCase();
+    const shift = event.shiftKey;
+    const alt = event.altKey;
+
+    const run = (fn: () => void) => {
+      event.preventDefault();
+      fn();
+    };
+
+    if (key === "s" && !shift) return run(() => void save());
+    if (key === "b" && !shift && !alt) return run(() => format("bold"));
+    if (key === "i" && !shift && !alt) return run(() => format("italic"));
+    if (key === "x" && shift) return run(() => format("strikethrough"));
+    if (key === "f" && !shift) return run(() => setShowFind(true));
+    if (key === "z" && !shift) return run(() => runUndo("undo"));
+    if ((key === "z" && shift) || (key === "y" && !shift)) return run(() => runUndo("redo"));
+    if (key === "." && shift) return run(() => block("quote"));
+    if (key === "8" && shift) return run(() => block("bullets"));
+    if (key === "7" && shift) return run(() => block("numbers"));
+    // ⌘⏎, not ⌘⇧⏎ — the shifted chord is Focus Mode, and two handlers racing
+    // over one chord is how a scene break lands in a focused window.
+    if (key === "enter" && !shift) return run(sceneBreak);
+    if (alt && ["1", "2", "3", "0"].includes(key)) {
+      const styles: Record<string, BlockStyle> = {
+        "1": "heading1",
+        "2": "heading2",
+        "3": "heading3",
+        "0": "body",
+      };
+      const chosen = styles[key];
+      if (chosen !== undefined) return run(() => block(chosen));
+    }
+  }
+
   if (path === null) {
     return (
       <div className="editor editor--empty">
         <div className="empty">
           <p className="empty__title">Nothing open</p>
           <p className="empty__body">
-            Pick a chapter in Files to start writing, or press <kbd className="kbd">⌘K</kbd> to go
-            anywhere in the project.
+            Pick a chapter in Manuscript to start writing, or press <kbd className="kbd">⌘K</kbd> to
+            go anywhere in the project.
           </p>
         </div>
       </div>
     );
   }
 
-  // Manuscript prose is set as prose. The records that describe it are data,
-  // and are set as data.
-  const prose = path.startsWith("manuscript/");
-  // Front matter is kept and rewritten, never shown. Only prose files hide it:
-  // in a `.json` record the structure *is* the content.
-  const { head, body } = prose ? splitFrontMatter(content) : { head: "", body: content };
-  hidden.current = head.length;
+  const title = documentTitle(path, titleOf(head));
 
   return (
-    <div className="editor">
+    <div
+      className={`editor${focus ? " editor--focus" : ""}`}
+      style={styleVariables(style) as CSSProperties}
+    >
       <div className="editor__bar">
         {/*
           What you are writing, not where it is stored. The full path is still
@@ -223,21 +439,58 @@ export function Editor({
           implementation detail of the promise that the file is plain.
         */}
         <span className="editor__where" title={path}>
-          <span className="editor__name">{titleOf(head) ?? fileLabel(path)}</span>
-          <span className="editor__folder">{folderOf(path)}</span>
+          <span className="editor__name">{title}</span>
+          {!focus && <span className="editor__folder">{areaName(path)}</span>}
         </span>
         <span className="editor__spacer" />
+        {/* In Focus Mode "Saved" is noise; anything else is still worth saying. */}
         <span className={`editor__state editor__state--${state}`} role="status">
-          {LABEL[state]}
+          {focus && state === "saved" ? "" : LABEL[state]}
         </span>
-        <button
-          className="btn btn--ghost btn--small"
-          onClick={() => void save()}
-          disabled={state === "saving"}
-        >
-          Save now
-        </button>
+        {!focus && prose && outline.length > 0 && (
+          <button
+            className={`btn btn--ghost btn--small${showOutline ? " btn--on" : ""}`}
+            aria-expanded={showOutline}
+            onClick={() => setShowOutline((on) => !on)}
+            title="This document's headings and scene breaks"
+          >
+            Sections
+          </button>
+        )}
+        {!focus && prose && (
+          <button
+            className={`btn btn--ghost btn--small${reading ? " btn--on" : ""}`}
+            aria-pressed={reading}
+            onClick={() => setReading((on) => !on)}
+            title="Read the chapter as a formatted page"
+          >
+            {reading ? "Write" : "Read"}
+          </button>
+        )}
+        {onToggleFocus !== undefined && (
+          <button
+            className="btn btn--ghost btn--small"
+            onClick={onToggleFocus}
+            title={focus ? "Leave Focus — Esc" : "Focus Mode — ⌘⇧Return"}
+          >
+            {focus ? "Leave Focus" : "Focus"}
+          </button>
+        )}
       </div>
+
+      {showOutline && outline.length > 0 && (
+        <nav className="editor__sections" aria-label="Sections of this document">
+          {outline.map((item) => (
+            <button
+              key={`${item.offset}-${item.label}`}
+              className={`editor__section editor__section--${item.kind} editor__section--l${item.level}`}
+              onClick={() => goTo(item.offset, item.offset)}
+            >
+              {item.kind === "scene-break" ? "· · ·" : item.label}
+            </button>
+          ))}
+        </nav>
+      )}
 
       {recovered && (
         <p className="editor__notice" role="status">
@@ -250,7 +503,7 @@ export function Editor({
         <section className="editor__conflict" role="alert">
           <p className="editor__conflict-title">This file changed outside Manu</p>
           <p className="editor__conflict-body">
-            Another application modified <strong>{path}</strong> after Manu loaded it. Your unsaved
+            Another application modified <strong>{title}</strong> after Manu loaded it. Your unsaved
             text is still here and nothing has been overwritten.
           </p>
           {external !== null && (
@@ -304,87 +557,81 @@ export function Editor({
         </p>
       )}
 
-      {onRunEdit !== undefined && (
-        <AiEditBar
+      {showFind && (
+        <FindBar
+          text={body}
+          caret={caret}
+          onGo={(match) => goTo(match.start, match.end)}
+          onReplace={(match, replacement) => applyEdit(replaceMatch(body, match, replacement))}
+          onReplaceAll={(query, replacement, options: FindOptions) => {
+            const result = replaceAllIn(body, query, replacement, options);
+            if (result.count > 0) applyEdit({ text: result.text, start: 0, end: 0 });
+          }}
+          onClose={() => {
+            setShowFind(false);
+            area.current?.focus();
+          }}
+        />
+      )}
+
+      {selection !== null && selection.text.trim() !== "" && !reading && (
+        <SelectionBar
           selection={selection}
           path={path}
           sceneId={sceneId}
-          busy={aiBusy}
+          aiBusy={aiBusy}
           dirty={dirty}
-          onRun={onRunEdit}
+          onFormat={format}
+          onBlock={block}
+          onRunEdit={onRunEdit}
         />
       )}
-      <textarea
-        ref={area}
-        className={`editor__area${prose ? " editor__area--prose" : " editor__area--data"}`}
-        aria-label={path}
-        value={body}
-        spellCheck={prose}
-        disabled={!loaded}
-        onSelect={captureSelection}
-        onBlur={captureSelection}
-        onChange={(e) => {
-          const next = head + e.target.value;
-          setContent(next);
-          if (state !== "conflict") setState("dirty");
-          setSelection(null);
-          scheduleSave(next);
-        }}
-        onKeyDown={(e) => {
-          if ((e.metaKey || e.ctrlKey) && e.key === "s") {
-            e.preventDefault();
-            void save();
-          }
-        }}
-      />
+
+      {reading ? (
+        <div className="editor__reading">
+          <ManuscriptPreview text={body} />
+        </div>
+      ) : (
+        <textarea
+          ref={area}
+          className={`editor__area${prose ? " editor__area--prose" : " editor__area--data"}`}
+          aria-label={title}
+          value={body}
+          spellCheck={prose}
+          disabled={!loaded}
+          onSelect={captureSelection}
+          onBlur={captureSelection}
+          onChange={(e) => {
+            const next = head + e.target.value;
+            setContent(next);
+            history.current.push({
+              text: e.target.value,
+              start: e.target.selectionStart,
+              end: e.target.selectionEnd,
+            });
+            if (state !== "conflict") setState("dirty");
+            setSelection(null);
+            scheduleSave(next);
+          }}
+          onKeyDown={onKeyDown}
+        />
+      )}
+
+      {prose && !focus && (
+        <div className="editor__foot">
+          <span className="editor__words">
+            {words.toLocaleString()} {words === 1 ? "word" : "words"}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
 
-/**
- * Split a record file into its front matter and its prose.
- *
- * A chapter file carries a YAML block that keeps the record and the words in
- * one portable document — the thing that makes "plain files you own" true. A
- * writer should still not have to look at it: the audit's screenshot opens on
- * `---`, `id:`, `title:`, which is a manuscript that looks like source code.
- *
- * The head is preserved byte for byte and re-attached on every save, so what is
- * hidden is only hidden from the eye. If the block is malformed or absent, the
- * whole file is prose and nothing is hidden — guessing would be worse.
+/*
+ * `splitFrontMatter` and `titleOf` live in `lib/front-matter.ts` and are
+ * re-exported here, because the tests that guard the hidden-offset behaviour
+ * were written against this module and the panels need the same split to count
+ * words. One implementation, two consumers.
  */
-export function splitFrontMatter(text: string): { head: string; body: string } {
-  if (!text.startsWith("---")) return { head: "", body: text };
-  const end = text.indexOf("\n---", 3);
-  if (end === -1) return { head: "", body: text };
-  // Include the closing fence and the blank line that conventionally follows.
-  const after = text.indexOf("\n", end + 1);
-  if (after === -1) return { head: "", body: text };
-  let cut = after + 1;
-  if (text[cut] === "\n") cut += 1;
-  return { head: text.slice(0, cut), body: text.slice(cut) };
-}
-
-/**
- * The chapter's own title, from its front matter.
- *
- * `CHAPTER_0001` is the file. "The Cellar Door" is what the writer called it,
- * and it is what the bar should say.
- */
-export function titleOf(head: string): string | null {
-  const match = /^title:[ \t]*(.+)$/m.exec(head);
-  const title = match?.[1]?.trim() ?? "";
-  return title === "" ? null : title.replace(/^["']|["']$/g, "");
-}
-
-/** The file's own name, without its extension — a chapter reads as a chapter. */
-function fileLabel(path: string): string {
-  const name = path.slice(path.lastIndexOf("/") + 1);
-  return name.replace(/\.(md|json|txt|ya?ml)$/i, "");
-}
-
-/** Where it sits, said quietly beside the name. */
-function folderOf(path: string): string {
-  const cut = path.lastIndexOf("/");
-  return cut === -1 ? "" : path.slice(0, cut);
-}
+export { splitFrontMatter, titleOf };

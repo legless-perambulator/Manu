@@ -1,25 +1,40 @@
 /**
- * The workspace navigation model.
+ * The workbench's panel registry.
  *
- * Fifteen panels in one flat strip is a list of features, not a workspace. They
- * are grouped here by the question a writer is asking, and this one registry
- * feeds the sidebar, the command palette and the keyboard shortcuts — so a
- * panel can never appear in one and be missing from another.
+ * One list feeds the dock tabs, the command palette and the keyboard layer, so
+ * a panel can never appear in one and be missing from another. Two rules hold
+ * here and are asserted in the tests:
+ *
+ * 1. **A panel is a writer-facing concept, never a backing file.** There is no
+ *    `relationships.json` panel; there is a Relationships view. The only place
+ *    the filesystem appears is the deliberately secondary Project files panel.
+ * 2. **A panel label is prose.** No extensions, no IDs, no schema words. The
+ *    naming layer (`lib/naming.ts`) defines what that means and the tests apply
+ *    it to every label in this file.
+ *
+ * `side` is the dock a panel prefers when it is opened without being told
+ * where to go. It is a default, not a constraint: the writer can move any panel
+ * to either dock (docs/UX.md).
  */
 
 export const LEFT_PANELS = [
-  "files",
+  "manuscript",
+  "outline",
+  "notes",
+  "research",
+  "characters",
   "entities",
-  "search",
-  "history",
-  "versions",
-  "voice",
   "state",
   "knowledge",
   "relations",
   "objects",
   "threads",
   "timeline",
+  "world",
+  "inspector",
+  "agent",
+  "context",
+  "search",
   "build",
   "tests",
   "debug",
@@ -28,15 +43,20 @@ export const LEFT_PANELS = [
   "readers",
   "behaviour",
   "mystery",
-  "world",
-  "modules",
+  "voice",
+  "history",
+  "versions",
   "causality",
   "refactor",
+  "modules",
+  "files",
 ] as const;
 
 export type LeftPanelId = (typeof LEFT_PANELS)[number];
 
-export type PanelGroupId = "project" | "story" | "verify" | "change";
+export type PanelGroupId = "write" | "story" | "assist" | "check" | "change" | "advanced";
+
+export type DockSide = "left" | "right";
 
 export interface PanelDefinition {
   readonly id: LeftPanelId;
@@ -44,13 +64,14 @@ export interface PanelDefinition {
   readonly label: string;
   /** What the panel answers, shown in the command palette. */
   readonly purpose: string;
+  /** The dock this panel opens in when nothing says otherwise. */
+  readonly side: DockSide;
   /**
    * The genre module this panel arrives with, when it is not a core panel.
    *
-   * Hidden entirely while that module is off — from the sidebar, the command
-   * palette and the shortcuts alike, because they all read this one registry.
-   * That is the whole of "the workspace adapts": a writer who never enables
-   * the Mystery module never sees a clue board (docs/GENRE_MODULES.md).
+   * Hidden entirely while that module is off — from the docks, the command
+   * palette and the shortcuts alike, because they all read this one registry
+   * (docs/GENRE_MODULES.md).
    */
   readonly module?: string;
   /** Shown only when at least one module declaring record kinds is on. */
@@ -64,148 +85,240 @@ export interface PanelGroup {
 }
 
 export const PANEL_GROUPS: readonly PanelGroup[] = [
-  { id: "project", label: "Project", purpose: "The files, the records and what has changed" },
-  { id: "story", label: "Story", purpose: "What is true, who knows it and when it happens" },
-  { id: "verify", label: "Verify", purpose: "What the project can check for itself" },
-  { id: "change", label: "Change", purpose: "What a change would reach, before making it" },
+  { id: "write", label: "Write", purpose: "The book, its shape and your notes" },
+  { id: "story", label: "Story", purpose: "Who is in it, what is true and when" },
+  { id: "assist", label: "Assist", purpose: "Manu's help, and exactly what it was given" },
+  { id: "check", label: "Check", purpose: "What the project can verify for itself" },
+  { id: "change", label: "Change", purpose: "What has changed, and what a change would reach" },
+  { id: "advanced", label: "Advanced", purpose: "The project as it is stored on disk" },
 ];
 
 export const PANELS: readonly PanelDefinition[] = [
-  { id: "files", group: "project", label: "Files", purpose: "Browse the manuscript and records" },
+  {
+    id: "manuscript",
+    group: "write",
+    label: "Manuscript",
+    purpose: "Your chapters, in order",
+    side: "left",
+  },
+  {
+    id: "outline",
+    group: "write",
+    label: "Outline",
+    purpose: "The shape of the book, chapter by scene",
+    side: "left",
+  },
+  {
+    id: "notes",
+    group: "write",
+    label: "Notes",
+    purpose: "Anything you wrote to yourself",
+    side: "left",
+  },
+  {
+    id: "research",
+    group: "write",
+    label: "Research",
+    purpose: "What you looked up while writing",
+    side: "left",
+  },
+  {
+    id: "characters",
+    group: "story",
+    label: "Characters",
+    purpose: "Who they are, what they want and where they appear",
+    side: "right",
+  },
   {
     id: "entities",
-    group: "project",
-    label: "Entities",
-    purpose: "Characters, locations, objects, threads and facts",
-  },
-  { id: "search", group: "project", label: "Search", purpose: "Find anything in the project" },
-  {
-    id: "history",
-    group: "project",
-    label: "History",
-    purpose: "Every change, with diffs and checkpoints",
-  },
-  {
-    id: "versions",
-    group: "project",
-    label: "Versions",
-    purpose: "Alternative versions of the whole story",
-  },
-  {
-    id: "voice",
-    group: "project",
-    label: "Voice",
-    purpose: "What Manu thinks your style is, and your rules for it",
+    group: "story",
+    label: "Story bible",
+    purpose: "Everything the project records, in one list",
+    side: "left",
   },
   {
     id: "state",
     group: "story",
     label: "State",
     purpose: "Where everyone was, at any point in the book",
+    side: "left",
   },
   {
     id: "knowledge",
     group: "story",
     label: "Knowledge",
     purpose: "Who knows what, and how they learned it",
+    side: "left",
   },
   {
     id: "relations",
     group: "story",
-    label: "Relations",
+    label: "Relationships",
     purpose: "How the characters stand to each other over time",
+    side: "left",
   },
   {
     id: "objects",
     group: "story",
     label: "Objects",
     purpose: "Where things are and who is holding them",
+    side: "left",
   },
   {
     id: "threads",
     group: "story",
-    label: "Threads",
-    purpose: "Plot threads, setups and the payoffs they promise",
+    label: "Plot threads",
+    purpose: "Threads, setups and the payoffs they promise",
+    side: "left",
   },
   {
     id: "timeline",
     group: "story",
     label: "Timeline",
-    purpose: "Story chronology against manuscript order",
-  },
-  {
-    id: "build",
-    group: "verify",
-    label: "Build",
-    purpose: "Run every deterministic check and read the problems",
-  },
-  {
-    id: "tests",
-    group: "verify",
-    label: "Tests",
-    purpose: "The assertions you wrote, re-asked on every build",
-  },
-  {
-    id: "debug",
-    group: "verify",
-    label: "Debug",
-    purpose: "Investigate why something is not landing",
-  },
-  {
-    id: "skills",
-    group: "verify",
-    label: "Skills",
-    purpose: "Repeatable passes over the book, step by step",
-  },
-  {
-    id: "workflows",
-    group: "verify",
-    label: "Workflows",
-    purpose: "Specialists working together, one approved step at a time",
-  },
-  {
-    id: "readers",
-    group: "verify",
-    label: "Readers",
-    purpose: "How a reader experiences the book, chapter by chapter",
-  },
-  {
-    id: "behaviour",
-    group: "verify",
-    label: "Behaviour",
-    purpose: "Whether a character would really do this, here",
-  },
-  {
-    id: "mystery",
-    group: "verify",
-    label: "Mystery",
-    purpose: "Clues, deductions, and whether the reader could have got there",
-    module: "mystery",
+    purpose: "Story chronology against the order you tell it in",
+    side: "left",
   },
   {
     id: "world",
     group: "story",
     label: "World",
     purpose: "Everything the enabled genre modules record",
+    side: "left",
     needsExtensionKinds: true,
   },
   {
-    id: "modules",
-    group: "project",
-    label: "Modules",
-    purpose: "Which genre modules this project uses",
+    id: "inspector",
+    group: "assist",
+    label: "Details",
+    purpose: "The record behind whatever you have selected",
+    side: "right",
+  },
+  {
+    id: "agent",
+    group: "assist",
+    label: "Manu Agent",
+    purpose: "Put Manu to work on the project",
+    side: "right",
+  },
+  {
+    id: "context",
+    group: "assist",
+    label: "Context",
+    purpose: "Exactly what a model would be given",
+    side: "right",
+  },
+  {
+    id: "search",
+    group: "assist",
+    label: "Find in project",
+    purpose: "Search every chapter, note and record",
+    side: "left",
+  },
+  {
+    id: "build",
+    group: "check",
+    label: "Story Build",
+    purpose: "Run every deterministic check and read the problems",
+    side: "left",
+  },
+  {
+    id: "tests",
+    group: "check",
+    label: "Story tests",
+    purpose: "The assertions you wrote, re-asked on every build",
+    side: "left",
+  },
+  {
+    id: "debug",
+    group: "check",
+    label: "Diagnose",
+    purpose: "Investigate why something is not landing",
+    side: "left",
+  },
+  {
+    id: "skills",
+    group: "check",
+    label: "Passes",
+    purpose: "Repeatable passes over the book, step by step",
+    side: "left",
+  },
+  {
+    id: "workflows",
+    group: "check",
+    label: "Workflows",
+    purpose: "Specialists working together, one approved step at a time",
+    side: "left",
+  },
+  {
+    id: "readers",
+    group: "check",
+    label: "Readers",
+    purpose: "How a reader experiences the book, chapter by chapter",
+    side: "left",
+  },
+  {
+    id: "behaviour",
+    group: "check",
+    label: "Behaviour",
+    purpose: "Whether a character would really do this, here",
+    side: "left",
+  },
+  {
+    id: "mystery",
+    group: "check",
+    label: "Mystery",
+    purpose: "Clues, deductions, and whether the reader could have got there",
+    side: "left",
+    module: "mystery",
+  },
+  {
+    id: "voice",
+    group: "check",
+    label: "Voice",
+    purpose: "What Manu thinks your style is, and your rules for it",
+    side: "left",
+  },
+  {
+    id: "history",
+    group: "change",
+    label: "Changes",
+    purpose: "Every change, with diffs and checkpoints",
+    side: "right",
+  },
+  {
+    id: "versions",
+    group: "change",
+    label: "Versions",
+    purpose: "Alternative versions of the whole story",
+    side: "left",
   },
   {
     id: "causality",
     group: "change",
-    label: "Causality",
+    label: "Consequences",
     purpose: "What depends on what, and the blast radius",
+    side: "left",
   },
   {
     id: "refactor",
     group: "change",
-    label: "Refactor",
+    label: "Restructure",
     purpose: "Analyse, plan and validate a structural change",
+    side: "left",
+  },
+  {
+    id: "modules",
+    group: "advanced",
+    label: "Modules",
+    purpose: "Which genre modules this project uses",
+    side: "left",
+  },
+  {
+    id: "files",
+    group: "advanced",
+    label: "Project files",
+    purpose: "The real folder on disk, for when you want it",
+    side: "left",
   },
 ];
 
@@ -218,12 +331,16 @@ export function panelById(id: LeftPanelId): PanelDefinition {
   return found;
 }
 
+export function isPanelId(value: unknown): value is LeftPanelId {
+  return typeof value === "string" && BY_ID.has(value as LeftPanelId);
+}
+
 /**
  * The panels a project can currently see.
  *
  * One filter, applied everywhere. The alternative — each consumer deciding for
  * itself — is how a panel ends up reachable by keyboard shortcut after being
- * hidden from the sidebar.
+ * hidden from the docks.
  */
 export function visiblePanels(
   enabled: readonly string[],
@@ -241,15 +358,4 @@ export function panelsInGroup(
   visible: readonly PanelDefinition[] = PANELS,
 ): readonly PanelDefinition[] {
   return visible.filter((panel) => panel.group === group);
-}
-
-/** The panel each group opens on when it has not been visited yet. */
-export function firstPanelOfGroup(
-  group: PanelGroupId,
-  visible: readonly PanelDefinition[] = PANELS,
-): LeftPanelId {
-  const first = panelsInGroup(group, visible)[0];
-  /* istanbul ignore next — every group has at least one core panel. */
-  if (first === undefined) throw new Error(`Empty panel group: ${group}`);
-  return first.id;
 }

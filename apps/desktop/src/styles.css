@@ -110,23 +110,14 @@ body {
   white-space: nowrap;
 }
 
+/* The workbench is a row: dock, splitter, manuscript, splitter, dock. Dock
+   widths come from the layout model as percentages, so an arrangement made on
+   one display is still an arrangement on another (lib/workbench.ts). */
 .workbench {
-  display: grid;
-  grid-template-columns: 240px minmax(0, 1fr) 280px;
+  display: flex;
   flex: 1;
   min-height: 0;
-}
-/* Either side column can be put away, and the manuscript takes the room. The
-   minimums are the point: no arrangement of panels may leave an editor too
-   narrow to write in (docs/UX.md). */
-.workbench--no-explorer {
-  grid-template-columns: minmax(0, 1fr) 280px;
-}
-.workbench--no-inspector {
-  grid-template-columns: 240px minmax(0, 1fr);
-}
-.workbench--one {
-  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
 }
 
 .panel {
@@ -142,18 +133,8 @@ body {
   margin: 0 0 8px;
 }
 
-.panel--explorer {
-  background: var(--manu-surface);
-  border-right: 1px solid var(--manu-border);
-}
-
 .panel--editor {
   background: var(--manu-bg);
-}
-
-.panel--inspector {
-  background: var(--manu-surface);
-  border-left: 1px solid var(--manu-border);
 }
 
 .statusbar {
@@ -167,28 +148,11 @@ body {
   color: var(--manu-ink-muted);
 }
 
-.statusbar__id {
-  font-family: var(--manu-font-mono);
-}
-
 .statusbar__activity {
   color: var(--manu-accent-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.statusbar__theme select {
-  font: inherit;
-  color: var(--manu-ink-muted);
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--manu-radius-sm);
-  padding: 1px 4px;
-}
-
-.statusbar__theme select:hover {
-  border-color: var(--manu-border);
 }
 
 .placeholder {
@@ -231,20 +195,6 @@ code {
 .btn--small {
   padding: 4px 8px;
   font-size: 12px;
-}
-
-/* ── Start screen ────────────────────────────────────────── */
-
-/* ── Workbench (two column) ──────────────────────────────── */
-.workbench--two {
-  grid-template-columns: 260px 1fr;
-}
-
-/* ── Explorer ────────────────────────────────────────────── */
-.panel--explorer {
-  padding: 0;
-  display: flex;
-  flex-direction: column;
 }
 .explorer {
   display: flex;
@@ -355,9 +305,6 @@ code {
   margin: 0;
   font-size: 13px;
 }
-.editor__dirty {
-  color: var(--manu-accent-text);
-}
 .editor__area {
   flex: 1;
   resize: none;
@@ -381,10 +328,12 @@ code {
      it, four hours a day, is the whole accent budget well spent. */
   caret-color: var(--manu-accent);
 }
-/* No scrollbar gutter shift and no focus ring around the page itself: the
-   manuscript is not a form field. */
+/* No focus ring around the page itself: the manuscript is not a form field,
+   and the application's focus treatment is a box-shadow, so clearing `outline`
+   alone leaves a red box drawn around somebody's novel when they tab into it. */
 .editor__area:focus-visible {
   outline: none;
+  box-shadow: none;
 }
 .editor__area--data {
   padding: 16px;
@@ -409,44 +358,6 @@ code {
   color: var(--manu-ink-muted);
   font-size: var(--manu-text-base);
   line-height: 1.6;
-}
-
-/* ── Three-column workbench ──────────────────────────────── */
-.workbench--three {
-  grid-template-columns: 260px 1fr 320px;
-}
-.panel--inspector {
-  background: var(--manu-surface);
-  border-left: 1px solid var(--manu-border);
-  padding: 0;
-  overflow: auto;
-}
-
-/* ── Panel groups and tabs ───────────────────────────────── */
-.groupbar {
-  display: flex;
-  background: var(--manu-surface-sunken);
-  border-bottom: 1px solid var(--manu-border);
-}
-.group {
-  flex: 1;
-  background: none;
-  border: none;
-  border-bottom: 1px solid transparent;
-  color: var(--manu-ink-subtle);
-  font: inherit;
-  font-size: var(--manu-text-xs);
-  text-transform: uppercase;
-  letter-spacing: var(--manu-tracking-label);
-  padding: 7px 4px;
-  cursor: pointer;
-}
-.group:hover {
-  color: var(--manu-ink);
-}
-.group--active {
-  color: var(--manu-ink);
-  background: var(--manu-surface);
 }
 
 .tabbar {
@@ -1255,42 +1166,6 @@ code {
   max-height: 60vh;
   overflow: auto;
 }
-
-/* ── AI edit bar & proposal review ───────────────────────── */
-.aibar {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--manu-border);
-  background: var(--manu-surface-raised);
-}
-.aibar--hint {
-  font-size: 12px;
-  color: var(--manu-ink-muted);
-}
-.aibar__row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-}
-.aibar__count {
-  font-size: 11px;
-  color: var(--manu-ink-muted);
-  flex: none;
-}
-.aibar__note {
-  font: inherit;
-  font-size: 12px;
-  flex: 1;
-  min-width: 160px;
-  background: var(--manu-bg);
-  color: var(--manu-ink);
-  border: 1px solid var(--manu-border);
-  border-radius: 6px;
-  padding: 4px 8px;
-}
 .review__provenance {
   display: flex;
   flex-direction: column;
@@ -1914,60 +1789,25 @@ code {
 /* The manuscript is what survives every narrowing. The side columns give up
    width first, then fold away — the inspector before the sidebar, because the
    sidebar is how a writer moves around. */
-@media (width <= 1180px) {
-  .workbench--three {
-    grid-template-columns: 220px minmax(0, 1fr) 264px;
+@media (width <= 1100px) {
+  /* Narrow windows give the docks up before they give up the manuscript: the
+     right dock folds first, then the left, and the page keeps the middle
+     throughout (docs/UX.md). */
+  .dock--right {
+    display: none;
   }
-  .workbench--no-inspector {
-    grid-template-columns: 220px minmax(0, 1fr);
-  }
-}
-@media (width <= 980px) {
-  .workbench--three {
-    grid-template-columns: 220px minmax(0, 1fr);
-  }
-  .workbench--three > .panel--inspector {
+  .splitter--right {
     display: none;
   }
 }
-@media (width <= 760px) {
-  .workbench,
-  .workbench--one,
-  .workbench--two,
-  .workbench--three,
-  .workbench--no-explorer,
-  .workbench--no-inspector {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .workbench > .panel--explorer {
+@media (width <= 820px) {
+  .dock--left,
+  .splitter--left {
     display: none;
   }
   .titlebar__project {
     display: none;
   }
-}
-
-/* ── Version selector ────────────────────────────────────── */
-/* The current version is always visible: a writer must never be unsure which
-   version of their book they are typing into. */
-.titlebar__version {
-  font: inherit;
-  font-size: var(--manu-text-sm);
-  color: var(--manu-ink-muted);
-  background: var(--manu-surface-raised);
-  border: 1px solid var(--manu-border);
-  border-radius: var(--manu-radius-pill);
-  padding: 2px 10px;
-  cursor: pointer;
-  flex: none;
-  max-width: 200px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.titlebar__version:hover {
-  color: var(--manu-ink);
-  border-color: var(--manu-accent);
 }
 
 /* ── Specialist picker ───────────────────────────────────── */
@@ -2749,4 +2589,818 @@ code {
   .start__columns {
     grid-template-columns: 1fr;
   }
+}
+
+/* ============================================================================
+   The modular workbench (Phase 30.6)
+   ----------------------------------------------------------------------------
+   Two docks either side of the manuscript. Each dock is a stack of tabs with
+   one active; either can be closed; both disappear in Focus Mode. The rules
+   about *which* panels may be where live in lib/workbench.ts — this file only
+   draws what that model decided.
+   ========================================================================== */
+
+.dock {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  flex: 0 0 auto;
+  background: var(--manu-surface);
+  overflow: hidden;
+}
+.dock--left {
+  border-right: 1px solid var(--manu-border);
+}
+.dock--right {
+  border-left: 1px solid var(--manu-border);
+}
+
+.dock__tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  padding: 0 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  background: var(--manu-surface-sunken);
+  border-bottom: 1px solid var(--manu-border);
+}
+.dock__tabs::-webkit-scrollbar {
+  display: none;
+}
+.dock__tabwrap {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+.dock__tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--manu-ink-muted);
+  font: inherit;
+  font-size: var(--manu-text-sm);
+  padding: 8px 8px 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.dock__tab:hover {
+  color: var(--manu-ink);
+}
+/* The current tab is "the thing you are on", which is exactly what the accent
+   is for — a line under it, not a filled block (docs/BRAND.md). */
+.dock__tab--active {
+  color: var(--manu-ink);
+  border-bottom-color: var(--manu-accent);
+}
+/* Move and close appear only on the active tab: five icons across a stack of
+   four tabs is a toolbar nobody asked for (§25). */
+.dock__act {
+  background: none;
+  border: none;
+  color: var(--manu-ink-subtle);
+  font-size: var(--manu-text-xs);
+  line-height: 1;
+  padding: 4px 3px;
+  cursor: pointer;
+  border-radius: var(--manu-radius-sm);
+}
+.dock__act:hover {
+  color: var(--manu-ink);
+  background: var(--manu-surface-raised);
+}
+.dock__body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* A splitter is four pixels of hit area and one pixel of line, because a
+   writer should be able to grab it without hunting for it. */
+.splitter {
+  flex: 0 0 5px;
+  cursor: col-resize;
+  background: transparent;
+  position: relative;
+}
+.splitter::after {
+  content: "";
+  position: absolute;
+  inset: 0 2px;
+  background: transparent;
+}
+.splitter:hover::after,
+.splitter:focus-visible::after {
+  background: var(--manu-accent);
+}
+.splitter:focus-visible {
+  outline: none;
+}
+
+.panel--editor {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* ── Focus Mode ──────────────────────────────────────────── */
+/* Everything that is not the page, gone. The one control that remains is the
+   way back out, and it is in the same place it was before (§5). */
+.app--focus .titlebar {
+  opacity: 0.25;
+  transition: opacity var(--manu-duration-base) var(--manu-ease);
+}
+.app--focus .titlebar:hover,
+.app--focus .titlebar:focus-within {
+  opacity: 1;
+}
+.editor--focus .editor__bar {
+  border-bottom-color: transparent;
+  opacity: 0.3;
+  transition: opacity var(--manu-duration-base) var(--manu-ease);
+}
+.editor--focus .editor__bar:hover,
+.editor--focus .editor__bar:focus-within {
+  opacity: 1;
+}
+
+/* ── The manuscript surface ──────────────────────────────── */
+/* Typography comes from the writer's own preferences, applied as custom
+   properties by the editor (lib/typography.ts). The tokens are the fallback
+   for anything rendered outside that. */
+.editor {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+.editor__area--prose {
+  width: min(var(--manuscript-measure, 68ch), 100%);
+  font-family: var(--manuscript-face, var(--manu-font-manuscript));
+  font-size: var(--manuscript-size, var(--manu-text-prose));
+  line-height: var(--manuscript-leading, var(--manu-leading-prose));
+}
+
+.editor__foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 16px;
+  font-size: var(--manu-text-xs);
+  color: var(--manu-ink-subtle);
+  border-top: 1px solid var(--manu-border);
+}
+
+/* ── This document's sections ────────────────────────────── */
+.editor__sections {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--manu-border);
+  background: var(--manu-surface-sunken);
+}
+.editor__section {
+  background: none;
+  border: 1px solid var(--manu-border);
+  border-radius: var(--manu-radius-pill);
+  color: var(--manu-ink-muted);
+  font: inherit;
+  font-size: var(--manu-text-xs);
+  padding: 2px 10px;
+  cursor: pointer;
+  max-width: 28ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.editor__section:hover {
+  color: var(--manu-ink);
+  border-color: var(--manu-border-strong);
+}
+.editor__section--l1 {
+  color: var(--manu-ink);
+}
+.editor__section--scene-break {
+  letter-spacing: 0.2em;
+  color: var(--manu-ink-subtle);
+}
+
+/* ── Selection bar ───────────────────────────────────────── */
+/* In the chrome, never over the prose. A popover that covers the sentence you
+   are working on is how an AI writing tool makes itself unusable (§20). */
+.selbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--manu-border);
+  background: var(--manu-surface);
+  font-size: var(--manu-text-sm);
+}
+.selbar__count {
+  color: var(--manu-ink-subtle);
+  font-size: var(--manu-text-xs);
+}
+.selbar__group {
+  display: flex;
+  gap: 2px;
+}
+.selbar__btn {
+  min-width: 26px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--manu-radius-sm);
+  color: var(--manu-ink-muted);
+  font: inherit;
+  font-size: var(--manu-text-base);
+  padding: 2px 6px;
+  cursor: pointer;
+}
+.selbar__btn:hover {
+  color: var(--manu-ink);
+  border-color: var(--manu-border);
+}
+.selbar__btn--bold {
+  font-weight: 700;
+}
+.selbar__btn--italic {
+  font-style: italic;
+  font-family: var(--manu-font-manuscript);
+}
+.selbar__btn--strike {
+  text-decoration: line-through;
+}
+.selbar__spacer {
+  flex: 1;
+}
+.selbar__ai {
+  flex: 1 0 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 4px;
+}
+.selbar__note {
+  width: 100%;
+}
+.selbar__directives {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* ── Find and replace ────────────────────────────────────── */
+.find {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--manu-border);
+  background: var(--manu-surface);
+}
+.find__row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.find__row--options {
+  gap: 14px;
+  font-size: var(--manu-text-xs);
+  color: var(--manu-ink-muted);
+}
+.find__field {
+  flex: 1;
+  min-width: 0;
+}
+.find__count {
+  font-size: var(--manu-text-xs);
+  color: var(--manu-ink-subtle);
+  min-width: 8ch;
+  text-align: right;
+}
+.find__option {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+}
+
+/* ── The chapter as a page ───────────────────────────────── */
+.editor__reading {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.preview {
+  width: min(var(--manuscript-measure, 68ch), 100%);
+  margin: 0 auto;
+  padding: 40px 24px 40vh;
+  font-family: var(--manuscript-face, var(--manu-font-manuscript));
+  font-size: var(--manuscript-size, var(--manu-text-prose));
+  line-height: var(--manuscript-leading, var(--manu-leading-prose));
+  color: var(--manu-ink);
+}
+.preview__p {
+  margin: 0 0 var(--manuscript-paragraph, 0.9em);
+}
+.preview__h1,
+.preview__h2,
+.preview__h3 {
+  margin: 1.6em 0 0.6em;
+  line-height: 1.25;
+  font-weight: 600;
+}
+.preview__h1 {
+  font-size: 1.6em;
+}
+.preview__h2 {
+  font-size: 1.3em;
+}
+.preview__h3 {
+  font-size: 1.1em;
+}
+.preview__quote {
+  margin: 0 0 var(--manuscript-paragraph, 0.9em);
+  padding-left: 1.2em;
+  border-left: 2px solid var(--manu-border-strong);
+  color: var(--manu-ink-muted);
+}
+.preview__list {
+  margin: 0 0 var(--manuscript-paragraph, 0.9em);
+  padding-left: 1.4em;
+}
+/* A scene break is a typographic mark, not a horizontal rule across the page. */
+.preview__break {
+  border: none;
+  margin: 2em 0;
+  text-align: center;
+}
+.preview__break::before {
+  content: "* * *";
+  color: var(--manu-ink-subtle);
+  letter-spacing: 0.4em;
+}
+.preview__code {
+  font-family: var(--manu-font-mono);
+  font-size: 0.9em;
+}
+.preview__empty {
+  padding: 40px 24px;
+  color: var(--manu-ink-subtle);
+  text-align: center;
+}
+
+/* ── Manuscript and documents ────────────────────────────── */
+.library {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+.library__list {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  overflow: auto;
+  flex: 1;
+}
+.library__row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 10px;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: var(--manu-radius-sm);
+  color: var(--manu-ink);
+  font: inherit;
+  padding: 7px 9px;
+  cursor: pointer;
+}
+.library__row:hover {
+  background: var(--manu-surface-raised);
+}
+.library__row--active {
+  background: var(--manu-accent-wash);
+}
+.library__number {
+  grid-column: 1 / -1;
+  font-size: var(--manu-text-xs);
+  letter-spacing: var(--manu-tracking-label);
+  text-transform: uppercase;
+  color: var(--manu-ink-subtle);
+}
+.library__title {
+  font-size: var(--manu-text-md);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.library__meta {
+  font-size: var(--manu-text-xs);
+  color: var(--manu-ink-subtle);
+  align-self: end;
+}
+.library__foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-top: 1px solid var(--manu-border);
+  font-size: var(--manu-text-xs);
+  color: var(--manu-ink-subtle);
+}
+.library__total {
+  flex: 1;
+}
+.library__name {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── Outline ─────────────────────────────────────────────── */
+.outline {
+  padding: 6px;
+  overflow: auto;
+  flex: 1;
+}
+.outline__chapter {
+  margin-bottom: 10px;
+}
+.outline__head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.outline__title {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: var(--manu-radius-sm);
+  color: var(--manu-ink);
+  font: inherit;
+  font-size: var(--manu-text-md);
+  padding: 5px 8px;
+  cursor: pointer;
+}
+.outline__title:hover {
+  background: var(--manu-surface-raised);
+}
+.outline__title--active {
+  background: var(--manu-accent-wash);
+}
+.outline__title--plain {
+  color: var(--manu-ink-subtle);
+  cursor: default;
+}
+.outline__number {
+  font-size: var(--manu-text-xs);
+  letter-spacing: var(--manu-tracking-label);
+  text-transform: uppercase;
+  color: var(--manu-ink-subtle);
+}
+.outline__moves {
+  display: flex;
+  flex-direction: column;
+}
+.outline__move {
+  background: none;
+  border: none;
+  color: var(--manu-ink-subtle);
+  font-size: var(--manu-text-xs);
+  line-height: 1;
+  padding: 2px 4px;
+  cursor: pointer;
+}
+.outline__move:hover:not(:disabled) {
+  color: var(--manu-ink);
+}
+.outline__move:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+.outline__scenes {
+  list-style: none;
+  margin: 2px 0 0;
+  padding: 0 0 0 14px;
+}
+.outline__scene {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  border-left: 1px solid var(--manu-border);
+  color: var(--manu-ink-muted);
+  font: inherit;
+  font-size: var(--manu-text-base);
+  padding: 3px 8px;
+  cursor: pointer;
+}
+.outline__scene:hover {
+  color: var(--manu-ink);
+  border-left-color: var(--manu-border-strong);
+}
+.outline__status {
+  font-size: var(--manu-text-xs);
+  color: var(--manu-ink-subtle);
+}
+.outline__none {
+  margin: 2px 0 0 14px;
+  font-size: var(--manu-text-xs);
+  color: var(--manu-ink-subtle);
+}
+
+/* ── Character sheet ─────────────────────────────────────── */
+/* A page to read while writing a scene, not a form with every schema field on
+   it. Empty fields are absent, never shown as "—" (§21). */
+.sheet {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+.sheet__pick {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--manu-border);
+}
+.sheet__pick select {
+  width: 100%;
+}
+.sheet__body {
+  padding: 14px 16px 32px;
+  overflow: auto;
+}
+.sheet__head {
+  margin-bottom: 12px;
+}
+.sheet__name {
+  margin: 0;
+  font-size: var(--manu-text-xl);
+  font-weight: 500;
+  color: var(--manu-ink);
+}
+.sheet__role {
+  margin: 2px 0 0;
+  font-size: var(--manu-text-sm);
+  color: var(--manu-ink-muted);
+}
+.sheet__aliases {
+  margin: 0 0 12px;
+  font-size: var(--manu-text-sm);
+  color: var(--manu-ink-subtle);
+}
+.sheet__section {
+  margin-bottom: 16px;
+}
+.sheet__section-title {
+  margin: 0 0 5px;
+  font-size: var(--manu-text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--manu-tracking-label);
+  color: var(--manu-ink-subtle);
+  font-weight: 600;
+}
+.sheet__prose {
+  margin: 0;
+  font-size: var(--manu-text-base);
+  line-height: 1.6;
+}
+.sheet__list {
+  margin: 0;
+  padding-left: 1.1em;
+  font-size: var(--manu-text-base);
+  line-height: 1.6;
+}
+.sheet__facts {
+  margin: 0;
+  font-size: var(--manu-text-base);
+  color: var(--manu-ink-muted);
+}
+.sheet__scenes {
+  margin: 6px 0 0;
+  padding-left: 1.1em;
+  font-size: var(--manu-text-sm);
+  color: var(--manu-ink-muted);
+}
+
+/* ── The More menu ───────────────────────────────────────── */
+/* Secondary actions live here rather than as a row of equal-weight buttons
+   across the top of a writing application (§26). */
+.menu {
+  position: relative;
+}
+.menu > summary {
+  list-style: none;
+  cursor: pointer;
+}
+.menu > summary::-webkit-details-marker {
+  display: none;
+}
+.menu__body {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 40;
+  min-width: 260px;
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  background: var(--manu-surface-raised);
+  border: 1px solid var(--manu-border);
+  border-radius: var(--manu-radius-md);
+  box-shadow: var(--manu-shadow-overlay);
+}
+.menu__title {
+  padding: 8px 8px 3px;
+  font-size: var(--manu-text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--manu-tracking-label);
+  color: var(--manu-ink-subtle);
+}
+.menu__item {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: var(--manu-radius-sm);
+  color: var(--manu-ink);
+  font: inherit;
+  font-size: var(--manu-text-base);
+  padding: 6px 8px;
+  cursor: pointer;
+}
+.menu__item:hover {
+  background: var(--manu-surface);
+}
+.menu__item--on {
+  color: var(--manu-accent-text);
+}
+.menu__hint {
+  font-size: var(--manu-text-xs);
+  color: var(--manu-ink-subtle);
+}
+.menu__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  font-size: var(--manu-text-base);
+}
+
+/* ── Status bar ──────────────────────────────────────────── */
+/* Only what has persistent value. This is not a diagnostics dashboard (§27). */
+.statusbar__words {
+  color: var(--manu-ink-muted);
+}
+.statusbar__session {
+  color: var(--manu-ink-subtle);
+}
+.statusbar__branch {
+  background: none;
+  border: none;
+  color: var(--manu-ink-muted);
+  font: inherit;
+  font-size: var(--manu-text-xs);
+  padding: 1px 6px;
+  border-radius: var(--manu-radius-sm);
+  cursor: pointer;
+}
+.statusbar__branch:hover {
+  background: var(--manu-surface-raised);
+  color: var(--manu-ink);
+}
+
+/* ── Manuscript appearance ───────────────────────────────── */
+.modal--wide {
+  max-width: 860px;
+  width: 92vw;
+}
+.appearance {
+  display: grid;
+  grid-template-columns: minmax(0, 260px) minmax(0, 1fr);
+  gap: 24px;
+}
+.appearance__controls {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.appearance__faces {
+  display: flex;
+  gap: 10px;
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+.appearance__faces legend {
+  font-size: var(--manu-text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--manu-tracking-label);
+  color: var(--manu-ink-subtle);
+  padding: 0;
+}
+.appearance__face {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+}
+.appearance__face-name--serif {
+  font-family: var(--manu-font-manuscript);
+}
+.appearance__face-name--sans {
+  font-family: var(--manu-font-ui);
+}
+.appearance__face-name--mono {
+  font-family: var(--manu-font-mono);
+}
+.appearance__slider {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.appearance__slider-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: var(--manu-text-sm);
+  color: var(--manu-ink-muted);
+}
+.appearance__slider-value {
+  color: var(--manu-ink-subtle);
+  font-size: var(--manu-text-xs);
+}
+.appearance__actions {
+  display: flex;
+  gap: 8px;
+}
+.appearance__sample {
+  border: 1px solid var(--manu-border);
+  border-radius: var(--manu-radius-md);
+  background: var(--manu-bg);
+  overflow: hidden;
+}
+.appearance__sample-label {
+  margin: 0;
+  padding: 6px 12px;
+  font-size: var(--manu-text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--manu-tracking-label);
+  color: var(--manu-ink-subtle);
+  border-bottom: 1px solid var(--manu-border);
+}
+.appearance__page {
+  padding: 20px;
+  max-height: 40vh;
+  overflow: auto;
+  font-family: var(--manuscript-face);
+  font-size: var(--manuscript-size);
+  line-height: var(--manuscript-leading);
+  width: min(var(--manuscript-measure), 100%);
+}
+.appearance__page p {
+  margin: 0 0 var(--manuscript-paragraph);
+}
+
+/* ── Panel empty states ──────────────────────────────────── */
+.empty--panel {
+  max-width: none;
+  text-align: left;
+  padding: 16px 14px;
+}
+.empty--panel .empty__title {
+  margin-bottom: 4px;
+}
+
+@media (width <= 900px) {
+  .appearance {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Native form controls paint themselves in the platform's accent unless told
+   otherwise — a checkbox in Chromium blue is the one place a browser default
+   can put a fifth colour on screen (docs/BRAND.md). */
+input[type="checkbox"],
+input[type="radio"],
+input[type="range"],
+progress {
+  accent-color: var(--manu-accent);
 }

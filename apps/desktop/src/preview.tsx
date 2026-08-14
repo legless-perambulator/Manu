@@ -86,6 +86,49 @@ function Preview() {
           "\u201cYou could have waited,\u201d he said.\n\n" +
           "\u201cI did wait. I waited twenty-six years.\u201d\n",
       );
+      // Enough of a cast and a structure for the outline and the character
+      // sheet to show what they are for rather than their empty states.
+      const mara = await created.addCharacter({
+        name: "Mara Blackthorn",
+        role: "Protagonist",
+        description: "Twenty-six years in the same house, and never once down the cellar stairs.",
+        goals: ["Find out what her mother sealed away", "Keep Elias out of it"],
+      });
+      const elias = await created.addCharacter({
+        name: "Elias Vane",
+        role: "Her brother-in-law",
+        description: "Practical, patient, and the only one who reads the will properly.",
+      });
+      await created.addRelationship({
+        characterAId: mara.id,
+        characterBId: elias.id,
+        type: "in-laws",
+        status: "wary",
+        description: "Civil since the funeral.",
+      });
+      await created.addScene({
+        title: "The chisel",
+        chapterId: chapter.id,
+        pov: mara.id,
+        characterIds: [mara.id, elias.id],
+        status: "drafted",
+      });
+      await created.addScene({
+        title: "What the paint was hiding",
+        chapterId: chapter.id,
+        pov: mara.id,
+        status: "planned",
+      });
+      const second = await created.addChapter({ title: "Aftermath" });
+      await created.writeProjectFile(
+        second.filePath,
+        `---\nid: ${String(second.id)}\ntitle: ${second.title}\n---\n\n` +
+          "## The morning after\n\n" +
+          "Nobody spoke about the cellar at breakfast, which was how Mara knew " +
+          "that everyone had heard.\n\n* * *\n\n" +
+          "By noon the door was **open** and the house had rearranged itself " +
+          "around that fact.\n",
+      );
       const repo = await openBranch(store);
       const branch = await new BranchStore(store).active();
       setSession({ repo, store, root: "", branch });
@@ -106,6 +149,83 @@ function Preview() {
   const settingsParam = params.get("settings");
   const openSettings = settingsParam !== null;
   if (settingsParam === "demo") seedConnections();
+  // `?layout=<preset>` and `?focus=1` arrange the workbench before it mounts,
+  // by writing the same key the layout model reads. A screenshotting browser
+  // cannot drag a splitter or click a tab, and a harness that can only ever
+  // photograph the default arrangement is not much of a harness.
+  const preset = params.get("layout");
+  if (preset !== null) {
+    const layouts: Record<string, unknown> = {
+      write: { left: { panels: ["manuscript"], open: false }, right: { panels: [], open: false } },
+      plan: {
+        left: { panels: ["outline", "manuscript", "notes"], active: "outline", open: true },
+        right: { panels: ["characters", "inspector"], active: "characters", open: true },
+      },
+      ai: {
+        left: { panels: ["manuscript"], open: true, width: 0.17 },
+        right: {
+          panels: ["agent", "context", "history"],
+          active: "agent",
+          open: true,
+          width: 0.32,
+        },
+      },
+      edit: {
+        left: { panels: ["build", "tests", "search"], active: "build", open: true },
+        right: { panels: ["inspector", "history"], active: "history", open: true },
+      },
+    };
+    const chosen = layouts[preset];
+    if (chosen !== undefined) {
+      window.localStorage.setItem(
+        "manu.workbench.v1",
+        JSON.stringify({ ...chosen, focus: params.get("focus") === "1", preset }),
+      );
+    }
+  }
+
+  // `?click=<label>[,<label>…]` presses controls by their visible text once the
+  // workspace is up, so states behind a press or two — Read, Focus, the
+  // appearance sheet — can be photographed.
+  const click = params.get("click");
+  useEffect(() => {
+    if (session === null || click === null) return;
+    const labels = click.split(",");
+    const timers = labels.map((label, index) =>
+      window.setTimeout(
+        () => {
+          // A prefix match, because several controls carry a hint line inside
+          // them and their full text is the label plus the hint.
+          const target = [...document.querySelectorAll("button, summary")].find((element) =>
+            element.textContent?.trim().startsWith(label.trim()),
+          );
+          (target as HTMLElement | undefined)?.click();
+        },
+        400 * (index + 1),
+      ),
+    );
+    return () => timers.forEach((timer) => window.clearTimeout(timer));
+  }, [session, click]);
+
+  // `?select=<text>` selects a passage in the open document, so the selection
+  // bar — which only exists while there is a selection — can be photographed.
+  const select = params.get("select");
+  useEffect(() => {
+    if (session === null || select === null) return;
+    const timer = window.setTimeout(() => {
+      const area = document.querySelector("textarea");
+      if (area === null) return;
+      const at = area.value.indexOf(select);
+      if (at === -1) return;
+      area.focus();
+      area.setSelectionRange(at, at + select.length);
+      // React derives `onSelect` from a set of input events rather than from
+      // the raw `select` event, so the harness has to look like a keystroke.
+      area.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true }));
+    }, 600);
+    return () => window.clearTimeout(timer);
+  }, [session, select]);
+
   const openPalette = params.get("palette") === "1";
   // `?open=<path>` starts with a file in the editor, so the harness can show
   // the manuscript rather than the empty state.

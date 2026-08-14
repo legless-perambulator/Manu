@@ -1,16 +1,19 @@
 import { describe, expect, it } from "vitest";
 import {
   PANELS,
-  firstPanelOfGroup,
+  PANEL_GROUPS,
+  isPanelId,
+  panelById,
   panelsInGroup,
   visiblePanels,
   type LeftPanelId,
 } from "./panels";
+import { isWriterFacing } from "./naming";
 
 /**
  * The workspace adapts to what is switched on.
  *
- * One registry feeds the sidebar, the command palette and the keyboard
+ * One registry feeds the docks, the command palette and the keyboard
  * shortcuts, so this is the only place the rule needs to hold — and the reason
  * a hidden panel cannot still be reachable by shortcut (docs/GENRE_MODULES.md).
  */
@@ -43,16 +46,61 @@ describe("panels are filtered by the modules a project uses", () => {
     expect(ids(visiblePanels([]))).toContain("modules");
   });
 
-  it("filters the group strip and the group's landing panel together", () => {
+  it("keeps the manuscript reachable with nothing enabled at all", () => {
+    expect(ids(visiblePanels([]))).toContain("manuscript");
+    expect(ids(visiblePanels([]))).toContain("outline");
+  });
+
+  it("filters a group and never leaves one empty", () => {
     const withoutMystery = visiblePanels([]);
-    expect(ids(panelsInGroup("verify", withoutMystery))).not.toContain("mystery");
-    // Every group still has somewhere to land with nothing enabled.
-    for (const group of ["project", "story", "verify", "change"] as const) {
-      expect(() => firstPanelOfGroup(group, withoutMystery)).not.toThrow();
+    expect(ids(panelsInGroup("check", withoutMystery))).not.toContain("mystery");
+    for (const group of PANEL_GROUPS) {
+      expect(panelsInGroup(group.id, withoutMystery).length).toBeGreaterThan(0);
     }
   });
 
-  it("gives every panel a distinct id", () => {
+  it("gives every panel a distinct id and a real group", () => {
     expect(new Set(PANELS.map((panel) => panel.id)).size).toBe(PANELS.length);
+    const groups = new Set(PANEL_GROUPS.map((group) => group.id));
+    for (const panel of PANELS) expect(groups.has(panel.group)).toBe(true);
+  });
+
+  it("recognises its own ids and rejects anything else", () => {
+    expect(isPanelId("manuscript")).toBe(true);
+    expect(isPanelId("relationships.json")).toBe(false);
+    expect(isPanelId(undefined)).toBe(false);
+    expect(panelById("outline").label).toBe("Outline");
+  });
+});
+
+/**
+ * The rule of this phase, asserted rather than asserted-to.
+ *
+ * A panel is a writer-facing concept. If somebody adds `facts.json` as a panel
+ * label, or names one after a schema, this fails — which is the only way the
+ * principle survives the next feature.
+ */
+describe("no panel leaks a backend concept", () => {
+  it("labels every panel in prose", () => {
+    for (const panel of PANELS) {
+      expect(isWriterFacing(panel.label), `${panel.id} label: ${panel.label}`).toBe(true);
+      expect(panel.purpose.length).toBeGreaterThan(8);
+    }
+  });
+
+  it("keeps the raw filesystem out of the normal groups", () => {
+    // Openness is not removed — it is made secondary. "Project files" exists,
+    // and it is the only panel that shows a path, and it lives in Advanced.
+    const raw = PANELS.filter((panel) => panel.id === "files");
+    expect(raw).toHaveLength(1);
+    expect(raw[0]?.group).toBe("advanced");
+  });
+
+  it("opens reference material on the side it is read from", () => {
+    // A character sheet belongs beside the manuscript, not underneath the
+    // navigation the writer just used to find it.
+    expect(panelById("characters").side).toBe("right");
+    expect(panelById("agent").side).toBe("right");
+    expect(panelById("manuscript").side).toBe("left");
   });
 });

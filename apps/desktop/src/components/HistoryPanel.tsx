@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { StoryRepository, ChangeSetSummary, Checkpoint } from "@jellytind/story-repository";
+import { humaniseSummary } from "../lib/naming";
 
 interface Props {
   repo: StoryRepository;
@@ -20,11 +21,24 @@ export function HistoryPanel({
   const [checkpoints, setCheckpoints] = useState<Checkpoint[]>([]);
   const [label, setLabel] = useState("");
   const [busy, setBusy] = useState(false);
+  /**
+   * What the writer calls each document.
+   *
+   * A change set records `Edit manuscript/CHAPTER_0002.md`, which is exactly
+   * right as a record and wrong as a sentence. The path is swapped for the
+   * chapter's title at display time; nothing in History is rewritten.
+   */
+  const [titles, setTitles] = useState<ReadonlyMap<string, string>>(new Map());
 
   const reload = useCallback(async () => {
-    const [c, cp] = await Promise.all([repo.listChangeSets(), repo.listCheckpoints()]);
+    const [c, cp, chapters] = await Promise.all([
+      repo.listChangeSets(),
+      repo.listCheckpoints(),
+      repo.listChapters(),
+    ]);
     setChanges(c);
     setCheckpoints(cp);
+    setTitles(new Map(chapters.map((chapter) => [chapter.filePath, chapter.title])));
   }, [repo]);
 
   useEffect(() => {
@@ -91,12 +105,14 @@ export function HistoryPanel({
             key={c.id}
             className={`change${c.id === selectedChangeId ? " change--active" : ""}`}
             onClick={() => onSelectChange(c.id)}
+            title={`${c.id} · ${c.summary}`}
           >
-            <div className="change__summary">{c.summary}</div>
+            <div className="change__summary">{humaniseSummary(c.summary, titles)}</div>
             <div className="change__meta">
               <span className={`badge badge--${c.actor}`}>{c.actor}</span>
               {c.status !== "committed" && <span className="badge badge--muted">{c.status}</span>}
-              <span className="change__id">{c.id}</span>
+              {/* The change's own ID is real and occasionally needed for a bug
+                  report, so it stays — one hover away, not on every row. */}
             </div>
           </button>
         ))}
