@@ -66,6 +66,31 @@ interface WorkspaceProps {
   onChangeTheme: (theme: Theme) => void;
   onClose: () => void;
   onOpenSettings: () => void;
+  /** Open a file immediately. Used by the browser preview harness. */
+  initialPath?: string;
+}
+
+/**
+ * Whether a side column is showing, remembered between sessions.
+ *
+ * Defaults to showing: a writer who has never touched this should meet the
+ * full workspace, not a mystery.
+ */
+const PANEL_KEY = "manu.panels";
+function panelShown(id: "explorer" | "inspector"): boolean {
+  try {
+    const raw = window.localStorage.getItem(`${PANEL_KEY}.${id}`);
+    return raw !== "off";
+  } catch {
+    return true;
+  }
+}
+function rememberPanel(id: "explorer" | "inspector", shown: boolean): void {
+  try {
+    window.localStorage.setItem(`${PANEL_KEY}.${id}`, shown ? "on" : "off");
+  } catch {
+    // Not remembering the layout is a nuisance, not a failure.
+  }
 }
 
 export function Workspace({
@@ -76,6 +101,7 @@ export function Workspace({
   onChangeTheme,
   onClose,
   onOpenSettings,
+  initialPath,
 }: WorkspaceProps) {
   const repo = session.repo;
   const [tab, setTab] = useState<LeftPanelId>("files");
@@ -87,10 +113,19 @@ export function Workspace({
   const [group, setGroup] = useState<PanelGroupId>("project");
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [rightTab, setRightTab] = useState<RightTab>("inspector");
-  const [openPath, setOpenPath] = useState<string | null>(null);
+  const [openPath, setOpenPath] = useState<string | null>(initialPath ?? null);
   const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
   const [selectedChangeId, setSelectedChangeId] = useState<string | null>(null);
   const [activityLine, setActivityLine] = useState<string | null>(null);
+  /**
+   * Which side columns are showing.
+   *
+   * A writer must be able to make a manuscript-only workspace and get it back
+   * again, and must not have to rebuild it every session — so the choice is
+   * remembered, like the theme (docs/UX.md).
+   */
+  const [showExplorer, setShowExplorer] = useState(() => panelShown("explorer"));
+  const [showInspector, setShowInspector] = useState(() => panelShown("inspector"));
   const [refreshToken, setRefreshToken] = useState(0);
   const [editor, setEditor] = useState<ManuscriptEditor | null>(null);
   const [proposal, setProposal] = useState<EditProposal | null>(null);
@@ -234,6 +269,19 @@ export function Workspace({
   const sceneIdForEditor =
     selectedEntityId?.startsWith("SCENE_") === true ? selectedEntityId : null;
 
+  const toggleExplorer = useCallback(() => {
+    setShowExplorer((on) => {
+      rememberPanel("explorer", !on);
+      return !on;
+    });
+  }, []);
+  const toggleInspector = useCallback(() => {
+    setShowInspector((on) => {
+      rememberPanel("inspector", !on);
+      return !on;
+    });
+  }, []);
+
   const commands = useMemo<readonly Command[]>(() => {
     const goTo = panels.map<Command>((panel) => ({
       id: `panel.${panel.id}`,
@@ -256,14 +304,14 @@ export function Workspace({
         id: "theme.light",
         section: "Appearance",
         label: "Paper",
-        hint: "Light theme",
+        hint: "The light appearance",
         run: () => onChangeTheme("light"),
       },
       {
         id: "theme.dark",
         section: "Appearance",
-        label: "Manu Black",
-        hint: "Dark theme",
+        label: "Manu Dark",
+        hint: "The default appearance",
         run: () => onChangeTheme("dark"),
       },
       {
@@ -272,6 +320,32 @@ export function Workspace({
         label: "Match the system",
         hint: "Follow the desktop setting",
         run: () => onChangeTheme("system"),
+      },
+      {
+        id: "layout.explorer",
+        section: "Layout",
+        label: "Toggle the project explorer",
+        hint: "⌘⇧E",
+        run: toggleExplorer,
+      },
+      {
+        id: "layout.inspector",
+        section: "Layout",
+        label: "Toggle the inspector",
+        hint: "⌘⇧I",
+        run: toggleInspector,
+      },
+      {
+        id: "layout.focus",
+        section: "Layout",
+        label: "Manuscript only",
+        hint: "Hide both side columns",
+        run: () => {
+          setShowExplorer(false);
+          setShowInspector(false);
+          rememberPanel("explorer", false);
+          rememberPanel("inspector", false);
+        },
       },
       {
         id: "app.settings",
@@ -288,7 +362,7 @@ export function Workspace({
         run: onClose,
       },
     ];
-  }, [onChangeTheme, onClose, onOpenSettings, openPanel]);
+  }, [onChangeTheme, onClose, onOpenSettings, openPanel, toggleExplorer, toggleInspector]);
 
   // Keyboard first: the palette reaches everything, and the panels a writer
   // returns to most have a key of their own.
@@ -306,11 +380,19 @@ export function Workspace({
       } else if (event.shiftKey && key === "f") {
         event.preventDefault();
         openPanel("search");
+      } else if (event.shiftKey && key === "e") {
+        // ⌘B is already Story Build, so the side columns take the shifted
+        // letters rather than stealing a key a writer uses more often.
+        event.preventDefault();
+        toggleExplorer();
+      } else if (event.shiftKey && key === "i") {
+        event.preventDefault();
+        toggleInspector();
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [openPanel]);
+  }, [openPanel, toggleExplorer, toggleInspector]);
 
   return (
     <div className="app">
@@ -343,286 +425,292 @@ export function Workspace({
         </button>
       </header>
 
-      <div className="workbench workbench--three">
-        <aside className="panel panel--explorer">
-          <nav className="groupbar" aria-label="Panel groups">
-            {PANEL_GROUPS.map((entry) => (
-              <button
-                key={entry.id}
-                className={`group${group === entry.id ? " group--active" : ""}`}
-                aria-current={group === entry.id ? "page" : undefined}
-                title={entry.purpose}
-                onClick={() => {
-                  setGroup(entry.id);
-                  if (panelById(tab).group !== entry.id)
-                    setTab(firstPanelOfGroup(entry.id, panels));
+      <div
+        className={`workbench workbench--${
+          showExplorer && showInspector ? "three" : showExplorer || showInspector ? "two" : "one"
+        }${showExplorer ? "" : " workbench--no-explorer"}${showInspector ? "" : " workbench--no-inspector"}`}
+      >
+        {showExplorer && (
+          <aside className="panel panel--explorer">
+            <nav className="groupbar" aria-label="Panel groups">
+              {PANEL_GROUPS.map((entry) => (
+                <button
+                  key={entry.id}
+                  className={`group${group === entry.id ? " group--active" : ""}`}
+                  aria-current={group === entry.id ? "page" : undefined}
+                  title={entry.purpose}
+                  onClick={() => {
+                    setGroup(entry.id);
+                    if (panelById(tab).group !== entry.id)
+                      setTab(firstPanelOfGroup(entry.id, panels));
+                  }}
+                >
+                  {entry.label}
+                </button>
+              ))}
+            </nav>
+            <div className="tabbar" role="tablist" aria-label="Panels">
+              {panelsInGroup(group, panels).map((panel) => (
+                <button
+                  key={panel.id}
+                  role="tab"
+                  aria-selected={tab === panel.id}
+                  title={panel.purpose}
+                  className={`tab${tab === panel.id ? " tab--active" : ""}`}
+                  onClick={() => setTab(panel.id)}
+                >
+                  {panel.label}
+                </button>
+              ))}
+            </div>
+            {tab === "files" && (
+              <ProjectExplorer
+                repo={repo}
+                activePath={openPath}
+                onOpenFile={setOpenPath}
+                refreshToken={refreshToken}
+              />
+            )}
+            {tab === "entities" && (
+              <EntitiesPanel
+                repo={repo}
+                selectedId={selectedEntityId}
+                onSelect={setSelectedEntityId}
+                refreshToken={refreshToken}
+                onChanged={refresh}
+              />
+            )}
+            {tab === "search" && (
+              <SearchPanel
+                repo={repo}
+                onOpenFile={(p) => {
+                  setOpenPath(p);
                 }}
-              >
-                {entry.label}
-              </button>
-            ))}
-          </nav>
-          <div className="tabbar" role="tablist" aria-label="Panels">
-            {panelsInGroup(group, panels).map((panel) => (
-              <button
-                key={panel.id}
-                role="tab"
-                aria-selected={tab === panel.id}
-                title={panel.purpose}
-                className={`tab${tab === panel.id ? " tab--active" : ""}`}
-                onClick={() => setTab(panel.id)}
-              >
-                {panel.label}
-              </button>
-            ))}
-          </div>
-          {tab === "files" && (
-            <ProjectExplorer
-              repo={repo}
-              activePath={openPath}
-              onOpenFile={setOpenPath}
-              refreshToken={refreshToken}
-            />
-          )}
-          {tab === "entities" && (
-            <EntitiesPanel
-              repo={repo}
-              selectedId={selectedEntityId}
-              onSelect={setSelectedEntityId}
-              refreshToken={refreshToken}
-              onChanged={refresh}
-            />
-          )}
-          {tab === "search" && (
-            <SearchPanel
-              repo={repo}
-              onOpenFile={(p) => {
-                setOpenPath(p);
-              }}
-              onSelectEntity={(id) => {
-                setSelectedEntityId(id);
-              }}
-              refreshToken={refreshToken}
-            />
-          )}
-          {tab === "state" && (
-            <StatePanel
-              repo={repo}
-              secrets={secrets}
-              refreshToken={refreshToken}
-              onChanged={refresh}
-            />
-          )}
-          {tab === "knowledge" && <KnowledgePanel repo={repo} refreshToken={refreshToken} />}
-          {tab === "relations" && (
-            <RelationshipPanel repo={repo} refreshToken={refreshToken} onChanged={refresh} />
-          )}
-          {tab === "objects" && (
-            <ObjectPanel
-              repo={repo}
-              refreshToken={refreshToken}
-              onChanged={refresh}
-              onSelectEntity={(id) => {
-                setSelectedEntityId(id);
-                setRightTab("inspector");
-              }}
-            />
-          )}
-          {tab === "threads" && (
-            <ThreadPanel
-              repo={repo}
-              refreshToken={refreshToken}
-              onChanged={refresh}
-              onSelectEntity={(id) => {
-                setSelectedEntityId(id);
-                setRightTab("inspector");
-              }}
-            />
-          )}
-          {tab === "timeline" && (
-            <TimelinePanel
-              repo={repo}
-              refreshToken={refreshToken}
-              onChanged={refresh}
-              onSelectEntity={(id) => {
-                setSelectedEntityId(id);
-                setRightTab("inspector");
-              }}
-            />
-          )}
-          {tab === "build" && (
-            <BuildPanel
-              repo={repo}
-              refreshToken={refreshToken}
-              onChanged={refresh}
-              onSelectEntity={(id) => {
-                setSelectedEntityId(id);
-                setRightTab("inspector");
-              }}
-              onOpenScene={(sceneId) => {
-                void openScene(sceneId);
-              }}
-            />
-          )}
-          {tab === "tests" && (
-            <StoryTestPanel
-              repo={repo}
-              refreshToken={refreshToken}
-              onChanged={refresh}
-              onSelectEntity={(id) => {
-                setSelectedEntityId(id);
-                setRightTab("inspector");
-              }}
-              onOpenScene={(sceneId) => {
-                void openScene(sceneId);
-              }}
-            />
-          )}
-          {tab === "debug" && (
-            <DebugPanel
-              repo={repo}
-              secrets={secrets}
-              refreshToken={refreshToken}
-              onChanged={refresh}
-              onSimulateBehaviour={() => setTab("behaviour")}
-              onSelectEntity={(id) => {
-                setSelectedEntityId(id);
-                setRightTab("inspector");
-              }}
-              onOpenScene={(sceneId) => {
-                void openScene(sceneId);
-              }}
-            />
-          )}
-          {tab === "skills" && (
-            <SkillsPanel
-              repo={repo}
-              secrets={secrets}
-              refreshToken={refreshToken}
-              onChanged={refresh}
-              onSelectEntity={(id) => {
-                setSelectedEntityId(id);
-                setRightTab("inspector");
-              }}
-              onOpenScene={(sceneId) => {
-                void openScene(sceneId);
-              }}
-            />
-          )}
-          {tab === "workflows" && (
-            <WorkflowPanel
-              repo={repo}
-              secrets={secrets}
-              refreshToken={refreshToken}
-              onChanged={refresh}
-              onSelectEntity={(id) => {
-                setSelectedEntityId(id);
-                setRightTab("inspector");
-              }}
-            />
-          )}
-          {tab === "readers" && (
-            <ReadersPanel
-              repo={repo}
-              secrets={secrets}
-              refreshToken={refreshToken}
-              onChanged={refresh}
-              onSelectEntity={(id) => {
-                setSelectedEntityId(id);
-                setRightTab("inspector");
-              }}
-            />
-          )}
-          {tab === "behaviour" && (
-            <BehaviourPanel
-              repo={repo}
-              secrets={secrets}
-              refreshToken={refreshToken}
-              onChanged={refresh}
-              onSelectEntity={(id) => {
-                setSelectedEntityId(id);
-                setRightTab("inspector");
-              }}
-              onOpenScene={(id) => {
-                void openScene(id);
-              }}
-            />
-          )}
-          {tab === "modules" && (
-            <ModulesPanel repo={repo} refreshToken={refreshToken} onChanged={refresh} />
-          )}
-          {tab === "world" && (
-            <WorldPanel
-              repo={repo}
-              refreshToken={refreshToken}
-              onChanged={refresh}
-              onSelectEntity={(id) => {
-                setSelectedEntityId(id);
-                setRightTab("inspector");
-              }}
-            />
-          )}
-          {tab === "mystery" && (
-            <MysteryPanel
-              repo={repo}
-              refreshToken={refreshToken}
-              onChanged={refresh}
-              onSelectEntity={(id) => {
-                setSelectedEntityId(id);
-                setRightTab("inspector");
-              }}
-              onOpenScene={(id) => {
-                void openScene(id);
-              }}
-            />
-          )}
-          {tab === "causality" && (
-            <CausalityPanel
-              repo={repo}
-              secrets={secrets}
-              refreshToken={refreshToken}
-              onChanged={refresh}
-              onSelectEntity={(id) => {
-                setSelectedEntityId(id);
-                setRightTab("inspector");
-              }}
-              onOpenScene={(sceneId) => {
-                void openScene(sceneId);
-              }}
-            />
-          )}
-          {tab === "refactor" && (
-            <RefactorPanel
-              repo={repo}
-              secrets={secrets}
-              refreshToken={refreshToken}
-              onChanged={refresh}
-              onSelectEntity={(id) => {
-                setSelectedEntityId(id);
-                setRightTab("inspector");
-              }}
-            />
-          )}
-          {tab === "versions" && (
-            <VersionsPanel
-              session={session}
-              onSwitch={(branchId) => setPendingSwitch(branchId)}
-              onChanged={refresh}
-            />
-          )}
-          {tab === "voice" && (
-            <VoicePanel repo={repo} refreshToken={refreshToken} onChanged={refresh} />
-          )}
-          {tab === "history" && (
-            <HistoryPanel
-              repo={repo}
-              selectedChangeId={selectedChangeId}
-              onSelectChange={setSelectedChangeId}
-              refreshToken={refreshToken}
-              onChanged={refresh}
-            />
-          )}
-        </aside>
+                onSelectEntity={(id) => {
+                  setSelectedEntityId(id);
+                }}
+                refreshToken={refreshToken}
+              />
+            )}
+            {tab === "state" && (
+              <StatePanel
+                repo={repo}
+                secrets={secrets}
+                refreshToken={refreshToken}
+                onChanged={refresh}
+              />
+            )}
+            {tab === "knowledge" && <KnowledgePanel repo={repo} refreshToken={refreshToken} />}
+            {tab === "relations" && (
+              <RelationshipPanel repo={repo} refreshToken={refreshToken} onChanged={refresh} />
+            )}
+            {tab === "objects" && (
+              <ObjectPanel
+                repo={repo}
+                refreshToken={refreshToken}
+                onChanged={refresh}
+                onSelectEntity={(id) => {
+                  setSelectedEntityId(id);
+                  setRightTab("inspector");
+                }}
+              />
+            )}
+            {tab === "threads" && (
+              <ThreadPanel
+                repo={repo}
+                refreshToken={refreshToken}
+                onChanged={refresh}
+                onSelectEntity={(id) => {
+                  setSelectedEntityId(id);
+                  setRightTab("inspector");
+                }}
+              />
+            )}
+            {tab === "timeline" && (
+              <TimelinePanel
+                repo={repo}
+                refreshToken={refreshToken}
+                onChanged={refresh}
+                onSelectEntity={(id) => {
+                  setSelectedEntityId(id);
+                  setRightTab("inspector");
+                }}
+              />
+            )}
+            {tab === "build" && (
+              <BuildPanel
+                repo={repo}
+                refreshToken={refreshToken}
+                onChanged={refresh}
+                onSelectEntity={(id) => {
+                  setSelectedEntityId(id);
+                  setRightTab("inspector");
+                }}
+                onOpenScene={(sceneId) => {
+                  void openScene(sceneId);
+                }}
+              />
+            )}
+            {tab === "tests" && (
+              <StoryTestPanel
+                repo={repo}
+                refreshToken={refreshToken}
+                onChanged={refresh}
+                onSelectEntity={(id) => {
+                  setSelectedEntityId(id);
+                  setRightTab("inspector");
+                }}
+                onOpenScene={(sceneId) => {
+                  void openScene(sceneId);
+                }}
+              />
+            )}
+            {tab === "debug" && (
+              <DebugPanel
+                repo={repo}
+                secrets={secrets}
+                refreshToken={refreshToken}
+                onChanged={refresh}
+                onSimulateBehaviour={() => setTab("behaviour")}
+                onSelectEntity={(id) => {
+                  setSelectedEntityId(id);
+                  setRightTab("inspector");
+                }}
+                onOpenScene={(sceneId) => {
+                  void openScene(sceneId);
+                }}
+              />
+            )}
+            {tab === "skills" && (
+              <SkillsPanel
+                repo={repo}
+                secrets={secrets}
+                refreshToken={refreshToken}
+                onChanged={refresh}
+                onSelectEntity={(id) => {
+                  setSelectedEntityId(id);
+                  setRightTab("inspector");
+                }}
+                onOpenScene={(sceneId) => {
+                  void openScene(sceneId);
+                }}
+              />
+            )}
+            {tab === "workflows" && (
+              <WorkflowPanel
+                repo={repo}
+                secrets={secrets}
+                refreshToken={refreshToken}
+                onChanged={refresh}
+                onSelectEntity={(id) => {
+                  setSelectedEntityId(id);
+                  setRightTab("inspector");
+                }}
+              />
+            )}
+            {tab === "readers" && (
+              <ReadersPanel
+                repo={repo}
+                secrets={secrets}
+                refreshToken={refreshToken}
+                onChanged={refresh}
+                onSelectEntity={(id) => {
+                  setSelectedEntityId(id);
+                  setRightTab("inspector");
+                }}
+              />
+            )}
+            {tab === "behaviour" && (
+              <BehaviourPanel
+                repo={repo}
+                secrets={secrets}
+                refreshToken={refreshToken}
+                onChanged={refresh}
+                onSelectEntity={(id) => {
+                  setSelectedEntityId(id);
+                  setRightTab("inspector");
+                }}
+                onOpenScene={(id) => {
+                  void openScene(id);
+                }}
+              />
+            )}
+            {tab === "modules" && (
+              <ModulesPanel repo={repo} refreshToken={refreshToken} onChanged={refresh} />
+            )}
+            {tab === "world" && (
+              <WorldPanel
+                repo={repo}
+                refreshToken={refreshToken}
+                onChanged={refresh}
+                onSelectEntity={(id) => {
+                  setSelectedEntityId(id);
+                  setRightTab("inspector");
+                }}
+              />
+            )}
+            {tab === "mystery" && (
+              <MysteryPanel
+                repo={repo}
+                refreshToken={refreshToken}
+                onChanged={refresh}
+                onSelectEntity={(id) => {
+                  setSelectedEntityId(id);
+                  setRightTab("inspector");
+                }}
+                onOpenScene={(id) => {
+                  void openScene(id);
+                }}
+              />
+            )}
+            {tab === "causality" && (
+              <CausalityPanel
+                repo={repo}
+                secrets={secrets}
+                refreshToken={refreshToken}
+                onChanged={refresh}
+                onSelectEntity={(id) => {
+                  setSelectedEntityId(id);
+                  setRightTab("inspector");
+                }}
+                onOpenScene={(sceneId) => {
+                  void openScene(sceneId);
+                }}
+              />
+            )}
+            {tab === "refactor" && (
+              <RefactorPanel
+                repo={repo}
+                secrets={secrets}
+                refreshToken={refreshToken}
+                onChanged={refresh}
+                onSelectEntity={(id) => {
+                  setSelectedEntityId(id);
+                  setRightTab("inspector");
+                }}
+              />
+            )}
+            {tab === "versions" && (
+              <VersionsPanel
+                session={session}
+                onSwitch={(branchId) => setPendingSwitch(branchId)}
+                onChanged={refresh}
+              />
+            )}
+            {tab === "voice" && (
+              <VoicePanel repo={repo} refreshToken={refreshToken} onChanged={refresh} />
+            )}
+            {tab === "history" && (
+              <HistoryPanel
+                repo={repo}
+                selectedChangeId={selectedChangeId}
+                onSelectChange={setSelectedChangeId}
+                refreshToken={refreshToken}
+                onChanged={refresh}
+              />
+            )}
+          </aside>
+        )}
 
         <main className="panel panel--editor">
           {aiError !== null && <p className="editor__error">{aiError}</p>}
@@ -662,45 +750,52 @@ export function Workspace({
           )}
         </main>
 
-        <aside className="panel panel--inspector">
-          <div className="tabbar" role="tablist" aria-label="Inspectors">
-            {RIGHT_TABS.map((entry) => (
-              <button
-                key={entry.id}
-                role="tab"
-                aria-selected={rightTab === entry.id}
-                title={entry.purpose}
-                className={`tab${rightTab === entry.id ? " tab--active" : ""}`}
-                onClick={() => setRightTab(entry.id)}
-              >
-                {entry.label}
-              </button>
-            ))}
-          </div>
-          {rightTab === "inspector" && (
-            <Inspector
-              repo={repo}
-              entityId={selectedEntityId}
-              onChanged={refresh}
-              onDeleted={() => setSelectedEntityId(null)}
-              aiBusy={aiBusy}
-              onSceneEdit={(operation, sceneId) =>
-                void runEdit(
-                  operation === "rewrite_scene" ? { operation, sceneId } : { operation, sceneId },
-                )
-              }
-            />
-          )}
-          {rightTab === "agent" && (
-            <AgentPanel repo={repo} secrets={secrets} onActivityLine={showActivity} />
-          )}
-          {rightTab === "context" && <ContextPanel repo={repo} refreshToken={refreshToken} />}
-        </aside>
+        {showInspector && (
+          <aside className="panel panel--inspector">
+            <div className="tabbar" role="tablist" aria-label="Inspectors">
+              {RIGHT_TABS.map((entry) => (
+                <button
+                  key={entry.id}
+                  role="tab"
+                  aria-selected={rightTab === entry.id}
+                  title={entry.purpose}
+                  className={`tab${rightTab === entry.id ? " tab--active" : ""}`}
+                  onClick={() => setRightTab(entry.id)}
+                >
+                  {entry.label}
+                </button>
+              ))}
+            </div>
+            {rightTab === "inspector" && (
+              <Inspector
+                repo={repo}
+                entityId={selectedEntityId}
+                onChanged={refresh}
+                onDeleted={() => setSelectedEntityId(null)}
+                aiBusy={aiBusy}
+                onSceneEdit={(operation, sceneId) =>
+                  void runEdit(
+                    operation === "rewrite_scene" ? { operation, sceneId } : { operation, sceneId },
+                  )
+                }
+              />
+            )}
+            {rightTab === "agent" && (
+              <AgentPanel repo={repo} secrets={secrets} onActivityLine={showActivity} />
+            )}
+            {rightTab === "context" && <ContextPanel repo={repo} refreshToken={refreshToken} />}
+          </aside>
+        )}
       </div>
 
       <footer className="statusbar">
-        <span className="statusbar__id">
-          {repo.project.id} · schema v{repo.project.schemaVersion}
+        {/*
+          The project's internal ID is real and occasionally needed for a bug
+          report, so it stays — as a tooltip, not as the first thing in the
+          window. Normal use is not a debugging session.
+        */}
+        <span className="statusbar__id" title={`${repo.project.id} · ${session.root}`}>
+          schema v{repo.project.schemaVersion}
         </span>
         {activityLine !== null && (
           <span className="statusbar__activity" role="status">
@@ -715,9 +810,9 @@ export function Workspace({
             onChange={(event) => onChangeTheme(event.target.value as Theme)}
             aria-label="Appearance"
           >
-            <option value="system">System</option>
+            <option value="dark">Manu Dark</option>
             <option value="light">Paper</option>
-            <option value="dark">Manu Black</option>
+            <option value="system">System</option>
           </select>
         </label>
       </footer>

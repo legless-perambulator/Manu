@@ -45,6 +45,9 @@
   --manu-text-md: 14px;
   --manu-text-lg: 16px;
   --manu-text-xl: 20px;
+  /* The manuscript reads at its own size, not at a step on the UI scale: this
+     is the one thing on screen somebody looks at for four hours. */
+  --manu-text-prose: 17px;
 
   --manu-tracking-label: 0.06em;
   --manu-leading-ui: 1.5;

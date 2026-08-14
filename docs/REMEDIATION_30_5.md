@@ -698,3 +698,117 @@ fixed.
   with no production implementation, and it should either grow one or go.
 - **Semantic evaluation** — story tests, world rules and the Story Compiler's
   semantic checks all wait on the same missing piece.
+
+---
+
+# REMEDIATION 30.5B4 — Dark Manu, product polish and the alpha AppImage
+
+The last pass: making the repaired build look and behave like one application.
+No engine code was refactored.
+
+| Issue    | Original | Status                              |
+| -------- | -------- | ----------------------------------- |
+| MANU-016 | P2       | **DEFERRED** — no code splitting    |
+| MANU-018 | P3       | **DEFERRED** — settings still local |
+| MANU-019 | P3       | **DEFERRED** — no export            |
+| MANU-022 | P3       | **MITIGATED** — backend disclosed   |
+| MANU-023 | P3       | **DEFERRED** — cancellation partial |
+| MANU-024 | P3       | **DEFERRED** — no progress surface  |
+| MANU-025 | P3       | **FIXED** — compact layout verified |
+| MANU-026 | P3       | **MITIGATED** — practical pass only |
+| MANU-027 | P3       | **FIXED** — intro is one line       |
+| MANU-028 | P4       | **MITIGATED**                       |
+| MANU-029 | P4       | **NOT REPRODUCIBLE** in a session   |
+| MANU-030 | P4       | **DEFERRED** — generic World panel  |
+| MANU-032 | P4       | **DEFERRED** — no report affordance |
+| MANU-033 | P4       | **MITIGATED** — size recorded       |
+| MANU-A   | new      | **FIXED** — Dark Manu is default    |
+
+## MANU-A — the default appearance was Paper
+
+The audit's clearest brand finding: theme defaulted to `system`, most desktops
+report light, so most people met Manu as a cream document application — the one
+thing the direction explicitly rejects.
+
+Two changes. The stored default is now `dark`; "system" is still offered and
+still remembered, it is simply a choice rather than the starting point. And an
+inline script in `index.html` resolves the appearance from the same key before
+the bundle loads, so an unconfigured install cannot open Paper and snap to black
+a frame later. Verified on the packaged artifact, not in dev: the AppImage was
+launched from an unrelated working directory under Xvfb and photographed.
+
+## Accent restraint
+
+Manuscript Red is scarce or it is nothing. Three uses were wrong and are gone:
+
+- **The full-width primary block** on the start screen — the audit's specific
+  complaint. The screen is now two columns of ordinary controls with one
+  normally-sized primary button.
+- **A solid red badge on every search result.** A category label on a repeated
+  row is decoration, not "the current thing". Now a neutral outline.
+- **A solid red fill on the selected template pill and filter chip.** Selection
+  is genuinely the accent's job, so they are _marked_ with it — accent border and
+  wash — rather than filled.
+
+What red now does: the caret in the manuscript (added — the brand doc calls
+Manuscript Red "the hand", and it was not being used for the one thing it most
+obviously is), text selection, the focused control, the current tab, and one
+primary action per screen.
+
+## The manuscript
+
+The editor opened on `---`, `id: CHAPTER_0001`, `title: …` — a manuscript that
+looked like source code. Front matter is now split off, hidden, and re-attached
+byte for byte on every save; the bar shows the chapter's _title_ rather than its
+filename. Selection offsets are shifted by the hidden block so an AI edit still
+addresses the file and not the visible text — the failure that would otherwise
+rewrite the wrong characters, which is why it is asserted in tests
+(`editor-text.test.ts`, 9 cases).
+
+Also: a dedicated `--manu-text-prose` size, so the one thing somebody looks at
+for four hours is not tied to a step on the UI scale.
+
+## MANU-025 — compact layout — FIXED
+
+Either side column can be put away (⌘⇧E, ⌘⇧I, or **Commands → Manuscript
+only**), the choice is remembered, and the grid uses `minmax(0, 1fr)` for the
+editor so no arrangement can squeeze it to nothing. Verified at 1280×800.
+
+## MANU-027 — first-run intro — FIXED
+
+Three paragraphs in a bordered card became one sentence on the ground, still
+dismissed permanently. It no longer consumes half the first screen.
+
+## MANU-022, MANU-026, MANU-028, MANU-033 — mitigated, not fixed
+
+- **MANU-022** (keychain fallback to a 0600 file): unchanged, and disclosed in
+  the settings screen as it was. Honest, not solved.
+- **MANU-026** (accessibility): a practical pass — contrast against the tokens,
+  visible focus, semantic controls, severity never carried by colour alone. **No
+  assistive-technology testing was performed**, so this is not a pass.
+- **MANU-028** (deb runtime deps): unchanged; the Flatpak is the robust path and
+  is documented as such.
+- **MANU-033** (bundle size): 77 MB AppImage, 3.8 MB Flatpak. Recorded, not
+  budgeted.
+
+## MANU-029 — not reproducible as a defect
+
+The `AT-SPI` and `libEGL DRI3` warnings appear only in this headless container,
+which has no accessibility bus and no DRI3-capable X server. They are
+environmental. A real desktop session is needed to say anything further, and
+nothing in the application emits them.
+
+## Deferred, and why
+
+- **MANU-016** (941 KB single chunk → now 1.0 MB): code splitting is a build
+  change with real regression surface, and cold start is not an alpha blocker.
+- **MANU-018** (settings in webview storage): moving them to a host-side file is
+  the right fix and touches the provider layer B2 just stabilised. Nothing in a
+  project depends on them.
+- **MANU-019** (export): a feature, not a repair.
+- **MANU-023 / MANU-024** (cancellation, progress): partially present —
+  `AbortSignal` is plumbed and long operations show activity — but not
+  consistently surfaced. Worth doing once there is real usage to shape it.
+- **MANU-030** (generic World panel): purpose-built views per record kind are
+  Phase 31 work.
+- **MANU-032** (report a problem): needs a decision about where reports go.

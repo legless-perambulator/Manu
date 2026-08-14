@@ -62,6 +62,8 @@ export function Editor({
     null,
   );
   const area = useRef<HTMLTextAreaElement | null>(null);
+  /** Characters of front matter the textarea is not showing. */
+  const hidden = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Latest values, for the flush that runs on close or when switching away.
@@ -73,12 +75,23 @@ export function Editor({
     onDirtyChange?.(dirty);
   }, [dirty, onDirtyChange]);
 
-  /** Track the selection so an AI edit can address exactly that range. */
+  /**
+   * Track the selection so an AI edit can address exactly that range.
+   *
+   * Offsets are shifted by the hidden front matter, because an edit request
+   * addresses the *file* and the textarea only holds the prose. Getting this
+   * wrong would rewrite the wrong characters, so it is asserted in the tests.
+   */
   function captureSelection() {
     const el = area.current;
     if (el === null) return;
     const { selectionStart: start, selectionEnd: end } = el;
-    setSelection(start === end ? null : { text: el.value.slice(start, end), start, end });
+    const shift = hidden.current;
+    setSelection(
+      start === end
+        ? null
+        : { text: el.value.slice(start, end), start: start + shift, end: end + shift },
+    );
   }
 
   const save = useCallback(
@@ -196,16 +209,29 @@ export function Editor({
   // Manuscript prose is set as prose. The records that describe it are data,
   // and are set as data.
   const prose = path.startsWith("manuscript/");
+  // Front matter is kept and rewritten, never shown. Only prose files hide it:
+  // in a `.json` record the structure *is* the content.
+  const { head, body } = prose ? splitFrontMatter(content) : { head: "", body: content };
+  hidden.current = head.length;
 
   return (
     <div className="editor">
       <div className="editor__bar">
-        <span className="editor__path" title={path}>
-          {path}
-          <span className={`editor__state editor__state--${state}`}>{LABEL[state]}</span>
+        {/*
+          What you are writing, not where it is stored. The full path is still
+          one hover away — a writer thinks in chapters, and the file is an
+          implementation detail of the promise that the file is plain.
+        */}
+        <span className="editor__where" title={path}>
+          <span className="editor__name">{titleOf(head) ?? fileLabel(path)}</span>
+          <span className="editor__folder">{folderOf(path)}</span>
+        </span>
+        <span className="editor__spacer" />
+        <span className={`editor__state editor__state--${state}`} role="status">
+          {LABEL[state]}
         </span>
         <button
-          className="btn btn--small"
+          className="btn btn--ghost btn--small"
           onClick={() => void save()}
           disabled={state === "saving"}
         >
@@ -292,13 +318,13 @@ export function Editor({
         ref={area}
         className={`editor__area${prose ? " editor__area--prose" : " editor__area--data"}`}
         aria-label={path}
-        value={content}
+        value={body}
         spellCheck={prose}
         disabled={!loaded}
         onSelect={captureSelection}
         onBlur={captureSelection}
         onChange={(e) => {
-          const next = e.target.value;
+          const next = head + e.target.value;
           setContent(next);
           if (state !== "conflict") setState("dirty");
           setSelection(null);
@@ -313,4 +339,52 @@ export function Editor({
       />
     </div>
   );
+}
+
+/**
+ * Split a record file into its front matter and its prose.
+ *
+ * A chapter file carries a YAML block that keeps the record and the words in
+ * one portable document — the thing that makes "plain files you own" true. A
+ * writer should still not have to look at it: the audit's screenshot opens on
+ * `---`, `id:`, `title:`, which is a manuscript that looks like source code.
+ *
+ * The head is preserved byte for byte and re-attached on every save, so what is
+ * hidden is only hidden from the eye. If the block is malformed or absent, the
+ * whole file is prose and nothing is hidden — guessing would be worse.
+ */
+export function splitFrontMatter(text: string): { head: string; body: string } {
+  if (!text.startsWith("---")) return { head: "", body: text };
+  const end = text.indexOf("\n---", 3);
+  if (end === -1) return { head: "", body: text };
+  // Include the closing fence and the blank line that conventionally follows.
+  const after = text.indexOf("\n", end + 1);
+  if (after === -1) return { head: "", body: text };
+  let cut = after + 1;
+  if (text[cut] === "\n") cut += 1;
+  return { head: text.slice(0, cut), body: text.slice(cut) };
+}
+
+/**
+ * The chapter's own title, from its front matter.
+ *
+ * `CHAPTER_0001` is the file. "The Cellar Door" is what the writer called it,
+ * and it is what the bar should say.
+ */
+export function titleOf(head: string): string | null {
+  const match = /^title:[ \t]*(.+)$/m.exec(head);
+  const title = match?.[1]?.trim() ?? "";
+  return title === "" ? null : title.replace(/^["']|["']$/g, "");
+}
+
+/** The file's own name, without its extension — a chapter reads as a chapter. */
+function fileLabel(path: string): string {
+  const name = path.slice(path.lastIndexOf("/") + 1);
+  return name.replace(/\.(md|json|txt|ya?ml)$/i, "");
+}
+
+/** Where it sits, said quietly beside the name. */
+function folderOf(path: string): string {
+  const cut = path.lastIndexOf("/");
+  return cut === -1 ? "" : path.slice(0, cut);
 }

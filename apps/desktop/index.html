@@ -5,14 +5,35 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Manu</title>
     <meta name="color-scheme" content="dark light" />
+    <script>
+      /* Resolve the appearance before the first paint.
+
+         Manu Dark is the default, so an unconfigured install must never open
+         Paper and snap to black a frame later. This runs ahead of the bundle
+         and sets the same attribute the React theme hook sets, from the same
+         key, so the two can never disagree. */
+      (function () {
+        var theme = "dark";
+        try {
+          var stored = window.localStorage.getItem("manu.theme");
+          if (stored === "light" || stored === "dark" || stored === "system") theme = stored;
+        } catch (e) {
+          /* A locked-down webview: the default still applies. */
+        }
+        if (theme !== "system") document.documentElement.setAttribute("data-theme", theme);
+      })();
+    </script>
     <style>
-      /* Paint the ground before the bundle loads, so the window never opens
-         white and then snap to the theme. */
+      /* Paint the ground before the bundle loads. Manu Black unless the writer
+         has actually asked for Paper — the script above has already decided. */
       html {
         background: #0f0f10;
       }
+      html[data-theme="light"] {
+        background: #f6f4f1;
+      }
       @media (prefers-color-scheme: light) {
-        html {
+        html:not([data-theme]) {
           background: #f6f4f1;
         }
       }

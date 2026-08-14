@@ -112,9 +112,21 @@ body {
 
 .workbench {
   display: grid;
-  grid-template-columns: 240px 1fr 280px;
+  grid-template-columns: 240px minmax(0, 1fr) 280px;
   flex: 1;
   min-height: 0;
+}
+/* Either side column can be put away, and the manuscript takes the room. The
+   minimums are the point: no arrangement of panels may leave an editor too
+   narrow to write in (docs/UX.md). */
+.workbench--no-explorer {
+  grid-template-columns: minmax(0, 1fr) 280px;
+}
+.workbench--no-inspector {
+  grid-template-columns: 240px minmax(0, 1fr);
+}
+.workbench--one {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .panel {
@@ -222,61 +234,6 @@ code {
 }
 
 /* ── Start screen ────────────────────────────────────────── */
-.start {
-  display: grid;
-  place-items: center;
-  height: 100%;
-  padding: 24px;
-}
-.start__card {
-  width: 100%;
-  max-width: 460px;
-  background: var(--manu-surface);
-  border: 1px solid var(--manu-border);
-  border-radius: 10px;
-  padding: 28px;
-}
-.start__brand {
-  margin: 0 0 2px;
-}
-.start__tagline {
-  margin: 4px 0 20px;
-  color: var(--manu-ink-muted);
-}
-.start__warn {
-  background: var(--manu-warning-wash);
-  border: 1px solid var(--manu-warning-wash);
-  color: var(--manu-warning);
-  padding: 8px 10px;
-  border-radius: 6px;
-  font-size: 13px;
-}
-.start__section {
-  margin-top: 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.start__section h2 {
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--manu-ink-muted);
-  margin: 0;
-}
-.start__input {
-  font: inherit;
-  padding: 8px 10px;
-  border-radius: 6px;
-  border: 1px solid var(--manu-border);
-  background: var(--manu-bg);
-  color: var(--manu-ink);
-}
-.start__error {
-  margin-top: 16px;
-  color: var(--manu-error);
-  font-size: 13px;
-}
 
 /* ── Workbench (two column) ──────────────────────────────── */
 .workbench--two {
@@ -371,10 +328,26 @@ code {
   padding: 8px 12px;
   border-bottom: 1px solid var(--manu-border);
 }
-.editor__path {
-  font-family: ui-monospace, Menlo, Consolas, monospace;
-  font-size: 12px;
-  color: var(--manu-ink-muted);
+.editor__where {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+.editor__name {
+  font-size: var(--manu-text-md);
+  color: var(--manu-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.editor__folder {
+  font-size: var(--manu-text-xs);
+  color: var(--manu-ink-subtle);
+  white-space: nowrap;
+}
+.editor__spacer {
+  flex: 1;
 }
 .editor__error {
   color: var(--manu-error);
@@ -401,8 +374,17 @@ code {
   margin: 0 auto;
   padding: 32px 24px 40vh;
   font-family: var(--manu-font-manuscript);
-  font-size: var(--manu-text-lg);
+  font-size: var(--manu-text-prose);
   line-height: var(--manu-leading-prose);
+  /* The caret is the one place Manuscript Red belongs without question — it is
+     literally what the brand calls "the hand" (docs/BRAND.md). Two pixels of
+     it, four hours a day, is the whole accent budget well spent. */
+  caret-color: var(--manu-accent);
+}
+/* No scrollbar gutter shift and no focus ring around the page itself: the
+   manuscript is not a form field. */
+.editor__area:focus-visible {
+  outline: none;
 }
 .editor__area--data {
   padding: 16px;
@@ -698,8 +680,8 @@ code {
   cursor: pointer;
 }
 .chip--on {
-  color: var(--manu-accent-on);
-  background: var(--manu-accent);
+  color: var(--manu-ink);
+  background: var(--manu-accent-wash);
   border-color: var(--manu-accent);
 }
 .search__results {
@@ -731,9 +713,9 @@ code {
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--manu-accent-on);
-  background: var(--manu-accent);
-  border-radius: 3px;
+  color: var(--manu-ink-subtle);
+  border: 1px solid var(--manu-border);
+  border-radius: var(--manu-radius-sm);
   padding: 1px 5px;
 }
 .result__title {
@@ -1902,23 +1884,6 @@ code {
   font-size: var(--manu-text-base);
 }
 
-/* ── Start screen supporting copy ────────────────────────── */
-.start__brand {
-  display: flex;
-  align-items: center;
-  color: var(--manu-ink);
-}
-.start__note {
-  margin: 2px 0 0;
-  font-size: var(--manu-text-sm);
-  color: var(--manu-ink-muted);
-  line-height: 1.5;
-}
-.start__warn {
-  border-color: var(--manu-warning);
-  line-height: 1.5;
-}
-
 /* ── Severity: the colour is never the whole signal ──────── */
 .severity {
   display: inline-flex;
@@ -1951,12 +1916,15 @@ code {
    sidebar is how a writer moves around. */
 @media (width <= 1180px) {
   .workbench--three {
-    grid-template-columns: 220px 1fr 264px;
+    grid-template-columns: 220px minmax(0, 1fr) 264px;
+  }
+  .workbench--no-inspector {
+    grid-template-columns: 220px minmax(0, 1fr);
   }
 }
 @media (width <= 980px) {
   .workbench--three {
-    grid-template-columns: 220px 1fr;
+    grid-template-columns: 220px minmax(0, 1fr);
   }
   .workbench--three > .panel--inspector {
     display: none;
@@ -1964,9 +1932,12 @@ code {
 }
 @media (width <= 760px) {
   .workbench,
+  .workbench--one,
   .workbench--two,
-  .workbench--three {
-    grid-template-columns: 1fr;
+  .workbench--three,
+  .workbench--no-explorer,
+  .workbench--no-inspector {
+    grid-template-columns: minmax(0, 1fr);
   }
   .workbench > .panel--explorer {
     display: none;
@@ -1974,39 +1945,6 @@ code {
   .titlebar__project {
     display: none;
   }
-}
-
-/* ── First run ───────────────────────────────────────────── */
-.intro {
-  margin: 4px 0 8px;
-  padding: 12px 14px;
-  background: var(--manu-surface-raised);
-  border: 1px solid var(--manu-border);
-  border-radius: var(--manu-radius-md);
-}
-.intro__title {
-  margin: 0 0 8px;
-  font-size: var(--manu-text-xs);
-  text-transform: uppercase;
-  letter-spacing: var(--manu-tracking-label);
-  color: var(--manu-ink-muted);
-}
-.intro__list {
-  margin: 0 0 10px;
-  padding-left: 18px;
-  font-size: var(--manu-text-base);
-  line-height: 1.6;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.agent__count {
-  float: right;
-  font-weight: 400;
-  color: var(--manu-ink-subtle);
-  letter-spacing: 0;
-  text-transform: none;
 }
 
 /* ── Version selector ────────────────────────────────────── */
@@ -2359,35 +2297,6 @@ code {
   border-radius: var(--manu-radius-sm);
 }
 
-.start__templates {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 10px 0 4px;
-}
-.start__template {
-  font: inherit;
-  font-size: var(--manu-text-xs);
-  padding: 4px 10px;
-  border-radius: 999px;
-  border: 1px solid var(--manu-border);
-  background: var(--manu-surface);
-  color: var(--manu-ink-muted);
-  cursor: pointer;
-}
-.start__template:hover:not(:disabled) {
-  border-color: var(--manu-accent);
-}
-.start__template--on {
-  border-color: var(--manu-accent);
-  background: var(--manu-accent);
-  color: var(--manu-accent-on);
-}
-.start__template:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
 /* ── Save state & external-change conflict ───────────────────────────────── */
 /* Restrained by design: during normal writing the only thing that changes is
    one small word, and it is muted until it matters (MANU-004). */
@@ -2453,44 +2362,6 @@ code {
 .btn--danger {
   border-color: var(--manu-error);
   color: var(--manu-error);
-}
-
-/* ── Recent projects ─────────────────────────────────────────────────────── */
-.start__recents {
-  list-style: none;
-  margin: 8px 0 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.start__recent-open {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  width: 100%;
-  text-align: left;
-  font: inherit;
-  padding: 8px 10px;
-  border-radius: var(--manu-radius-sm);
-  border: 1px solid var(--manu-border);
-  background: var(--manu-surface);
-  color: inherit;
-  cursor: pointer;
-}
-.start__recent-open:hover:not(:disabled) {
-  border-color: var(--manu-accent);
-}
-.start__recent-title {
-  font-size: var(--manu-text-sm);
-  font-weight: 600;
-}
-.start__recent-path {
-  font-size: var(--manu-text-xs);
-  color: var(--manu-ink-subtle);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* ── AI providers ────────────────────────────────────────── */
@@ -2701,4 +2572,181 @@ code {
 }
 .badge--structured {
   color: var(--manu-ink-subtle);
+}
+
+/* ── Start screen ─────────────────────────────────────────────────────────── */
+/* Two columns of ordinary controls on the Manu Black ground — no card, no hero,
+   no full-width accent block. The masthead carries the wordmark at reading size
+   and gets out of the way (docs/BRAND.md — "restraint is the brand"). */
+.start {
+  height: 100%;
+  overflow: auto;
+  padding: 40px clamp(24px, 6vw, 88px);
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+.start__masthead {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--manu-border);
+}
+.start__brand {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  color: var(--manu-ink);
+}
+.start__tagline {
+  margin: 0;
+  font-size: var(--manu-text-sm);
+  color: var(--manu-ink-subtle);
+}
+.start__spacer {
+  flex: 1;
+}
+
+.start__columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: clamp(24px, 5vw, 64px);
+  align-items: start;
+}
+.start__column {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.start__heading {
+  margin: 0 0 2px;
+  font-size: var(--manu-text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--manu-tracking-label);
+  color: var(--manu-ink-subtle);
+}
+.start__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 2px;
+}
+.start__busy {
+  font-size: var(--manu-text-sm);
+  color: var(--manu-ink-muted);
+}
+.start__error {
+  margin: 0;
+  padding: 8px 10px;
+  border-left: 2px solid var(--manu-error);
+  background: var(--manu-error-wash);
+  color: var(--manu-error);
+  font-size: var(--manu-text-base);
+}
+.start__warn {
+  margin: 0;
+  padding: 8px 10px;
+  border-left: 2px solid var(--manu-warning);
+  background: var(--manu-warning-wash);
+  color: var(--manu-warning);
+  font-size: var(--manu-text-base);
+  line-height: var(--manu-leading-ui);
+}
+
+/* Template choice. The selected one is marked by the accent, not filled with
+   it: a solid red block was the loudest thing on the audit's screenshot. */
+.start__templates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+.start__template {
+  font: inherit;
+  font-size: var(--manu-text-xs);
+  padding: 4px 10px;
+  border: 1px solid var(--manu-border);
+  border-radius: var(--manu-radius-sm);
+  background: transparent;
+  color: var(--manu-ink-muted);
+  cursor: pointer;
+}
+.start__template:hover:not(:disabled) {
+  border-color: var(--manu-border-strong);
+  color: var(--manu-ink);
+}
+.start__template.is-on {
+  border-color: var(--manu-accent);
+  background: var(--manu-accent-wash);
+  color: var(--manu-ink);
+}
+.start__template:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.start__recents {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.start__recent {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  padding: 8px 10px;
+  border: none;
+  border-left: 2px solid transparent;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+.start__recent:hover:not(:disabled) {
+  border-left-color: var(--manu-accent);
+  background: var(--manu-surface);
+}
+.start__recent-title {
+  font-size: var(--manu-text-md);
+}
+.start__recent-path {
+  font-size: var(--manu-text-xs);
+  color: var(--manu-ink-subtle);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── First run ────────────────────────────────────────────────────────────── */
+/* One sentence, dismissed forever. Orientation, not a tour. */
+.intro {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  padding: 10px 0 0;
+}
+.intro__line {
+  margin: 0;
+  flex: 1;
+  font-size: var(--manu-text-base);
+  line-height: var(--manu-leading-ui);
+  color: var(--manu-ink-muted);
+}
+.intro__line strong {
+  color: var(--manu-ink);
+  font-weight: 600;
+}
+
+@media (width <= 860px) {
+  .start__columns {
+    grid-template-columns: 1fr;
+  }
 }

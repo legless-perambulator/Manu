@@ -67,7 +67,25 @@ function Preview() {
   useEffect(() => {
     void (async () => {
       const store = new InMemoryProjectStore();
-      await StoryRepository.createProject({ store, title: "The Blackthorn Inheritance" });
+      const created = await StoryRepository.createProject({
+        store,
+        title: "The Blackthorn Inheritance",
+      });
+      // A chapter with real prose, so the harness shows the editor doing the
+      // thing the editor is for rather than an empty state.
+      const chapter = await created.addChapter({ title: "The Cellar Door" });
+      await created.writeProjectFile(
+        chapter.filePath,
+        `---\nid: ${String(chapter.id)}\ntitle: ${chapter.title}\n---\n\n` +
+          "The cellar door had been painted shut for as long as Mara could remember, " +
+          "and she had never once thought to ask why. That was the part she would " +
+          "turn over afterwards — not the door, not the dark behind it, but the " +
+          "twenty-six years of not asking.\n\n" +
+          "Elias found her there at seven in the morning with a chisel in her hand " +
+          "and paint flakes in her hair.\n\n" +
+          "\u201cYou could have waited,\u201d he said.\n\n" +
+          "\u201cI did wait. I waited twenty-six years.\u201d\n",
+      );
       const repo = await openBranch(store);
       const branch = await new BranchStore(store).active();
       setSession({ repo, store, root: "", branch });
@@ -89,6 +107,9 @@ function Preview() {
   const openSettings = settingsParam !== null;
   if (settingsParam === "demo") seedConnections();
   const openPalette = params.get("palette") === "1";
+  // `?open=<path>` starts with a file in the editor, so the harness can show
+  // the manuscript rather than the empty state.
+  const openPath = params.get("open");
   useEffect(() => {
     if (session === null || !openPalette) return;
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true }));
@@ -106,6 +127,7 @@ function Preview() {
         onChangeTheme={setTheme}
         onClose={() => undefined}
         onOpenSettings={() => undefined}
+        {...(openPath === null ? {} : { initialPath: openPath })}
       />
       {openSettings && <AiProviderSettings secrets={secrets} onClose={() => undefined} />}
     </>

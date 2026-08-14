@@ -4,6 +4,7 @@ import type { ProjectSession } from "../repo/session";
 import { pickDirectory } from "../lib/dialog";
 import { isTauri } from "../tauri";
 import { TEMPLATES } from "@jellytind/genre";
+import { projectFolderName } from "@jellytind/story-repository";
 import { forgetProject, listRecentProjects } from "../repo/recents";
 import { Wordmark } from "./Wordmark";
 
@@ -22,14 +23,26 @@ function firstRun(): boolean {
   }
 }
 
+/**
+ * The first thing anybody sees.
+ *
+ * Two columns of ordinary controls, not a landing page: what you came to do on
+ * the left, what you were doing last on the right. The audit found this screen
+ * as a single narrow column whose call to action was a full-width Manuscript Red
+ * block and whose "Open project" sat below the fold at 1280×800 — a marketing
+ * shape for an application whose first job is to get out of the way.
+ */
 export function StartScreen({ onReady, onOpenSettings }: StartScreenProps) {
   const [title, setTitle] = useState("");
   const [template, setTemplate] = useState("novel");
   const [recents, setRecents] = useState(listRecentProjects);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<null | string>(null);
   const [error, setError] = useState<string | null>(null);
   const [showIntro, setShowIntro] = useState(firstRun);
   const inApp = isTauri();
+
+  const trimmed = title.trim();
+  const folder = trimmed === "" ? null : projectFolderName(trimmed);
 
   /** Said once, then never again. A first run is an orientation, not a tour. */
   function dismissIntro() {
@@ -43,20 +56,21 @@ export function StartScreen({ onReady, onOpenSettings }: StartScreenProps) {
 
   async function handleCreate() {
     setError(null);
-    const trimmed = title.trim();
     if (trimmed === "") {
-      setError("Please enter a project title.");
+      setError("Give the project a title first.");
       return;
     }
-    const dir = await pickDirectory("Choose a folder for the new project");
+    const dir = await pickDirectory(`Choose where to put "${trimmed}"`);
     if (dir === null) return;
-    setBusy(true);
+    // Creation writes forty-odd files. On a slow disk that is long enough to
+    // look like nothing happened, so it says what it is doing.
+    setBusy(`Creating ${folder ?? trimmed}…`);
     try {
       onReady(await createProjectAt(dir, trimmed, template));
     } catch (e) {
       setError(messageOf(e));
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   }
 
@@ -64,7 +78,7 @@ export function StartScreen({ onReady, onOpenSettings }: StartScreenProps) {
     setError(null);
     const dir = await pickDirectory("Open an existing project");
     if (dir === null) return;
-    setBusy(true);
+    setBusy("Opening…");
     try {
       const validation = await validateProjectAt(dir);
       if (!validation.ok) {
@@ -75,64 +89,88 @@ export function StartScreen({ onReady, onOpenSettings }: StartScreenProps) {
     } catch (e) {
       setError(messageOf(e));
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   }
 
+  async function openRecent(root: string) {
+    setError(null);
+    setBusy("Opening…");
+    try {
+      onReady(await openProjectAt(root));
+    } catch (e) {
+      // A project that has been moved or deleted should not sit in the list
+      // pretending otherwise.
+      setError(`${messageOf(e)} — removed from recent projects.`);
+      forgetProject(root);
+      setRecents(listRecentProjects());
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const disabled = busy !== null || !inApp;
+  const summary = TEMPLATES.find((entry) => entry.id === template)?.summary;
+
   return (
     <div className="start">
-      <div className="start__card">
+      <header className="start__masthead">
         <h1 className="start__brand">
-          <Wordmark height={44} />
+          <Wordmark height={30} />
           <span className="visually-hidden">Manu</span>
         </h1>
         <p className="start__tagline">You are the author. Manu is the hand.</p>
+        <span className="start__spacer" />
+        <button className="btn btn--ghost btn--small" onClick={onOpenSettings}>
+          Settings
+        </button>
+      </header>
 
-        {showIntro && (
-          <section className="intro">
-            <h2 className="intro__title">First time here</h2>
-            <ul className="intro__list">
-              <li>
-                A project is a <strong>folder of plain files</strong> on your machine. Manu records
-                the story&rsquo;s structure alongside the prose; both stay yours and readable
-                without it.
-              </li>
-              <li>
-                <strong>Build</strong> checks continuity deterministically — who knew what, where
-                things were, what a change would reach. It needs no model and makes no judgements
-                about your writing.
-              </li>
-              <li>
-                A model, if you configure one, <strong>proposes</strong>. Nothing it writes reaches
-                the manuscript until you accept it, and everything it did is in History.
-              </li>
-            </ul>
-            <button className="btn btn--ghost btn--small" onClick={dismissIntro}>
-              Got it
-            </button>
-          </section>
-        )}
-
-        {!inApp && (
-          <p className="start__warn" role="status">
-            Running in a browser. Creating and opening projects needs the desktop app — everything
-            here works on your own files, so it has to reach the filesystem.
+      {showIntro && (
+        <section className="intro" aria-label="First time here">
+          <p className="intro__line">
+            A project is a <strong>folder of plain files</strong> you own. <strong>Build</strong>{" "}
+            checks continuity without a model. A model, if you connect one, only ever{" "}
+            <strong>proposes</strong> — nothing reaches the manuscript until you accept it.
           </p>
-        )}
+          <button className="btn btn--ghost btn--small" onClick={dismissIntro}>
+            Got it
+          </button>
+        </section>
+      )}
 
-        <section className="start__section">
-          <h2>New project</h2>
-          <input
-            className="start__input"
-            placeholder="Project title"
-            aria-label="Project title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            disabled={busy || !inApp}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !busy && inApp) void handleCreate();
-            }}
-          />
+      {!inApp && (
+        <p className="start__warn" role="status">
+          Running in a browser. Creating and opening projects needs the desktop app — everything
+          here works on your own files, so it has to reach the filesystem.
+        </p>
+      )}
+
+      {error !== null && (
+        <p className="start__error" role="alert">
+          {error}
+        </p>
+      )}
+
+      <div className="start__columns">
+        <section className="start__column" aria-labelledby="start-new">
+          <h2 id="start-new" className="start__heading">
+            New project
+          </h2>
+
+          <label className="field">
+            <span>Title</span>
+            <input
+              placeholder="The Blackthorn Inheritance"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              disabled={disabled}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !disabled) void handleCreate();
+              }}
+            />
+          </label>
+
           <div className="start__templates" role="radiogroup" aria-label="Template">
             {TEMPLATES.map((entry) => (
               <button
@@ -141,55 +179,63 @@ export function StartScreen({ onReady, onOpenSettings }: StartScreenProps) {
                 role="radio"
                 aria-checked={template === entry.id}
                 title={entry.summary}
-                className={`start__template${template === entry.id ? " start__template--on" : ""}`}
-                disabled={busy || !inApp}
+                className={`start__template${template === entry.id ? " is-on" : ""}`}
+                disabled={disabled}
                 onClick={() => setTemplate(entry.id)}
               >
                 {entry.name}
               </button>
             ))}
           </div>
-          <p className="start__note">{TEMPLATES.find((entry) => entry.id === template)?.summary}</p>
-          <button
-            className="btn btn--primary"
-            onClick={() => void handleCreate()}
-            disabled={busy || !inApp}
-          >
-            Choose a folder and create
-          </button>
-          <p className="start__note">
-            A Manu project is a folder of plain files you own. Nothing is stored anywhere else. A
-            template switches modules on — you can change them whenever you like.
+          {summary !== undefined && <p className="hint">{summary}</p>}
+
+          <div className="start__actions">
+            <button
+              className="btn btn--primary"
+              onClick={() => void handleCreate()}
+              disabled={disabled}
+            >
+              Choose a folder…
+            </button>
+            {busy !== null && (
+              <span className="start__busy" role="status">
+                {busy}
+              </span>
+            )}
+          </div>
+
+          {/*
+            The audit's second-worst finding was that picking a folder made
+            *that folder* the project. It creates a folder inside now — and says
+            so, with the name it will use, before anything is written.
+          */}
+          <p className="hint">
+            Manu will create{" "}
+            {folder === null ? <span>a folder named after the title</span> : <code>{folder}/</code>}{" "}
+            inside the folder you choose. A template switches modules on; you can change them
+            whenever you like.
           </p>
         </section>
 
-        {recents.length > 0 && (
-          <section className="start__section">
-            <h2>Recent projects</h2>
+        <section className="start__column" aria-labelledby="start-open">
+          <h2 id="start-open" className="start__heading">
+            Open a project
+          </h2>
+
+          {recents.length === 0 ? (
+            <p className="hint">
+              Projects you open will be listed here. Nothing is uploaded — the list is just paths on
+              this machine.
+            </p>
+          ) : (
             <ul className="start__recents">
               {recents.map((entry) => (
-                <li key={entry.root} className="start__recent">
+                <li key={entry.root}>
                   <button
-                    className="start__recent-open"
-                    disabled={busy || !inApp}
+                    className="start__recent"
+                    disabled={disabled}
                     title={entry.root}
-                    onClick={() =>
-                      void (async () => {
-                        setError(null);
-                        setBusy(true);
-                        try {
-                          onReady(await openProjectAt(entry.root));
-                        } catch (e) {
-                          // A project that has been moved or deleted should not
-                          // sit in the list pretending otherwise.
-                          setError(`${messageOf(e)} — removed from recent projects.`);
-                          forgetProject(entry.root);
-                          setRecents(listRecentProjects());
-                        } finally {
-                          setBusy(false);
-                        }
-                      })()
-                    }
+                    onClick={() => void openRecent(entry.root)}
                   >
                     <span className="start__recent-title">{entry.title}</span>
                     <span className="start__recent-path">{entry.root}</span>
@@ -197,32 +243,14 @@ export function StartScreen({ onReady, onOpenSettings }: StartScreenProps) {
                 </li>
               ))}
             </ul>
-          </section>
-        )}
+          )}
 
-        <section className="start__section">
-          <h2>Open project</h2>
-          <button className="btn" onClick={() => void handleOpen()} disabled={busy || !inApp}>
-            Open an existing project…
-          </button>
+          <div className="start__actions">
+            <button className="btn" onClick={() => void handleOpen()} disabled={disabled}>
+              Open a folder…
+            </button>
+          </div>
         </section>
-
-        <section className="start__section">
-          <h2>AI providers</h2>
-          <button className="btn btn--ghost" onClick={onOpenSettings}>
-            Set up a provider…
-          </button>
-          <p className="start__note">
-            Optional. Every deterministic check — the build, the tests, the timeline — runs with no
-            model configured at all.
-          </p>
-        </section>
-
-        {error !== null && (
-          <p className="start__error" role="alert">
-            {error}
-          </p>
-        )}
       </div>
     </div>
   );
