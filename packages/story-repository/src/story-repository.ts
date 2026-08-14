@@ -176,6 +176,9 @@ import {
   locationFilePath,
   objectFilePath,
 } from "./paths";
+import { GuardedProjectStore } from "@jellytind/persistence";
+import { migrateProject } from "./migrations";
+import { ProjectBackups } from "./backups";
 import { ExtensionStore } from "./extension-store";
 import { ModuleStore } from "./module-store";
 import type { ModuleRuntime } from "./module-runtime";
@@ -301,12 +304,19 @@ export class StoryRepository {
   readonly modules: ModuleStore;
   /** Records belonging to genre modules (docs/GENRE_MODULES.md). */
   readonly extensions: ExtensionStore;
+  /** Bounded local snapshots of everything the writer owns (docs/BACKUPS.md). */
+  readonly backups: ProjectBackups;
   private readonly debugReports: DebugStore;
   private readonly dependencies: DependencyStore;
   private readonly refactors: RefactorStore;
   private manifest: ProjectManifest;
   private ids: SequentialIdGenerator;
   private moduleRuntime: ModuleRuntime | null = null;
+  /**
+   * The external-change guard sitting under every write to a user-owned file.
+   * Held so conflicts can be resolved deliberately (docs/STORY_REPOSITORY.md).
+   */
+  private readonly guarded: GuardedProjectStore;
 
   private constructor(
     rawStore: ProjectStore,
@@ -316,7 +326,12 @@ export class StoryRepository {
     private readonly index: ProjectIndex | undefined,
     private readonly clock: () => string,
   ) {
-    this.store = new JournaledProjectStore(rawStore);
+    // The guard sits closest to the disk, so nothing above it can overwrite a
+    // file that changed underneath Manu. `.writer/` bookkeeping is excluded:
+    // nobody hand-edits id-sequences.json, and guarding it would manufacture
+    // conflicts a writer could not act on (docs/STORY_REPOSITORY.md).
+    this.guarded = new GuardedProjectStore(rawStore);
+    this.store = new JournaledProjectStore(this.guarded);
     this.history = new HistoryStore(rawStore);
     this.manifest = manifest;
     this.ids = ids;
@@ -357,6 +372,10 @@ export class StoryRepository {
     // Journaled, unlike the setting above: a culture or a relationship beat is
     // authored material and belongs in the revision history.
     this.extensions = new ExtensionStore(this.store);
+    // Journaled, so a restore appears in History like any other change — the
+    // commonest way to lose work with a restore feature is restoring the wrong
+    // snapshot, and this makes that reversible too.
+    this.backups = new ProjectBackups(this.store);
     // Journaled: a registered dependency is the author's claim about how their
     // story holds together, as authored as a plot thread.
     this.dependencies = new DependencyStore(this.store);
@@ -420,12 +439,21 @@ export class StoryRepository {
       throw new RepositoryError((validation.code as never) ?? "not_a_project", message);
     }
 
+    // Every schema version is accounted for before anything reads project
+    // content: migrated by a registered step, or refused. A version we cannot
+    // interpret must never be treated as current (docs/STORY_REPOSITORY.md).
+    const migration = await migrateProject(store, validation.manifest);
+    const manifest =
+      migration.applied.length === 0
+        ? validation.manifest
+        : ((await StoryRepository.validateProject(store)).manifest ?? validation.manifest);
+
     const ids = await loadIdGenerator(store);
     if (options.index) options.index.init();
 
     return new StoryRepository(
       store,
-      validation.manifest,
+      manifest,
       ids,
       options.rootPath ?? "",
       options.index,
@@ -502,8 +530,48 @@ export class StoryRepository {
     return this.store.list(prefix === undefined ? undefined : normalizeProjectPath(prefix));
   }
 
+  /**
+   * Read a project file, and take what is there as the version Manu now knows.
+   *
+   * This is the deliberate refresh the guard does not do on its own: opening a
+   * file in Manu means "I have seen this version", which is exactly what makes
+   * a later external change detectable (docs/STORY_REPOSITORY.md).
+   */
   async readProjectFile(path: string): Promise<string | null> {
-    return this.store.readFile(normalizeProjectPath(path));
+    return this.guarded.adopt(normalizeProjectPath(path));
+  }
+
+  /**
+   * Whether the file on disk is still the one Manu last read or wrote.
+   *
+   * Cheap enough to call before showing an editor, and the basis of the
+   * conflict state the interface surfaces.
+   */
+  fileIsCurrent(path: string): Promise<boolean> {
+    return this.guarded.isCurrent(normalizeProjectPath(path));
+  }
+
+  /**
+   * Take the version on disk as current, discarding what Manu was holding.
+   *
+   * Writes nothing. This is "reload the external version" — the safe half of
+   * resolving a conflict.
+   */
+  acceptExternalChange(path: string): Promise<string | null> {
+    return this.guarded.adopt(normalizeProjectPath(path));
+  }
+
+  /**
+   * Overwrite a file whose disk version changed, deliberately.
+   *
+   * Separate from {@link writeProjectFile} so a destructive overwrite can only
+   * happen where somebody asked for one by name. The external content goes into
+   * the change set first, so it is recoverable from History afterwards.
+   */
+  async overwriteProjectFile(path: string, content: string): Promise<void> {
+    const safePath = normalizeProjectPath(path);
+    await this.guarded.adopt(safePath);
+    await this.writeProjectFile(safePath, content);
   }
 
   async writeProjectFile(path: string, content: string): Promise<void> {

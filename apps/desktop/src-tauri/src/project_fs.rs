@@ -134,6 +134,175 @@ fn walk(dir: &Path, root: &Path, out: &mut Vec<String>) -> Result<(), String> {
     Ok(())
 }
 
+
+// ── Atomic project creation ─────────────────────────────────────────────────
+//
+// Creating a project is the one operation that must work on a directory that is
+// not yet a project root, so these commands take a `parent` plus a single path
+// *segment*. A segment containing a separator, a `..`, a NUL or a leading dot
+// (other than our own temp prefix) is refused, which keeps the blast radius to
+// one child of a directory the user just chose in a file picker.
+
+const TEMP_PREFIX: &str = ".manu-new-";
+
+/// Validate a single path segment: no separators, no traversal, not empty.
+fn segment(name: &str) -> Result<&str, String> {
+    if name.is_empty() {
+        return Err("project folder name is empty".into());
+    }
+    if name.contains('\0') || name.contains('/') || name.contains('\\') {
+        return Err("project folder name must not contain a path separator".into());
+    }
+    if name == "." || name == ".." {
+        return Err("invalid project folder name".into());
+    }
+    Ok(name)
+}
+
+fn child(parent: &str, name: &str) -> Result<PathBuf, String> {
+    let base = fs::canonicalize(parent).map_err(|e| format!("invalid destination: {e}"))?;
+    let joined = base.join(segment(name)?);
+    if !joined.starts_with(&base) {
+        return Err("resolved path escapes the destination directory".into());
+    }
+    Ok(joined)
+}
+
+/// Create a new directory inside `parent`. Fails if it already exists, so a
+/// project can never be created on top of somebody else's folder.
+pub fn prepare_impl(parent: &str, name: &str) -> Result<String, String> {
+    let path = child(parent, name)?;
+    if path.exists() {
+        return Err(format!("\"{name}\" already exists in that folder."));
+    }
+    fs::create_dir(&path).map_err(|e| format!("could not create the project folder: {e}"))?;
+    Ok(path.to_string_lossy().to_string())
+}
+
+/// Rename a prepared directory to its final name, atomically where the platform
+/// allows. Refuses to clobber an existing destination.
+pub fn promote_impl(parent: &str, from: &str, to: &str) -> Result<String, String> {
+    let source = child(parent, from)?;
+    let target = child(parent, to)?;
+    if target.exists() {
+        return Err(format!("\"{to}\" already exists in that folder."));
+    }
+    fs::rename(&source, &target).map_err(|e| format!("could not finish creating the project: {e}"))?;
+    Ok(target.to_string_lossy().to_string())
+}
+
+/// Remove a half-built project directory. Only ever removes a directory whose
+/// name carries our temporary prefix, so a failed creation can be cleaned up
+/// without this becoming a general-purpose recursive delete.
+pub fn discard_impl(parent: &str, name: &str) -> Result<(), String> {
+    if !name.starts_with(TEMP_PREFIX) {
+        return Err("refusing to remove a directory that is not a partial project".into());
+    }
+    let path = child(parent, name)?;
+    match fs::remove_dir_all(&path) {
+        Ok(()) => Ok(()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(e) => Err(format!("cleanup failed: {e}")),
+    }
+}
+
+pub fn child_exists_impl(parent: &str, name: &str) -> Result<bool, String> {
+    Ok(child(parent, name)?.exists())
+}
+
+#[tauri::command]
+pub fn project_prepare(parent: String, name: String) -> Result<String, String> {
+    prepare_impl(&parent, &name)
+}
+
+#[tauri::command]
+pub fn project_promote(parent: String, from: String, to: String) -> Result<String, String> {
+    promote_impl(&parent, &from, &to)
+}
+
+#[tauri::command]
+pub fn project_discard(parent: String, name: String) -> Result<(), String> {
+    discard_impl(&parent, &name)
+}
+
+#[tauri::command]
+pub fn project_child_exists(parent: String, name: String) -> Result<bool, String> {
+    child_exists_impl(&parent, &name)
+}
+
+#[cfg(test)]
+mod creation_tests {
+    use super::*;
+    use std::fs;
+
+    fn temp_parent() -> PathBuf {
+        let mut dir = std::env::temp_dir();
+        let nanos = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+        dir.push(format!("manu-create-{nanos}"));
+        fs::create_dir_all(&dir).unwrap();
+        fs::canonicalize(&dir).unwrap()
+    }
+
+    #[test]
+    fn rejects_separators_and_traversal_in_names() {
+        let parent = temp_parent();
+        let p = parent.to_str().unwrap();
+        assert!(prepare_impl(p, "../escape").is_err());
+        assert!(prepare_impl(p, "a/b").is_err());
+        assert!(prepare_impl(p, "..").is_err());
+        assert!(prepare_impl(p, "").is_err());
+        assert!(prepare_impl(p, "The Black Thorn").is_ok());
+        fs::remove_dir_all(&parent).ok();
+    }
+
+    #[test]
+    fn refuses_to_create_over_an_existing_folder() {
+        let parent = temp_parent();
+        let p = parent.to_str().unwrap();
+        prepare_impl(p, "Novel").unwrap();
+        assert!(prepare_impl(p, "Novel").is_err());
+        fs::remove_dir_all(&parent).ok();
+    }
+
+    #[test]
+    fn promotes_by_rename_and_refuses_to_clobber() {
+        let parent = temp_parent();
+        let p = parent.to_str().unwrap();
+        prepare_impl(p, ".manu-new-1").unwrap();
+        promote_impl(p, ".manu-new-1", "The Black Thorn").unwrap();
+        assert!(parent.join("The Black Thorn").exists());
+        assert!(!parent.join(".manu-new-1").exists());
+
+        prepare_impl(p, ".manu-new-2").unwrap();
+        assert!(promote_impl(p, ".manu-new-2", "The Black Thorn").is_err());
+        fs::remove_dir_all(&parent).ok();
+    }
+
+    #[test]
+    fn discard_only_removes_partial_projects() {
+        let parent = temp_parent();
+        let p = parent.to_str().unwrap();
+        prepare_impl(p, "Precious Novel").unwrap();
+        assert!(discard_impl(p, "Precious Novel").is_err());
+        assert!(parent.join("Precious Novel").exists());
+
+        prepare_impl(p, ".manu-new-9").unwrap();
+        write_atomic_impl(parent.join(".manu-new-9").to_str().unwrap(), "a/b.md", "x").unwrap();
+        discard_impl(p, ".manu-new-9").unwrap();
+        assert!(!parent.join(".manu-new-9").exists());
+        fs::remove_dir_all(&parent).ok();
+    }
+
+    #[test]
+    fn unicode_and_spaces_survive() {
+        let parent = temp_parent();
+        let p = parent.to_str().unwrap();
+        prepare_impl(p, "Тёмный шип — drafts (2026)").unwrap();
+        assert!(child_exists_impl(p, "Тёмный шип — drafts (2026)").unwrap());
+        fs::remove_dir_all(&parent).ok();
+    }
+}
+
 // ── Tauri command wrappers ──────────────────────────────────────────────────
 
 #[tauri::command]

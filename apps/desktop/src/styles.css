@@ -2387,3 +2387,108 @@ code {
   opacity: 0.5;
   cursor: default;
 }
+
+/* ── Save state & external-change conflict ───────────────────────────────── */
+/* Restrained by design: during normal writing the only thing that changes is
+   one small word, and it is muted until it matters (MANU-004). */
+.editor__state {
+  margin-left: 8px;
+  font-size: var(--manu-text-xs);
+  color: var(--manu-ink-subtle);
+}
+.editor__state--dirty,
+.editor__state--saving {
+  color: var(--manu-ink-muted);
+}
+.editor__state--failed {
+  color: var(--manu-error);
+}
+.editor__state--conflict {
+  color: var(--manu-warning);
+  font-weight: 600;
+}
+.editor__notice {
+  margin: 0;
+  padding: 6px 12px;
+  font-size: var(--manu-text-xs);
+  color: var(--manu-ink-muted);
+  background: var(--manu-surface-raised);
+  border-bottom: 1px solid var(--manu-border);
+}
+/* The conflict is the one moment the editor should interrupt: somebody else's
+   words are at stake and no choice can be made on the writer's behalf. */
+.editor__conflict {
+  margin: 0;
+  padding: 12px;
+  background: var(--manu-warning-wash);
+  border-bottom: 1px solid var(--manu-warning);
+}
+.editor__conflict-title {
+  margin: 0 0 4px;
+  font-weight: 600;
+  font-size: var(--manu-text-sm);
+}
+.editor__conflict-body {
+  margin: 0 0 8px;
+  font-size: var(--manu-text-sm);
+}
+.editor__conflict-diff pre {
+  max-height: 220px;
+  overflow: auto;
+  margin: 6px 0 0;
+  padding: 8px;
+  background: var(--manu-surface-sunken);
+  border: 1px solid var(--manu-border);
+  border-radius: var(--manu-radius-sm);
+  font-family: var(--manu-font-mono);
+  font-size: var(--manu-text-xs);
+  white-space: pre-wrap;
+}
+.editor__conflict-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.btn--danger {
+  border-color: var(--manu-error);
+  color: var(--manu-error);
+}
+
+/* ── Recent projects ─────────────────────────────────────────────────────── */
+.start__recents {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.start__recent-open {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  padding: 8px 10px;
+  border-radius: var(--manu-radius-sm);
+  border: 1px solid var(--manu-border);
+  background: var(--manu-surface);
+  color: inherit;
+  cursor: pointer;
+}
+.start__recent-open:hover:not(:disabled) {
+  border-color: var(--manu-accent);
+}
+.start__recent-title {
+  font-size: var(--manu-text-sm);
+  font-weight: 600;
+}
+.start__recent-path {
+  font-size: var(--manu-text-xs);
+  color: var(--manu-ink-subtle);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

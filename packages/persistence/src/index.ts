@@ -17,6 +17,9 @@ export type { RevisionStore, RevisionEntry, RevisionAuthor } from "./revision-st
 
 export { PathEscapeError, normalizeProjectPath, isSafeProjectPath } from "./path-safety";
 
+export { GuardedProjectStore, ExternalChangeError, fingerprint } from "./guarded-store";
+export type { GuardOptions } from "./guarded-store";
+
 export type { SqlDatabase, SqlValue, Migration, EntityRecord } from "./sql";
 export {
   MIGRATIONS,

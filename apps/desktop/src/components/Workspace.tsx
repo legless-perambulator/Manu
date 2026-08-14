@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { isTauri } from "../tauri";
 import type { EditProposal, EditRequest, ManuscriptEditor } from "@jellytind/editing";
 import type { SecretStore } from "@jellytind/model-router";
 import type { BranchId } from "@jellytind/domain";
@@ -79,6 +81,8 @@ export function Workspace({
   const [tab, setTab] = useState<LeftPanelId>("files");
   const [pendingSwitch, setPendingSwitch] = useState<BranchId | null>(null);
   const [editorDirty, setEditorDirty] = useState(false);
+  /** Saves whatever the editor is holding. Registered by the editor itself. */
+  const flushEditor = useRef<(() => Promise<boolean>) | null>(null);
   const [switchError, setSwitchError] = useState<string | null>(null);
   const [group, setGroup] = useState<PanelGroupId>("project");
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -108,6 +112,33 @@ export function Workspace({
     GenreRuntime.attach(repo);
     void repo.modules.enabled().then(setEnabledModuleIds);
   }, [repo, refreshToken]);
+
+  /**
+   * Nothing leaves the building with unsaved words in its pockets.
+   *
+   * The frontend cannot be trusted to have flushed in time, so the window's own
+   * close request is intercepted: Manu saves first and only then closes. If the
+   * save fails — a disk error, or a file changed outside Manu — the close is
+   * cancelled and the writer is left looking at the problem rather than at
+   * nothing (MANU-004).
+   */
+  useEffect(() => {
+    if (!isTauri()) return;
+    let unlisten: (() => void) | undefined;
+    void getCurrentWindow()
+      .onCloseRequested(async (event) => {
+        const flush = flushEditor.current;
+        if (flush === null) return;
+        event.preventDefault();
+        const saved = await flush();
+        if (saved) await getCurrentWindow().destroy();
+        else setActivityLine("Could not save — closing cancelled. Your text is still here.");
+      })
+      .then((off) => {
+        unlisten = off;
+      });
+    return () => unlisten?.();
+  }, []);
 
   /** The panels this project can currently see — one filter, used everywhere. */
   const panels = useMemo(
@@ -617,12 +648,16 @@ export function Workspace({
           ) : (
             <Editor
               repo={repo}
+              root={session.root}
               path={openPath}
               onSaved={refresh}
               sceneId={sceneIdForEditor}
               aiBusy={aiBusy}
               onRunEdit={(request) => void runEdit(request)}
               onDirtyChange={setEditorDirty}
+              onRegisterFlush={(flush) => {
+                flushEditor.current = flush;
+              }}
             />
           )}
         </main>

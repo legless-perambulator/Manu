@@ -4,6 +4,7 @@ import type { ProjectSession } from "../repo/session";
 import { pickDirectory } from "../lib/dialog";
 import { isTauri } from "../tauri";
 import { TEMPLATES } from "@jellytind/genre";
+import { forgetProject, listRecentProjects } from "../repo/recents";
 import { Wordmark } from "./Wordmark";
 
 interface StartScreenProps {
@@ -24,6 +25,7 @@ function firstRun(): boolean {
 export function StartScreen({ onReady, onOpenSettings }: StartScreenProps) {
   const [title, setTitle] = useState("");
   const [template, setTemplate] = useState("novel");
+  const [recents, setRecents] = useState(listRecentProjects);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showIntro, setShowIntro] = useState(firstRun);
@@ -160,6 +162,43 @@ export function StartScreen({ onReady, onOpenSettings }: StartScreenProps) {
             template switches modules on — you can change them whenever you like.
           </p>
         </section>
+
+        {recents.length > 0 && (
+          <section className="start__section">
+            <h2>Recent projects</h2>
+            <ul className="start__recents">
+              {recents.map((entry) => (
+                <li key={entry.root} className="start__recent">
+                  <button
+                    className="start__recent-open"
+                    disabled={busy || !inApp}
+                    title={entry.root}
+                    onClick={() =>
+                      void (async () => {
+                        setError(null);
+                        setBusy(true);
+                        try {
+                          onReady(await openProjectAt(entry.root));
+                        } catch (e) {
+                          // A project that has been moved or deleted should not
+                          // sit in the list pretending otherwise.
+                          setError(`${messageOf(e)} — removed from recent projects.`);
+                          forgetProject(entry.root);
+                          setRecents(listRecentProjects());
+                        } finally {
+                          setBusy(false);
+                        }
+                      })()
+                    }
+                  >
+                    <span className="start__recent-title">{entry.title}</span>
+                    <span className="start__recent-path">{entry.root}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         <section className="start__section">
           <h2>Open project</h2>
