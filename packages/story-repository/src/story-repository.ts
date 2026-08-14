@@ -158,6 +158,9 @@ import { ChapterBuildStore } from "./chapter-build-store";
 import { ChapterPlanStore } from "./chapter-plan-store";
 import { ActPlanStore } from "./act-plan-store";
 import { ActBuildStore } from "./act-build-store";
+import { BookPlanStore } from "./book-plan-store";
+import { BookBuildStore } from "./book-build-store";
+import type { BookPlan, BookPlanFinding } from "@jellytind/domain";
 import type { ChapterPlan, PlanFinding, PlannedScene } from "@jellytind/domain";
 import {
   summariseGoalReport,
@@ -317,6 +320,10 @@ export class StoryRepository {
   readonly actPlans: ActPlanStore;
   /** Act builds, resumable across sessions (docs/ACT_BUILDER.md). */
   readonly actBuilds: ActBuildStore;
+  /** The book plan — the top of the planning hierarchy (docs/BOOK_BUILDER.md). */
+  readonly bookPlan: BookPlanStore;
+  /** Book builds, resumable across sessions and hours (docs/BOOK_BUILDER.md). */
+  readonly bookBuilds: BookBuildStore;
   /** Clues, suspects and deductions (docs/MYSTERY_ENGINE.md). */
   readonly mysteries: MysteryStore;
   /** Which genre modules are switched on (docs/GENRE_MODULES.md). */
@@ -393,6 +400,10 @@ export class StoryRepository {
     // Not journaled: like a chapter build, an act build's record is progress
     // bookkeeping; what it commits arrives through the child builds' change sets.
     this.actBuilds = new ActBuildStore(rawStore);
+    // Journaled: the book plan is the most authored file in the project.
+    this.bookPlan = new BookPlanStore(this.store);
+    // Not journaled, same reasoning as every other build record.
+    this.bookBuilds = new BookBuildStore(rawStore);
     // Journaled: who did it, and what each clue really means, is canon.
     this.mysteries = new MysteryStore(this.store);
     // Not journaled: which modules are switched on is a setting about the
@@ -3579,6 +3590,208 @@ export class StoryRepository {
       this.clock(),
       closing === null ? undefined : closing.sceneId,
     );
+  }
+
+  // ── The book plan (Phase 34) ────────────────────────────────────────────────
+
+  /** Save the book plan through the journal — the same contract as act plans. */
+  async saveBookPlan(
+    plan: Parameters<BookPlanStore["save"]>[0],
+    options: { note?: string; actor?: "human" | "agent"; taskId?: string; modelId?: string } = {},
+  ): Promise<BookPlan> {
+    let stored!: BookPlan;
+    await this.recordChange(
+      {
+        actor: options.actor ?? "human",
+        operation: "edit_book_plan",
+        summary: `Plan the book${options.note === undefined ? "" : ` — ${options.note}`}`,
+        ...(options.taskId !== undefined ? { taskId: options.taskId } : {}),
+        ...(options.modelId !== undefined ? { modelId: options.modelId } : {}),
+      },
+      async () => {
+        stored = await this.bookPlan.save(plan, {
+          now: this.clock(),
+          ...(options.note !== undefined ? { note: options.note } : {}),
+        });
+        await this.touch();
+      },
+    );
+    return stored;
+  }
+
+  /**
+   * Approve the book plan. Refused while it names acts that do not exist —
+   * an approved book plan must be buildable as written; the acts' own plans
+   * may still be drafts, and the build gates on each in turn.
+   */
+  async approveBookPlan(): Promise<BookPlan> {
+    const plan = await this.bookPlan.get();
+    if (plan === null) {
+      throw new RepositoryError("entity_not_found", "No book plan exists to approve.");
+    }
+    const known = new Set(await this.actPlans.list());
+    const unknown = plan.acts.filter((act) => !known.has(act.actId));
+    if (unknown.length > 0) {
+      throw new RepositoryError(
+        "entity_not_found",
+        `The book plan names acts this project does not contain: ${unknown
+          .map((act) => act.actId)
+          .join(", ")}.`,
+      );
+    }
+    let approved!: BookPlan;
+    await this.recordChange(
+      { actor: "human", operation: "approve_book_plan", summary: "Approve the book plan" },
+      async () => {
+        approved = await this.bookPlan.approve({ now: this.clock() });
+        await this.touch();
+      },
+    );
+    return approved;
+  }
+
+  /** Check the book plan against the project, deterministically. */
+  async validateBookPlan(plan: BookPlan): Promise<BookPlanFinding[]> {
+    const findings: BookPlanFinding[] = [];
+    if (plan.acts.length === 0) {
+      findings.push({
+        severity: "warning",
+        code: "empty_book",
+        message: "The book has no acts yet.",
+      });
+    }
+
+    const knownActs = new Set(await this.actPlans.list());
+    const seen = new Set<string>();
+    const chapterOwner = new Map<string, string>();
+    for (const member of plan.acts) {
+      if (!knownActs.has(member.actId)) {
+        findings.push({
+          severity: "error",
+          code: "unknown_act",
+          message: `The book names ${member.actId}, which has no act plan in this project.`,
+          actId: member.actId,
+        });
+        continue;
+      }
+      if (seen.has(member.actId)) {
+        findings.push({
+          severity: "error",
+          code: "duplicate_act",
+          message: `${member.actId} appears in the book more than once.`,
+          actId: member.actId,
+        });
+        continue;
+      }
+      seen.add(member.actId);
+      const actPlan = await this.actPlans.get(member.actId);
+      if (actPlan === null) continue;
+      if (actPlan.status !== "approved") {
+        findings.push({
+          severity: "warning",
+          code: "act_not_approved",
+          message: `The plan for ${actPlan.title} is still a ${actPlan.status}; the build will stop there until it is approved.`,
+          actId: member.actId,
+        });
+      }
+      if (actPlan.chapters.length === 0) {
+        findings.push({
+          severity: "warning",
+          code: "act_without_chapters",
+          message: `${actPlan.title} has no chapters yet.`,
+          actId: member.actId,
+        });
+      }
+      for (const chapter of actPlan.chapters) {
+        const owner = chapterOwner.get(chapter.chapterId);
+        if (owner !== undefined && owner !== member.actId) {
+          findings.push({
+            severity: "error",
+            code: "chapter_in_two_acts",
+            message: `${chapter.chapterId} belongs to both ${owner} and ${member.actId}. A chapter is built once, in one act.`,
+            actId: member.actId,
+          });
+        }
+        chapterOwner.set(chapter.chapterId, member.actId);
+      }
+    }
+
+    const [threads, characters, relationships, tests] = await Promise.all([
+      this.listPlotThreads(),
+      this.listCharacters(),
+      this.listRelationships(),
+      this.listStoryTests(),
+    ]);
+    const referenced: { kind: string; ids: readonly string[]; known: Set<string> }[] = [
+      {
+        kind: "plot thread",
+        ids: plan.majorPlotThreads.map((goal) => goal.threadId),
+        known: new Set(threads.map((t) => t.id as string)),
+      },
+      {
+        kind: "character",
+        ids: plan.characterArcGoals.map((goal) => goal.characterId),
+        known: new Set(characters.map((c) => c.id as string)),
+      },
+      {
+        kind: "relationship",
+        ids: plan.relationshipArcGoals.map((goal) => goal.relationshipId),
+        known: new Set(relationships.map((r) => r.id as string)),
+      },
+      {
+        kind: "story test",
+        ids: plan.storyTestIds,
+        known: new Set(tests.map((t) => t.id as string)),
+      },
+    ];
+    for (const { kind, ids, known } of referenced) {
+      for (const id of new Set(ids)) {
+        if (!known.has(id)) {
+          findings.push({
+            severity: "error",
+            code: "unknown_reference",
+            message: `The book's goals reference ${kind} ${id}, which does not exist in this project.`,
+          });
+        }
+      }
+    }
+    return findings;
+  }
+
+  /**
+   * Where the book's goals stand (§8), answered from recorded state at the end
+   * of the book's last act — the same deterministic engine as act goals, run
+   * over the chapters of every act the book names. The Story State system
+   * stays the single authority (§7): this reads it and records nothing.
+   */
+  async evaluateBookGoals(plan: BookPlan): Promise<ActGoalReport> {
+    const chapters: { chapterId: string }[] = [];
+    for (const member of plan.acts) {
+      const actPlan = await this.actPlans.get(member.actId);
+      if (actPlan === null) continue;
+      for (const chapter of actPlan.chapters) chapters.push({ chapterId: chapter.chapterId });
+    }
+    return this.evaluateActGoals({
+      id: plan.id,
+      actId: "BOOK",
+      title: "the book",
+      version: plan.version,
+      status: plan.status,
+      chapters,
+      plotThreadGoals: plan.majorPlotThreads,
+      characterArcGoals: plan.characterArcGoals,
+      relationshipGoals: plan.relationshipArcGoals,
+      requiredSetupIds: [],
+      requiredPayoffIds: [],
+      forbiddenFacts: [],
+      constraints: [],
+      notes: [],
+      storyTestIds: plan.storyTestIds,
+      source: plan.source,
+      createdAt: plan.createdAt,
+      updatedAt: plan.updatedAt,
+      revisions: [],
+    });
   }
 
   beginTransaction(summary = "Staged changes", meta: TransactionMeta = {}): StagedTransaction {

@@ -10,7 +10,8 @@ plan as a controlled sequence of small operations.
   with per-scene contexts, bounded continuation, state extraction, deterministic
   validation, plan coverage with a bounded revision loop, three approval
   policies, pause/resume across restarts, cancellation, checkpoints, and a full
-  audit trail. The Act Builder and `/write-book` are **PLANNED**, not built.
+  audit trail. The Act Builder (Phase 33) and the Book Builder (Phase 34) run
+  this pipeline as their leaf.
 
 ## The rule
 
@@ -139,7 +140,9 @@ it never reached the manuscript — and pauses; resume drafts the scene again.
   one starts, recorded.
 - **Resume** re-enters at `currentStep` with everything recompiled from the
   current project — tested across a genuine reopen of the project from disk.
-  A `failed` build resumes the same way, retrying the step that failed.
+  A `failed` build resumes the same way, retrying the step that failed. A
+  scene interrupted mid-draft (no held draft survived) is put back in the
+  queue and retried — never silently skipped, never duplicated.
 - **Cancel** keeps every committed scene (they are ordinary history), discards
   any held draft, records the cancellation, and is terminal.
 
@@ -195,12 +198,12 @@ build continues.
 
 ## Not yet
 
-- **Book Build / `/write-book`** — building more than one act as one operation
-  is deliberately out of scope. (Building more than one _chapter_ as one
-  operation is the Act Builder's job — [ACT_BUILDER.md](ACT_BUILDER.md) — which
-  runs this pipeline as a child, once per chapter.)
 - **Token accounting.** Usage counts calls per class; the model interface does
-  not yet expose token totals for structured calls.
+  not yet expose token totals for structured calls. (Building more than one
+  chapter as one operation is the Act Builder's job, and more than one act the
+  Book Builder's — [ACT_BUILDER.md](ACT_BUILDER.md),
+  [BOOK_BUILDER.md](BOOK_BUILDER.md) — each running this pipeline as the leaf
+  where prose is actually made.)
 
 ## Relationship to other subsystems
 

@@ -273,6 +273,17 @@ export class ChapterBuilder {
     working.status = statusForStep(working.currentStep);
     working.resumeCount += 1;
     delete working.failureReason;
+    // A scene caught mid-draft when the process died or the provider failed
+    // is put back in the queue. Nothing of it was committed — "drafting" at
+    // rest with no held draft always means an interrupted call — and without
+    // this it would be skipped silently, the one thing a resume must never
+    // do. A "drafting" scene *with* a held draft is different: the draft
+    // survived (a pause between draft and commit), and commits as it stands.
+    for (const scene of working.scenes) {
+      if (scene.status === "drafting" && scene.draft === undefined) {
+        scene.status = "pending";
+      }
+    }
     await this.persist(working);
     await this.log(working, "resume", `resumed at ${working.currentStep}`);
     return this.runLoop(working);

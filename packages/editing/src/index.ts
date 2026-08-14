@@ -75,3 +75,6 @@ export type {
 
 export { ActBuilder } from "./act-builder";
 export type { ActBuildModels, ActBuilderOptions, StartActBuildOptions } from "./act-builder";
+
+export { BookBuilder } from "./book-builder";
+export type { BookBuilderOptions, StartBookBuildOptions } from "./book-builder";

@@ -11,7 +11,10 @@ that span chapters (Phase 33).
   act-level goals, the deterministic per-chapter pipeline over the Phase 31
   Chapter Builder, future-plan adaptation, pause/resume across restarts,
   replanning the remaining act, act-scoped story tests, and the Write act
-  panel. **Book Build / `/write-book` is not built** and remains out of scope.
+  panel. Above it sits the Book Builder ([BOOK_BUILDER.md](BOOK_BUILDER.md)),
+  which runs acts as children and can pass a scene-gate policy through
+  (`chapterApprovalPolicy`), in which case child gates are **forwarded** up
+  as `chapter_gate` pendings rather than treated as stops (Phase 34).
 
 ## Not a for-loop
 
@@ -183,13 +186,13 @@ open beside it throughout.
 
 ## Not yet
 
-- **Book Build / `/write-book`** — building multiple acts as one operation is
-  deliberately out of scope for this phase.
 - **Automatic cost routing** — usage is accumulated per class (§18); choosing
-  models by cost is a future phase.
+  models by cost is a future phase. (Building multiple acts as one operation
+  is the Book Builder's job — [BOOK_BUILDER.md](BOOK_BUILDER.md).)
 
 ## Relationship to other subsystems
 
+- [BOOK_BUILDER.md](BOOK_BUILDER.md) — the book-level workflow that runs acts as children.
 - [CHAPTER_BUILDER.md](CHAPTER_BUILDER.md) — the pipeline each chapter runs as a child.
 - [PLANNING.md](PLANNING.md) — the chapter plans an act confirms, consumes and re-proposes.
 - [STORY_STATE.md](STORY_STATE.md) — the recorded state every goal is answered from.

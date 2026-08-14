@@ -73,6 +73,14 @@ export interface StartActBuildOptions {
   readonly autoConfirmObjective?: boolean;
   /** Propose a draft plan (for review) for chapters that have none. */
   readonly generateMissingPlans?: boolean;
+  /**
+   * The policy each child chapter build runs under. Defaults to
+   * `auto_until_error`; a pass-through scene policy makes the children's own
+   * gates surface here as forwarded `chapter_gate` pendings (Phase 34).
+   */
+  readonly chapterApprovalPolicy?: ActBuild["chapterApprovalPolicy"];
+  /** Scene revision bound for every child build (bounded repair, §19/34). */
+  readonly maxSceneRevisions?: number;
 }
 
 export interface ActBuilderOptions {
@@ -106,6 +114,8 @@ export class ActBuilder {
   private readonly pauseRequested = new Set<string>();
   private readonly cancelRequested = new Set<string>();
   private readonly running = new Set<string>();
+  /** The chapter build each running act is currently inside, for pause forwarding. */
+  private readonly runningChild = new Map<string, string>();
 
   constructor(options: ActBuilderOptions) {
     this.repo = options.repo;
@@ -195,6 +205,12 @@ export class ActBuilder {
       autonomy: options.autonomy ?? "pause",
       autoConfirmObjective: options.autoConfirmObjective ?? policy === "auto_until_error",
       generateMissingPlans: options.generateMissingPlans ?? false,
+      ...(options.chapterApprovalPolicy !== undefined
+        ? { chapterApprovalPolicy: options.chapterApprovalPolicy }
+        : {}),
+      ...(options.maxSceneRevisions !== undefined
+        ? { maxSceneRevisions: options.maxSceneRevisions }
+        : {}),
       modelAssignments: this.assignments(),
       currentStep: "validate_prerequisites",
       chapters: plan.chapters.map((member): MutableChapter => ({
@@ -282,6 +298,19 @@ export class ActBuilder {
       case "chapter_review":
         working.currentStep = "chapter_checkpoint";
         break;
+      case "chapter_gate": {
+        // A forwarded gate: the question was the child chapter build's, and
+        // so is the answer. The child runs to its next stop; the build step
+        // then reads where it landed.
+        if (pending.chapterId !== undefined) {
+          const record = this.chapterRecord(working, pending.chapterId);
+          if (record.chapterBuildId !== undefined) {
+            await this.chapterBuilder.approve(record.chapterBuildId);
+          }
+        }
+        working.currentStep = "build_chapter";
+        break;
+      }
       case "final":
         working.currentStep = "done";
         working.status = "completed";
@@ -334,15 +363,29 @@ export class ActBuilder {
       await this.log(working, "reject", reason ?? "declined the draft plan");
       return this.runLoop(working);
     }
+    if (pending?.kind === "chapter_gate" && pending.chapterId !== undefined) {
+      // Forward the "no" to the child, which discards its held draft and
+      // pauses; resuming the act resumes the child, which drafts again.
+      const record = this.chapterRecord(working, pending.chapterId);
+      if (record.chapterBuildId !== undefined) {
+        await this.chapterBuilder.rejectPending(record.chapterBuildId, reason);
+      }
+    }
     working.status = "paused";
     await this.persist(working);
     await this.log(working, "reject", reason ?? "declined at the gate");
     return working;
   }
 
-  /** Ask a running act build to stop after the step it is on. */
+  /**
+   * Ask a running act build to stop after the step it is on. The request is
+   * forwarded into the running chapter build, so the pause lands at scene
+   * granularity rather than waiting out a whole chapter.
+   */
   requestPause(buildId: string): void {
     this.pauseRequested.add(buildId);
+    const child = this.runningChild.get(buildId);
+    if (child !== undefined) this.chapterBuilder.requestPause(child);
   }
 
   /**
@@ -658,9 +701,11 @@ export class ActBuilder {
   }
 
   /**
-   * Run (or resume) the child chapter build. The child runs hands-off — the
-   * act builder is the only gatekeeper — and stops of its own accord only for
-   * errors, which pause the act at this chapter (§17).
+   * Run (or resume) the child chapter build. By default the child runs
+   * hands-off — the act builder is the gatekeeper — and stops of its own
+   * accord only for errors, which pause the act at this chapter (§17). Under
+   * a pass-through scene policy (Phase 34) the child's own gates are
+   * **forwarded** upward instead of treated as stops.
    */
   private async stepBuildChapter(build: Working): Promise<"continue" | "stop"> {
     const record = this.currentChapter(build);
@@ -673,6 +718,7 @@ export class ActBuilder {
 
     let child;
     if (record.chapterBuildId !== undefined) {
+      this.runningChild.set(build.id, record.chapterBuildId);
       const held = await this.repo.chapterBuilds.get(record.chapterBuildId);
       child =
         held !== null && isBuildResumable(held.status)
@@ -683,11 +729,13 @@ export class ActBuilder {
       child = await this.chapterBuilder.start({
         chapterId: record.chapterId,
         branchId: build.branchId,
-        approvalPolicy: "auto_until_error",
+        approvalPolicy: build.chapterApprovalPolicy ?? "auto_until_error",
         autoConfirmObjective: build.autoConfirmObjective,
+        ...(build.maxSceneRevisions !== undefined ? { maxRevisions: build.maxSceneRevisions } : {}),
       });
       record.chapterBuildId = child.id;
     }
+    this.runningChild.delete(build.id);
     await this.accumulateUsage(build);
 
     if (child.status === "completed") {
@@ -701,6 +749,27 @@ export class ActBuilder {
       await this.log(build, "chapter_done", `${record.chapterId} built by ${child.id}`);
       build.currentStep = "evaluate_progress";
       return "continue";
+    }
+
+    // A gate the child raised under a pass-through policy: surface it here,
+    // verbatim, and send the answer back down when it arrives.
+    if (child.status === "awaiting_approval" && child.pending !== undefined) {
+      return this.gate(build, child.pending.question, "chapter_gate", record.chapterId);
+    }
+
+    // A pause the writer asked for mid-chapter, honoured by the child at the
+    // scene it reached: a clean stop, not a failure.
+    if (child.status === "paused" && this.pauseRequested.delete(build.id)) {
+      build.status = "paused";
+      this.note(
+        build,
+        "info",
+        "build_chapter",
+        `paused by the writer; ${record.title} holds at the scene it reached`,
+        record.chapterId,
+      );
+      await this.log(build, "pause", `paused inside ${record.chapterId}`);
+      return "stop";
     }
 
     // §17: the chapter stopped — paused on a validation error, failed on a

@@ -34,6 +34,7 @@ export const LEFT_PANELS = [
   "world",
   "chapterbuild",
   "actbuild",
+  "bookbuild",
   "inspector",
   "agent",
   "context",
@@ -208,6 +209,13 @@ export const PANELS: readonly PanelDefinition[] = [
     group: "assist",
     label: "Write act",
     purpose: "Build an act chapter by chapter, toward its goals",
+    side: "right",
+  },
+  {
+    id: "bookbuild",
+    group: "assist",
+    label: "Write book",
+    purpose: "Build the whole book from its plan, act by act",
     side: "right",
   },
   {

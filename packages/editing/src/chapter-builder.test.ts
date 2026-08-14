@@ -543,6 +543,9 @@ describe("failure and cancellation (§12, §18)", () => {
     healthy = true;
     const resumed = await builder.resume(failed.id);
     expect(resumed.status).toBe("completed");
+    // The scene the failure interrupted was retried, not silently skipped —
+    // every scene ends committed (§28 of Phase 34 caught this regression).
+    expect(resumed.scenes.every((scene) => scene.status === "committed")).toBe(true);
   });
 
   it("cancelling keeps committed scenes, discards the held draft, and is final", async () => {

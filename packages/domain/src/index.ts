@@ -380,3 +380,35 @@ export type {
   ActDiagnostic,
   ActPending,
 } from "./act-build";
+
+// ── Book planning and book builds (Phase 34) ────────────────────────────────
+export { emptyBookPlan } from "./book-plan";
+export type { BookAct, BookPlan, BookPlanFinding, BookPlanRevision } from "./book-plan";
+export {
+  BOOK_ACT_STATUSES,
+  BOOK_APPROVAL_POLICIES,
+  BOOK_BUILD_STATUSES,
+  BOOK_BUILD_STEPS,
+  BOOK_BUILD_VARIANTS,
+  BOOK_RESUMABLE_STATUSES,
+  DEFAULT_QUALITY_GATES,
+  describeBookProgress,
+  isBookBuildFinished,
+  isBookBuildResumable,
+  summariseBookBuild,
+} from "./book-build";
+export type {
+  BookActRecord,
+  BookActStatus,
+  BookApprovalPolicy,
+  BookBuild,
+  BookBuildReport,
+  BookBuildStatus,
+  BookBuildStep,
+  BookBuildSummary,
+  BookBuildVariant,
+  BookDiagnostic,
+  BookPending,
+  BookProgress,
+  BookQualityGates,
+} from "./book-build";

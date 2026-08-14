@@ -1,4 +1,5 @@
 import type { ActGoalReport } from "./act-plan";
+import type { ApprovalPolicy } from "./chapter-build";
 import type { RoutingClass, RunCost } from "./orchestration";
 
 /**
@@ -124,9 +125,12 @@ export interface ActPending {
    * - `chapter_plan`: approve the chapter's draft plan, or build without one.
    * - `stale_plan`: approve the proposed updated plan, or stop and review.
    * - `chapter_review`: keep the built chapter and continue, or stop.
+   * - `chapter_gate`: a child chapter build's own gate (a held scene, under
+   *   a pass-through scene policy), forwarded verbatim; the answer travels
+   *   back down to the chapter build (Phase 34).
    * - `final`: accept the finished act.
    */
-  readonly kind: "chapter_plan" | "stale_plan" | "chapter_review" | "final";
+  readonly kind: "chapter_plan" | "stale_plan" | "chapter_review" | "chapter_gate" | "final";
   readonly raisedAt: string;
 }
 
@@ -166,6 +170,16 @@ export interface ActBuild {
   readonly autoConfirmObjective: boolean;
   /** Generate a draft plan (for review) for chapters that have none. */
   readonly generateMissingPlans: boolean;
+  /**
+   * The policy each child chapter build runs under. Defaults to
+   * `auto_until_error` (the act is the gatekeeper). A book build may pass
+   * `every_scene` through, in which case the children's own gates are
+   * **forwarded** as `chapter_gate` pendings rather than treated as stops
+   * (Phase 34).
+   */
+  readonly chapterApprovalPolicy?: ApprovalPolicy;
+  /** Scene revision bound passed to every child build (bounded repair). */
+  readonly maxSceneRevisions?: number;
   readonly modelAssignments: Readonly<Partial<Record<RoutingClass, string>>>;
   /** Checkpoint taken before anything was written. The whole act reverts here. */
   readonly checkpointId?: string;

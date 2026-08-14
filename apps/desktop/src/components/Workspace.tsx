@@ -81,6 +81,7 @@ import { CausalityPanel } from "./CausalityPanel";
 import { ChapterBuildPanel } from "./ChapterBuildPanel";
 import { ChapterPlanPanel } from "./ChapterPlanPanel";
 import { ActBuildPanel } from "./ActBuildPanel";
+import { BookBuildPanel } from "./BookBuildPanel";
 import { RefactorPanel } from "./RefactorPanel";
 
 interface WorkspaceProps {
@@ -639,6 +640,16 @@ export function Workspace({
           <ChapterPlanPanel
             repo={repo}
             secrets={secrets}
+            refreshToken={refreshToken}
+            onChanged={refresh}
+          />
+        );
+      case "bookbuild":
+        return (
+          <BookBuildPanel
+            repo={repo}
+            secrets={secrets}
+            branchId={session.branch.id as string}
             refreshToken={refreshToken}
             onChanged={refresh}
           />
