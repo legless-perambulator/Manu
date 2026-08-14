@@ -77,6 +77,12 @@ importers:
       '@jellytind/provider-anthropic':
         specifier: workspace:*
         version: link:../../packages/providers/anthropic
+      '@jellytind/provider-google':
+        specifier: workspace:*
+        version: link:../../packages/providers/google
+      '@jellytind/provider-openai-compatible':
+        specifier: workspace:*
+        version: link:../../packages/providers/openai-compatible
       '@jellytind/reader-sim':
         specifier: workspace:*
         version: link:../../packages/reader-sim
@@ -305,6 +311,24 @@ importers:
         version: link:../shared
 
   packages/providers/anthropic:
+    dependencies:
+      '@jellytind/model-router':
+        specifier: workspace:*
+        version: link:../../model-router
+      '@jellytind/shared':
+        specifier: workspace:*
+        version: link:../../shared
+
+  packages/providers/google:
+    dependencies:
+      '@jellytind/model-router':
+        specifier: workspace:*
+        version: link:../../model-router
+      '@jellytind/shared':
+        specifier: workspace:*
+        version: link:../../shared
+
+  packages/providers/openai-compatible:
     dependencies:
       '@jellytind/model-router':
         specifier: workspace:*

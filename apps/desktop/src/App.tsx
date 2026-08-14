@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { StartScreen } from "./components/StartScreen";
 import { Workspace } from "./components/Workspace";
-import { ModelSettings } from "./components/ModelSettings";
+import { AiProviderSettings } from "./components/AiProviderSettings";
 import { createSecretStore } from "./lib/secrets";
 import type { ProjectSession } from "./repo/session";
 import { useTheme } from "./lib/theme";
@@ -33,7 +33,9 @@ export function App() {
           onOpenSettings={() => setSettingsOpen(true)}
         />
       )}
-      {settingsOpen && <ModelSettings secrets={secrets} onClose={() => setSettingsOpen(false)} />}
+      {settingsOpen && (
+        <AiProviderSettings secrets={secrets} onClose={() => setSettingsOpen(false)} />
+      )}
     </>
   );
 }

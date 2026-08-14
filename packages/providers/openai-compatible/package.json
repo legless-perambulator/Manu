@@ -1,0 +1,17 @@
+{
+  "name": "@jellytind/provider-openai-compatible",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "OpenAI-compatible chat-completions adapter: OpenAI, OpenRouter, Ollama and self-hosted servers.",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "sideEffects": false,
+  "dependencies": {
+    "@jellytind/model-router": "workspace:*",
+    "@jellytind/shared": "workspace:*"
+  }
+}

@@ -1,11 +1,11 @@
 # ALPHA TEST CHECKLIST
 
-For the human tester, after Phase 30.5B1. Deliberately short.
+For the human tester, after Phase 30.5B2. Deliberately short.
 
 This covers what could **not** be tested automatically — chiefly anything
 crossing the Tauri IPC boundary, which needs a real running app. Everything
 below the line marked _automated_ is already covered by
-`pnpm check` (1102 TypeScript tests + 9 Rust tests) and does not need
+`pnpm check` (1167 TypeScript tests + 9 Rust tests) and does not need
 re-checking by hand.
 
 Build: `pnpm build:desktop` →
@@ -79,10 +79,41 @@ first; if any step fails, stop and report.
 | 3   | Search for a word you know is in your manuscript                                                                     | Results do **not** include duplicate hits from inside backups |
 | 4   | Recovery drill: delete a chapter's text, save, then copy the file back from the newest `BK_` folder with Manu closed | The chapter is restored                                       |
 
+## 7. AI providers
+
+Everything below the connection test is exercised automatically against a fake
+transport; what needs a real build is the **network path**, because the packaged
+capability allowlist is enforced by the Rust host and cannot be tested from
+Node.
+
+| #   | Step                                                                                 | Expected                                                                                                                |
+| --- | ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| 1   | Open **Settings → AI providers** with nothing configured                             | Six providers offered: Anthropic, Google Gemini, OpenAI, OpenRouter, then Ollama and OpenAI-compatible marked **Local** |
+| 2   | Add **Ollama** without a running server and press **Test connection**                | "Cannot reach Ollama at localhost:11434." — a sentence, not a `TypeError`                                               |
+| 3   | Start Ollama locally, press **Test connection**, then **Refresh models**             | A model count, then your pulled models listed, with `tools?` and `structured output?` marked unknown                    |
+| 4   | Point the address at Ollama on **another machine** (`http://<host>:11434`) and test  | It connects. This is the packaging fix — it would have failed in the previous build                                     |
+| 5   | Set the address to something on an unusual port, e.g. `http://10.0.0.4:8080`         | A warning appears **before** you test, explaining the restriction is deliberate                                         |
+| 6   | Add a hosted provider you have a key for, save the key, test                         | Connects. Reopen Settings — the key field says a key is stored, and never shows it                                      |
+| 7   | Under **Which model does what**, set only **Default**                                | Every other purpose says "Use the default"                                                                              |
+| 8   | Set **Prose and drafting** to a different connection's model, then run an AI rewrite | It uses that model                                                                                                      |
+| 9   | Remove a connection                                                                  | It disappears, and any purpose pointing at it is cleared                                                                |
+| 10  | If you upgraded from a build that already had an Anthropic key: open Settings        | An "Anthropic" connection is already there and **still works without re-entering the key**                              |
+
+Two things to check by inspection, because they are the point of the phase:
+
+- `grep -ri "sk-" ~/.config/manu` and your project folder should find **nothing**.
+  Keys belong to the OS credential store.
+- Nothing in the interface should suggest a ChatGPT Plus or Claude Pro
+  subscription can be used. If you find such a claim, that is a bug.
+
 ---
 
 ## Already automated — no manual check needed
 
+Provider wire formats, streaming, tool calls, structured-output rejection,
+HTTP-error mapping, model discovery for all three response shapes, connection
+tests, capability honesty, the legacy Anthropic settings migration, and the
+consistency of the packaged capability allowlist with the shipped providers.
 External-change detection and resolution, folder-name derivation (Unicode,
 reserved names, punctuation, collisions), atomic-creation failure injection and
 cleanup, schema version handling (0, −3, 1, 99), backup capture/prune/restore
@@ -92,12 +123,15 @@ restart, transaction rollback.
 
 ## Known limitations in this build
 
-Out of scope for 30.5B1 and expected — please do not file these:
+Out of scope for 30.5B2 and expected — please do not file these:
 
 - The interface is still the light Paper theme. The Dark Manu direction is a
   later wave.
-- Only Anthropic is available as a provider, with a model list a generation
-  behind (MANU-005 / MANU-006).
+- A model server on a port other than 11434 or 1234, on a machine that is not
+  this one, is refused by the packaged capability allowlist. This is deliberate
+  and explained in the interface (docs/MODEL_ROUTER.md — "Network scope").
+- Gemini does not stream: the reply arrives complete rather than word by word.
+- No cost tracking or spend limits.
 - No manuscript export (MANU-019).
 - No filesystem watching: an external change is detected when Manu next writes,
   not the moment it happens.

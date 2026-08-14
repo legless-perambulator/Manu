@@ -304,3 +304,140 @@ elsewhere. A conservative answer must therefore stay NO.
 
 That is a genuine change from the audit's position, and it rests on tested
 behaviour rather than on this having been a remediation phase.
+
+---
+
+# REMEDIATION 30.5B2 — Providers, model connections and secure AI configuration
+
+Continuation of the same audit, scoped to the provider half of Wave 2. Nothing
+in the data-safety work above was reopened.
+
+| Issue    | Original | Status                  |
+| -------- | -------- | ----------------------- |
+| MANU-005 | P1       | **FIXED**               |
+| MANU-006 | P1       | **FIXED**               |
+| MANU-018 | P4       | **UNCHANGED** (see end) |
+
+---
+
+## MANU-005 — Only one provider exists, and the network allowlist forbids others — FIXED
+
+**Root cause.** Two independent blocks that had to be lifted together.
+`buildProviders()` returned a hard-coded one-element array, and
+`capabilities/default.json` scoped `http:default` to `https://api.anthropic.com/*`,
+so even a correct adapter would have failed after packaging.
+
+**Fix, part one — a registry instead of a literal.** `ProviderRegistry`
+(`packages/model-router/src/provider.ts`) holds adapters;
+`ProviderDescriptor` says what each one _is_. Six identities are registered:
+Anthropic, OpenAI, Google Gemini, OpenRouter, Ollama, and a generic
+OpenAI-compatible endpoint. The settings screen is generated from
+`registry.describeAll()`, so **no interface code names a provider** and adding
+one is registering an adapter.
+
+Four of those six share one transport. OpenAI, OpenRouter, Ollama and
+self-hosted servers all speak `/chat/completions`; writing that wire format four
+times would have been four places for the same streaming bug to live. What
+genuinely differs — address, auth, discovery path, response shape — is
+configuration.
+
+**Fix, part two — a capability strategy, not a wildcard.** The allowlist now
+permits the four hosted providers by name, loopback on any port, and **any host
+on ports 11434 and 1234**. That last line is the deliberate part: "do not assume
+Ollama must be running on the same machine" is a real requirement — a GPU box on
+the far side of the house is the normal case — but "any host on any port" is a
+general-purpose outbound channel and this application has no business asking for
+one. A dedicated inference port opened network-wide is a narrow, explicable
+concession; a blanket grant is not.
+
+The cost of that choice is real and is stated rather than hidden: a server on
+some other port needs the capability file edited and the application rebuilt.
+`lib/network-scope.ts` mirrors the host's list so a writer who types such an
+address is told _before_ the request, in a sentence that says the restriction is
+deliberate, instead of receiving a bare network failure afterwards. A test reads
+the actual capability file and asserts three things: every shipped provider's
+default address is permitted, the in-app mirror agrees with the host, and no
+`*`-host entry exists on a port that is not a model-server port.
+
+**Also fixed here:** the single global provider dropdown could not express two
+Ollama servers. Configuration is now a list of **connections** — provider,
+label, address, discovered models — so a laptop and a GPU box are two rows.
+
+## MANU-006 — Model catalogue is hard-coded and stale — FIXED
+
+**Fix.** `ModelProvider` gained optional `discoverModels()` and required
+`testConnection()`. Every shipped provider implements discovery against a real
+endpoint (`/v1/models`, `/models`, `/api/tags`), results are cached on the
+connection so the list still renders offline, and the built-in catalogue is now
+a fallback rather than the only source. The Anthropic constants were refreshed
+to the Claude 5 family alongside `claude-haiku-4-5-20251001`, and a model
+released after this build still gets a readable name.
+
+**The part worth arguing about: unknown capabilities.** Discovery from a local
+server returns a name and nothing else. Whether those weights do tool calling is
+a property of the weights, not the server, and Ollama does not claim to know.
+Both easy answers are wrong — assume `true` and it fails mysteriously at the
+first tool call; assume `false` and Manu refuses a model that works. So
+`ModelDescriptor.unknownCapabilities` records what nobody has stated,
+`capabilityState()` answers `yes` / `no` / `unknown`, and `capabilityRefusal()`
+refuses **only a known `no`**. Unknown is allowed through and shown as `?` in
+the model list.
+
+Where an operation genuinely cannot proceed without a capability — an agent
+investigation _is_ a tool loop, and every edit arrives as a structured proposal
+— the refusal is raised before the run and names the setting that fixes it,
+rather than surfacing as an empty answer.
+
+## Secrets
+
+No key is stored in the connection record, a project file, the manifest,
+revision history, an agent prompt or the packaged build. Keys live in the OS
+credential store keyed by connection id; the desktop's
+`secretKeyForConnection(id)` produces the same `provider:<id>:apiKey` string the
+old code used, which is what lets a pre-existing Anthropic setup survive
+migration **without this code reading or moving the secret at all** — the
+migrated connection is simply given the id the old key was already filed under.
+A test asserts the settings blob contains no key material, and removing a
+connection deletes its stored credential rather than orphaning it.
+
+The keychain fallback (an owner-only `0600` file in the application-config
+directory, on machines with no Secret Service) is unchanged from Phase 6 and is
+still disclosed in the interface. It is not project configuration, and nothing
+here writes a secret into a project directory.
+
+## Subscriptions — not implemented, deliberately
+
+A ChatGPT Plus/Pro or Claude Pro/Max subscription is a consumer entitlement to
+that vendor's own surfaces. It is not API access, and no officially supported
+mechanism exists for a third-party application to authenticate with one.
+Nothing here reuses browser cookies, requests session tokens, impersonates an
+official client or calls a private consumer endpoint. The provider picker says
+so in one sentence, where somebody would otherwise assume otherwise and lose an
+evening to it.
+
+## Tests
+
+**No test requires a paid credential or touches a network.** Every adapter is
+exercised through an injected `fetch`: wire format, streaming, tool calls,
+structured-output rejection, HTTP-status → `ModelError` mapping, unreachable
+hosts, discovery parsing for all three response shapes, base-URL handling, and
+the header-not-query-string rule for Gemini keys. Alongside those: the provider
+registry, capability honesty, the legacy settings migration, purpose fallback,
+connection-id collisions and the capability-file consistency check.
+
+## Still open
+
+**MANU-018 — settings in webview `localStorage` — unchanged.** Connections and
+purpose assignments are stored there, as the old model settings were. They are
+machine-local preferences and nothing in a project depends on them; a corrupt
+blob loses a model choice and no prose. Moving them to a host-side config file
+is still the right fix and is still open.
+
+**Gemini streaming** buffers: `streamText()` yields the completed text as a
+single delta rather than pretending to stream, because Gemini's streaming
+endpoint is a separate protocol. This is recorded in the adapter as a
+limitation, not hidden.
+
+**Cost accounting and privacy routing** remain PLANNED. `TokenUsage` is returned
+by every call and `costMetadata` lives on descriptors, but nothing yet turns
+those into limits.

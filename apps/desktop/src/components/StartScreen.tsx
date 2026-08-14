@@ -208,9 +208,9 @@ export function StartScreen({ onReady, onOpenSettings }: StartScreenProps) {
         </section>
 
         <section className="start__section">
-          <h2>Model provider</h2>
+          <h2>AI providers</h2>
           <button className="btn btn--ghost" onClick={onOpenSettings}>
-            Model settings…
+            Set up a provider…
           </button>
           <p className="start__note">
             Optional. Every deterministic check — the build, the tests, the timeline — runs with no

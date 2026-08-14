@@ -9,11 +9,56 @@ import { StrictMode, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { InMemoryProjectStore } from "@jellytind/persistence";
 import { BranchStore, StoryRepository, openBranch } from "@jellytind/story-repository";
+import { AiProviderSettings } from "./components/AiProviderSettings";
 import { Workspace } from "./components/Workspace";
 import { createSecretStore } from "./lib/secrets";
 import { useTheme } from "./lib/theme";
 import type { ProjectSession } from "./repo/session";
 import "./styles.css";
+
+/** Two plausible connections, written straight to the settings key. */
+function seedConnections(): void {
+  const full = { streaming: true, structuredOutput: true, tools: true };
+  const model = (provider: string, modelId: string, displayName: string, unknown?: string[]) => ({
+    provider,
+    modelId,
+    displayName,
+    capabilities: full,
+    supportsTools: true,
+    supportsStructuredOutput: true,
+    supportsStreaming: true,
+    ...(unknown === undefined ? {} : { unknownCapabilities: unknown }),
+  });
+  window.localStorage.setItem(
+    "manu.ai-settings",
+    JSON.stringify({
+      connections: [
+        {
+          id: "ollama",
+          providerId: "ollama",
+          label: "Ollama — GPU box",
+          baseUrl: "http://192.168.1.50:11434",
+          models: [
+            model("ollama", "llama3:8b", "llama3:8b", ["tools", "structuredOutput"]),
+            model("ollama", "qwen2.5:14b", "qwen2.5:14b", ["tools", "structuredOutput"]),
+          ],
+          modelsRefreshedAt: "2026-01-01T10:00:00.000Z",
+        },
+        {
+          id: "anthropic",
+          providerId: "anthropic",
+          label: "Anthropic",
+          models: [
+            model("anthropic", "claude-opus-5", "Claude Opus 5"),
+            model("anthropic", "claude-sonnet-5", "Claude Sonnet 5"),
+          ],
+          modelsRefreshedAt: "2026-01-01T10:00:00.000Z",
+        },
+      ],
+      purposes: { default: { connectionId: "anthropic", modelId: "claude-opus-5" } },
+    }),
+  );
+}
 
 function Preview() {
   const [session, setSession] = useState<ProjectSession | null>(null);
@@ -37,6 +82,12 @@ function Preview() {
     if (forcedTheme === "dark" || forcedTheme === "light") setTheme(forcedTheme);
   }, [forcedTheme, setTheme]);
 
+  // `?settings=1` opens the AI providers screen; `?settings=demo` seeds two
+  // pretend connections first, so the configured state can be looked at without
+  // a key, a server or anything to click.
+  const settingsParam = params.get("settings");
+  const openSettings = settingsParam !== null;
+  if (settingsParam === "demo") seedConnections();
   const openPalette = params.get("palette") === "1";
   useEffect(() => {
     if (session === null || !openPalette) return;
@@ -44,16 +95,20 @@ function Preview() {
   }, [session, openPalette]);
 
   if (session === null) return <p className="placeholder">Preparing preview…</p>;
+  const secrets = createSecretStore();
   return (
-    <Workspace
-      session={session}
-      onSession={setSession}
-      secrets={createSecretStore()}
-      theme={theme}
-      onChangeTheme={setTheme}
-      onClose={() => undefined}
-      onOpenSettings={() => undefined}
-    />
+    <>
+      <Workspace
+        session={session}
+        onSession={setSession}
+        secrets={secrets}
+        theme={theme}
+        onChangeTheme={setTheme}
+        onClose={() => undefined}
+        onOpenSettings={() => undefined}
+      />
+      {openSettings && <AiProviderSettings secrets={secrets} onClose={() => undefined} />}
+    </>
   );
 }
 

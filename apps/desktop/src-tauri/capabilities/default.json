@@ -10,7 +10,22 @@
     "dialog:default",
     {
       "identifier": "http:default",
-      "allow": [{ "url": "https://api.anthropic.com/*" }]
+      "allow": [
+        { "url": "https://api.anthropic.com/*" },
+        { "url": "https://api.openai.com/*" },
+        { "url": "https://generativelanguage.googleapis.com/*" },
+        { "url": "https://openrouter.ai/*" },
+
+        { "url": "http://localhost:*/*" },
+        { "url": "https://localhost:*/*" },
+        { "url": "http://127.0.0.1:*/*" },
+        { "url": "https://127.0.0.1:*/*" },
+
+        { "url": "http://*:11434/*" },
+        { "url": "https://*:11434/*" },
+        { "url": "http://*:1234/*" },
+        { "url": "https://*:1234/*" }
+      ]
     }
   ]
 }

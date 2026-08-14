@@ -276,8 +276,8 @@ export function Workspace({
       {
         id: "app.settings",
         section: "Project",
-        label: "Model settings",
-        hint: "Providers, models and API keys",
+        label: "AI providers",
+        hint: "Connections, models and API keys",
         run: onOpenSettings,
       },
       {
@@ -336,7 +336,7 @@ export function Workspace({
           Commands <kbd className="kbd">⌘K</kbd>
         </button>
         <button className="btn btn--ghost btn--small" onClick={onOpenSettings}>
-          Model settings
+          AI providers
         </button>
         <button className="btn btn--ghost btn--small" onClick={onClose}>
           Close project

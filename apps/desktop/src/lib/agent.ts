@@ -20,7 +20,8 @@ import type { SpecialistId } from "@jellytind/agent-runtime";
 import type { SecretStore } from "@jellytind/model-router";
 import type { StoryRepository } from "@jellytind/story-repository";
 import { refactorAccess } from "@jellytind/story-refactor";
-import { createConfiguredModel, loadModelSettings } from "./models";
+import { ModelError } from "@jellytind/model-router";
+import { capabilityProblem, createConfiguredModel } from "./models";
 
 /**
  * Wiring for the desktop Agent panel.
@@ -75,7 +76,13 @@ export async function startInvestigation(
   const grant = specialist === null ? READ_ONLY_GRANT : grantFor(specialist);
   const executor = new ToolExecutor({ registry, grant, store: repo.agents });
 
-  const model = await createConfiguredModel(loadModelSettings(), secrets);
+  // An investigation *is* a tool loop. A model known not to call tools cannot
+  // run one, and saying so now beats a mystifying empty answer later
+  // (docs/MODEL_ROUTER.md — capabilities).
+  const refusal = capabilityProblem("reasoning", ["tools"]);
+  if (refusal !== null) throw new ModelError("unsupported", refusal);
+
+  const model = await createConfiguredModel(secrets, "reasoning");
   const agent = new InvestigationAgent({ model, executor, store: repo.agents });
 
   const task = createTask({

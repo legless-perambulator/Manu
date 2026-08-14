@@ -1,154 +1,253 @@
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
 import {
   ModelError,
-  ModelRegistry,
-  secretKeyForProvider,
+  ProviderRegistry,
+  capabilityRefusal,
+  type ConnectionTestResult,
   type LanguageModel,
+  type ModelCapabilities,
   type ModelDescriptor,
   type ModelProvider,
+  type ProviderCredentials,
+  type ProviderDescriptor,
   type SecretStore,
 } from "@jellytind/model-router";
-import { AnthropicProvider, type FetchLike } from "@jellytind/provider-anthropic";
+import { AnthropicProvider } from "@jellytind/provider-anthropic";
+import { GoogleProvider } from "@jellytind/provider-google";
+import {
+  ollamaProvider,
+  openAiCompatibleProvider,
+  openAiProvider,
+  openRouterProvider,
+} from "@jellytind/provider-openai-compatible";
 import { ROUTING_CLASSES, type RoutingClass } from "@jellytind/domain";
 import { isTauri } from "../tauri";
+import {
+  choiceFor,
+  loadAiSettings,
+  secretKeyForConnection,
+  type AiSettings,
+  type ModelChoice,
+  type ModelPurpose,
+  type ProviderConnection,
+} from "./connections";
 
 /**
  * Model configuration for the desktop app.
  *
- * The app talks only to the provider-independent layer: it picks a
- * {@link ModelProvider} by name, asks it for a {@link LanguageModel}, and calls
- * the interface. No Anthropic SDK type appears here, and nothing branches on a
- * particular model name — the catalog is data (docs/MODEL_ROUTER.md).
+ * The app talks only to the provider-independent layer: it looks a provider up
+ * in the registry, asks it for a {@link LanguageModel}, and calls the interface.
+ * No provider SDK type appears here and nothing branches on a particular model
+ * name — the catalogue is data, and adding a provider is registering an adapter
+ * (docs/MODEL_ROUTER.md).
  */
 
-/** Route provider HTTP through the Rust host, which is scoped by capabilities. */
-const hostFetch: FetchLike = async (url, init) => {
-  const response = await tauriFetch(url, {
+/**
+ * A `fetch` that goes through the Rust host.
+ *
+ * The browser inside Tauri cannot reach a provider directly — cross-origin
+ * requests are blocked, and a local Ollama server would refuse them anyway.
+ * Routing through the host also means every request is subject to the
+ * capability allowlist in `src-tauri/capabilities/default.json`, which is where
+ * "what may this application talk to" is actually decided.
+ */
+const hostFetch = async (
+  url: string,
+  init: {
+    method: string;
+    headers: Record<string, string>;
+    body?: string;
+    signal?: AbortSignal;
+  },
+): Promise<Response> =>
+  tauriFetch(url, {
     method: init.method,
     headers: init.headers,
-    body: init.body,
+    ...(init.body !== undefined ? { body: init.body } : {}),
     ...(init.signal !== undefined ? { signal: init.signal } : {}),
   });
-  return response;
-};
 
-function buildProviders(): ModelProvider[] {
-  // Outside Tauri there is no host fetch; the browser's own fetch is used and
-  // will be blocked by CORS, surfacing as a typed `network` failure.
-  const anthropic = isTauri()
-    ? new AnthropicProvider({ fetch: hostFetch })
-    : new AnthropicProvider();
-  return [anthropic];
+function buildRegistry(): ProviderRegistry {
+  // Outside Tauri (the browser dev server) there is no host fetch; the adapters
+  // fall back to the page's own `fetch`, which CORS will usually block. That
+  // surfaces as a typed `network` failure rather than something mysterious.
+  const options = isTauri() ? { fetch: hostFetch } : {};
+  return new ProviderRegistry().register(
+    new AnthropicProvider(options),
+    openAiProvider(options),
+    new GoogleProvider(options),
+    openRouterProvider(options),
+    ollamaProvider(options),
+    openAiCompatibleProvider(options),
+  );
 }
 
-/** Providers available in this build, keyed by name. */
-export const PROVIDERS: ReadonlyMap<string, ModelProvider> = new Map(
-  buildProviders().map((provider) => [provider.name, provider]),
-);
+/** Every provider adapter this build ships. */
+export const PROVIDERS: ProviderRegistry = buildRegistry();
 
-/** Catalog of every model every registered provider offers. */
-export const MODEL_REGISTRY: ModelRegistry = new ModelRegistry().register(
-  ...[...PROVIDERS.values()].flatMap((provider) => provider.models()),
-);
-
-export interface ModelSettings {
-  readonly provider: string;
-  readonly modelId: string;
-}
-
-const SETTINGS_KEY = "jellytind.model-settings";
-
-function firstModel(): ModelSettings {
-  const first = MODEL_REGISTRY.list()[0];
-  return first === undefined
-    ? { provider: "", modelId: "" }
-    : { provider: first.provider, modelId: first.modelId };
-}
-
-/**
- * Load the selected provider/model. This is a non-secret machine preference, so
- * it lives in browser-local storage — never in a Story Repository, which stays
- * portable and free of machine-specific configuration.
- */
-export function loadModelSettings(): ModelSettings {
-  try {
-    const raw = window.localStorage.getItem(SETTINGS_KEY);
-    if (raw === null) return firstModel();
-    const parsed = JSON.parse(raw) as Partial<ModelSettings>;
-    if (typeof parsed.provider === "string" && typeof parsed.modelId === "string") {
-      return { provider: parsed.provider, modelId: parsed.modelId };
-    }
-  } catch {
-    // Corrupt or unavailable storage falls back to the first known model.
-  }
-  return firstModel();
-}
-
-export function saveModelSettings(settings: ModelSettings): void {
-  try {
-    window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-  } catch {
-    // Storage being unavailable is not fatal; the choice just is not remembered.
-  }
-}
-
-export function describeSelected(settings: ModelSettings): ModelDescriptor | undefined {
-  return MODEL_REGISTRY.get(settings.provider, settings.modelId);
-}
-
-/**
- * Build the configured {@link LanguageModel}, reading the API key from secure
- * storage at call time so the key is never held in application state longer than
- * a request needs it.
- */
-export async function createConfiguredModel(
-  settings: ModelSettings,
-  secrets: SecretStore,
-): Promise<LanguageModel> {
-  const provider = PROVIDERS.get(settings.provider);
-  if (provider === undefined) {
-    throw new ModelError("unsupported", `Unknown provider "${settings.provider}".`);
-  }
-  const apiKey = await secrets.get(secretKeyForProvider(settings.provider));
-  return provider.createModel(settings.modelId, {
-    ...(apiKey !== null ? { apiKey } : {}),
+/** What can be connected to, for the settings interface to render. */
+export function providerDescriptors(): ProviderDescriptor[] {
+  return PROVIDERS.describeAll().sort((a, b) => {
+    // Local servers last, so the list opens with what most writers will pick,
+    // but they are never hidden — a self-hosted model is a first-class choice.
+    if (a.local !== b.local) return a.local ? 1 : -1;
+    return a.displayName.localeCompare(b.displayName);
   });
 }
 
-export interface ConnectionTestResult {
-  readonly ok: boolean;
-  readonly message: string;
+export function providerFor(connection: ProviderConnection): ModelProvider | undefined {
+  return PROVIDERS.get(connection.providerId);
+}
+
+export function describeProvider(providerId: string): ProviderDescriptor | undefined {
+  return PROVIDERS.get(providerId)?.describe();
 }
 
 /**
- * Perform one small real call through the provider-independent layer. Every
- * failure mode arrives as a typed {@link ModelError}, so the UI can explain what
- * went wrong without knowing anything about the provider's HTTP semantics.
+ * Assemble the credentials for a connection.
+ *
+ * The key is read from the OS credential store at the moment of use and handed
+ * straight to the adapter. It is never held in React state, never written to a
+ * project, and never logged (AGENTS.md — "Secrets").
  */
+export async function credentialsFor(
+  connection: ProviderConnection,
+  secrets: SecretStore,
+): Promise<ProviderCredentials> {
+  const descriptor = describeProvider(connection.providerId);
+  const apiKey =
+    descriptor?.auth === "api_key"
+      ? await secrets.get(secretKeyForConnection(connection.id))
+      : null;
+  return {
+    ...(apiKey !== null && apiKey !== "" ? { apiKey } : {}),
+    ...(connection.baseUrl !== undefined && connection.baseUrl !== ""
+      ? { baseUrl: connection.baseUrl }
+      : {}),
+  };
+}
+
+/**
+ * The models a connection offers.
+ *
+ * Discovered models are preferred and cached on the connection, so the
+ * interface still lists them when the machine is offline. A provider's built-in
+ * catalogue is the fallback, never a replacement — the audit found a frozen
+ * dropdown that could only be corrected by shipping a build (MANU-006).
+ */
+export function modelsFor(connection: ProviderConnection): readonly ModelDescriptor[] {
+  const discovered = connection.models;
+  if (discovered !== undefined && discovered.length > 0) return discovered;
+  return providerFor(connection)?.models() ?? [];
+}
+
+export function connectionById(
+  settings: AiSettings,
+  connectionId: string,
+): ProviderConnection | undefined {
+  return settings.connections.find((connection) => connection.id === connectionId);
+}
+
+/** The descriptor a choice points at, when it is still a real model. */
+export function describeChoice(
+  settings: AiSettings,
+  choice: ModelChoice | null,
+): ModelDescriptor | undefined {
+  if (choice === null) return undefined;
+  const connection = connectionById(settings, choice.connectionId);
+  if (connection === undefined) return undefined;
+  return modelsFor(connection).find((model) => model.modelId === choice.modelId);
+}
+
+/** Ask the provider what it actually has. */
+export async function discoverModels(
+  connection: ProviderConnection,
+  secrets: SecretStore,
+): Promise<readonly ModelDescriptor[]> {
+  const provider = providerFor(connection);
+  if (provider === undefined) {
+    throw new ModelError("unsupported", `Unknown provider "${connection.providerId}".`);
+  }
+  const credentials = await credentialsFor(connection, secrets);
+  if (provider.discoverModels === undefined) return provider.models();
+  return provider.discoverModels(credentials);
+}
+
+/** One small round trip, phrased for a writer rather than a developer. */
 export async function testConnection(
-  settings: ModelSettings,
+  connection: ProviderConnection,
   secrets: SecretStore,
 ): Promise<ConnectionTestResult> {
-  try {
-    const model = await createConfiguredModel(settings, secrets);
-    const result = await model.generateText(
-      {
-        system: "Reply with the single word: ready.",
-        messages: [{ role: "user", content: "Connection test." }],
-        maxOutputTokens: 16,
-      },
-      { timeoutMs: 30_000 },
-    );
-    const reply = result.text.trim();
+  const provider = providerFor(connection);
+  if (provider === undefined) {
     return {
-      ok: true,
-      message: `Connected. Model replied "${reply === "" ? "(empty)" : reply}" (${
-        result.usage.inputTokens
-      } in / ${result.usage.outputTokens} out tokens).`,
+      ok: false,
+      message: `This build has no adapter for "${connection.providerId}".`,
     };
+  }
+  try {
+    return await provider.testConnection(await credentialsFor(connection, secrets));
   } catch (error) {
     return { ok: false, message: explainModelError(error) };
   }
+}
+
+/** Build the model a specific choice names. */
+export async function createModelForChoice(
+  choice: ModelChoice,
+  secrets: SecretStore,
+  settings: AiSettings = loadAiSettings(),
+): Promise<LanguageModel> {
+  const connection = connectionById(settings, choice.connectionId);
+  if (connection === undefined) {
+    throw new ModelError(
+      "unsupported",
+      "The configured connection no longer exists. Choose a model in Settings → AI Providers.",
+    );
+  }
+  const provider = providerFor(connection);
+  if (provider === undefined) {
+    throw new ModelError("unsupported", `Unknown provider "${connection.providerId}".`);
+  }
+  return provider.createModel(choice.modelId, await credentialsFor(connection, secrets));
+}
+
+/**
+ * Build the model configured for a kind of work.
+ *
+ * Anything with no model of its own falls back to the default, so a writer who
+ * has configured one thing has configured all of it.
+ */
+export async function createConfiguredModel(
+  secrets: SecretStore,
+  purpose: ModelPurpose = "default",
+  settings: AiSettings = loadAiSettings(),
+): Promise<LanguageModel> {
+  const choice = choiceFor(settings, purpose);
+  if (choice === null) {
+    throw new ModelError(
+      "unsupported",
+      "No model is configured. Add a provider in Settings → AI Providers.",
+    );
+  }
+  return createModelForChoice(choice, secrets, settings);
+}
+
+/**
+ * Why the model chosen for a purpose cannot do a piece of work, or `null`.
+ *
+ * A model that is only *unknown* to support something is allowed through — see
+ * `capabilityRefusal`. What is refused is a model known not to do the thing, so
+ * the writer is told before the run rather than after it fails.
+ */
+export function capabilityProblem(
+  purpose: ModelPurpose,
+  required: readonly (keyof ModelCapabilities)[],
+  settings: AiSettings = loadAiSettings(),
+): string | null {
+  const descriptor = describeChoice(settings, choiceFor(settings, purpose));
+  if (descriptor === undefined) return null;
+  return capabilityRefusal(descriptor, required);
 }
 
 /** Turn a typed model failure into guidance a writer can act on. */
@@ -158,11 +257,11 @@ export function explainModelError(error: unknown): string {
   }
   switch (error.modelCode) {
     case "auth":
-      return "Authentication failed — check the API key for this provider.";
+      return "Authentication failed — check the API key for this connection.";
     case "rate_limit":
       return "Rate limited by the provider. Wait a moment and try again.";
     case "network":
-      return "Could not reach the provider. Check your network connection.";
+      return "Could not reach the provider. Check the address and your network connection.";
     case "timeout":
       return "The request timed out before the provider responded.";
     case "cancelled":
@@ -177,55 +276,47 @@ export function explainModelError(error: unknown): string {
 }
 
 /**
- * Which model each class of workflow work uses.
+ * Which purpose a workflow routing class resolves to.
  *
- * Different agents may use different models: structure wants reasoning, prose
- * wants a prose model, bulk review is fine on something smaller, and metadata
- * wants none at all. Stored per machine like the model choice itself, and
- * defaulting to the configured model so a writer who has set one thing up has
- * set all of it up (docs/ORCHESTRATION.md).
+ * The orchestrator asks for a *kind* of thinking; the writer configures a kind
+ * of work. `local_metadata` maps to nothing on purpose: the project answers it
+ * and no model is involved (docs/ORCHESTRATION.md).
  */
-export type RoutingSettings = Partial<Record<RoutingClass, ModelSettings>>;
-
-const ROUTING_KEY = "jellytind.routing-settings";
-
-export function loadRoutingSettings(): RoutingSettings {
-  try {
-    const raw = window.localStorage.getItem(ROUTING_KEY);
-    if (raw === null) return {};
-    const parsed = JSON.parse(raw) as RoutingSettings;
-    return typeof parsed === "object" && parsed !== null ? parsed : {};
-  } catch {
-    return {};
+export function purposeForClass(routingClass: RoutingClass): ModelPurpose | null {
+  switch (routingClass) {
+    case "premium_reasoning":
+      return "reasoning";
+    case "premium_prose":
+      return "drafting";
+    case "cheap_analysis":
+      return "utility";
+    case "local_metadata":
+      return null;
   }
 }
 
-export function saveRoutingSettings(settings: RoutingSettings): void {
-  try {
-    window.localStorage.setItem(ROUTING_KEY, JSON.stringify(settings));
-  } catch {
-    // Not fatal: the routing simply falls back to the configured model.
-  }
-}
-
-/** The model settings a routing class resolves to, falling back to the default. */
-export function settingsForClass(
+/** Build the model a workflow step's routing class resolves to. */
+export async function createModelForClass(
   routingClass: RoutingClass,
-  routing: RoutingSettings = loadRoutingSettings(),
-  fallback: ModelSettings = loadModelSettings(),
-): ModelSettings {
-  return routing[routingClass] ?? fallback;
+  secrets: SecretStore,
+): Promise<LanguageModel> {
+  const purpose = purposeForClass(routingClass);
+  if (purpose === null) {
+    throw new ModelError("unsupported", "This routing class needs no model.");
+  }
+  return createConfiguredModel(secrets, purpose);
 }
 
 /** The routing table the orchestrator runs against: class → model id. */
-export function routingTable(): { models: Partial<Record<RoutingClass, string>> } {
-  const routing = loadRoutingSettings();
-  const fallback = loadModelSettings();
+export function routingTable(settings: AiSettings = loadAiSettings()): {
+  models: Partial<Record<RoutingClass, string>>;
+} {
   const models: Partial<Record<RoutingClass, string>> = {};
   for (const routingClass of ROUTING_CLASSES) {
-    if (routingClass === "local_metadata") continue;
-    const chosen = settingsForClass(routingClass, routing, fallback);
-    if (chosen.modelId !== "") models[routingClass] = chosen.modelId;
+    const purpose = purposeForClass(routingClass);
+    if (purpose === null) continue;
+    const choice = choiceFor(settings, purpose);
+    if (choice !== null && choice.modelId !== "") models[routingClass] = choice.modelId;
   }
   return { models };
 }

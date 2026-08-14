@@ -2492,3 +2492,178 @@ code {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ── AI providers ────────────────────────────────────────── */
+/* Connections on the left, the selected one on the right. Two Ollama servers
+   and a hosted key are all just rows in the same list. */
+.modal--wide {
+  width: min(760px, 100%);
+}
+.providers {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+.providers__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.providers__connections {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.providers__connection {
+  width: 100%;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+.providers__connection:hover {
+  background: var(--manu-surface-raised);
+}
+.providers__connection.is-selected {
+  border-color: var(--manu-border);
+  background: var(--manu-surface-raised);
+}
+.providers__connection-name {
+  font-size: var(--manu-text-sm);
+}
+.providers__connection-meta,
+.providers__empty {
+  font-size: var(--manu-text-xs);
+  color: var(--manu-ink-subtle);
+}
+.providers__empty {
+  padding: 6px 8px;
+}
+.providers__detail {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.providers__form h3,
+.providers__picker h3,
+.providers__purposes h3 {
+  margin: 0 0 4px;
+  font-size: var(--manu-text-sm);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.providers__picker ul {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.providers__option {
+  width: 100%;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--manu-border);
+  border-radius: 6px;
+  background: var(--manu-surface-raised);
+  color: inherit;
+  cursor: pointer;
+}
+.providers__option:hover {
+  border-color: var(--manu-accent);
+}
+.providers__option-name {
+  font-size: var(--manu-text-sm);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.providers__option-summary {
+  font-size: var(--manu-text-xs);
+  color: var(--manu-ink-muted);
+}
+.providers__option-meta {
+  font-size: var(--manu-text-xs);
+  color: var(--manu-ink-subtle);
+}
+.badge--local {
+  border-color: var(--manu-success);
+  color: var(--manu-success);
+}
+.badge--unknown {
+  border-style: dashed;
+}
+.badge--no {
+  color: var(--manu-ink-subtle);
+  opacity: 0.7;
+}
+.providers__models h4 {
+  margin: 0 0 6px;
+  font-size: var(--manu-text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--manu-ink-subtle);
+}
+.providers__models ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 190px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.providers__models li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: var(--manu-text-xs);
+}
+.providers__model-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.providers__model-caps {
+  display: flex;
+  gap: 4px;
+  flex: none;
+}
+.providers__detail-text {
+  display: block;
+  margin-top: 6px;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.providers__purposes {
+  border-top: 1px solid var(--manu-border);
+  padding-top: 12px;
+}
+.providers__purpose {
+  margin-bottom: 10px;
+}
+.providers__purpose .hint {
+  margin-top: 4px;
+}
+.providers__models .hint {
+  margin-top: 8px;
+}

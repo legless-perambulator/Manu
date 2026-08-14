@@ -417,3 +417,69 @@ describe("AnthropicProvider", () => {
     expect(() => provider.createModel("claude-x", { apiKey: "  " })).toThrowError(/API key/);
   });
 });
+
+describe("AnthropicProvider discovery", () => {
+  /** A fake `fetch` that answers a GET with a JSON body and records the URL. */
+  function listing(body: unknown, status = 200) {
+    const calls: Array<{ url: string; headers: Record<string, string> }> = [];
+    const fetch: FetchLike = (url, init) => {
+      calls.push({ url, headers: init.headers });
+      return Promise.resolve({
+        ok: status >= 200 && status < 300,
+        status,
+        text: () => Promise.resolve(""),
+        json: () => Promise.resolve(body),
+      });
+    };
+    return { fetch, calls };
+  }
+
+  it("describes itself for the settings interface", () => {
+    expect(new AnthropicProvider().describe()).toMatchObject({
+      id: "anthropic",
+      auth: "api_key",
+      local: false,
+      supportsDiscovery: true,
+      connectionKind: "api",
+    });
+  });
+
+  it("asks the API what models exist rather than trusting a frozen list", async () => {
+    const { fetch, calls } = listing({
+      data: [{ id: "claude-opus-5" }, { id: "claude-future-9-20990101" }],
+    });
+    const models = await new AnthropicProvider({ fetch }).discoverModels({ apiKey: "sk" });
+
+    expect(calls[0]?.url).toContain("/v1/models");
+    expect(calls[0]?.headers["x-api-key"]).toBe("sk");
+    expect(models.map((m) => m.modelId)).toEqual(["claude-opus-5", "claude-future-9-20990101"]);
+    // A model shipped after this build still gets a readable name.
+    expect(models[1]?.displayName).toBe("Claude Future 9");
+  });
+
+  it("falls back to the shipped catalogue when the body is not what was expected", async () => {
+    const { fetch } = listing({ unexpected: true });
+    const models = await new AnthropicProvider({ fetch }).discoverModels({ apiKey: "sk" });
+    expect(models).toEqual([...ANTHROPIC_MODELS]);
+  });
+
+  it("blames the key on a 401, and never asks the network without one", async () => {
+    const denied = listing({}, 401);
+    const failed = await new AnthropicProvider({ fetch: denied.fetch }).testConnection({
+      apiKey: "wrong",
+    });
+    expect(failed.ok).toBe(false);
+    expect(failed.message).toContain("Authentication failed");
+
+    const untouched = listing({ data: [] });
+    const missing = await new AnthropicProvider({ fetch: untouched.fetch }).testConnection({});
+    expect(missing.ok).toBe(false);
+    expect(untouched.calls).toHaveLength(0);
+  });
+
+  it("counts what a successful test found", async () => {
+    const { fetch } = listing({ data: [{ id: "a" }, { id: "b" }, { id: "c" }] });
+    const result = await new AnthropicProvider({ fetch }).testConnection({ apiKey: "sk" });
+    expect(result).toMatchObject({ ok: true, models: 3 });
+  });
+});

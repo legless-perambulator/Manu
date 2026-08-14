@@ -11,7 +11,8 @@ import type { PermissionGrant } from "@jellytind/agent-runtime";
 import type { SecretStore } from "@jellytind/model-router";
 import type { StoryRepository } from "@jellytind/story-repository";
 import { RefactorPlanner } from "@jellytind/story-refactor";
-import { createConfiguredModel, loadModelSettings, settingsForClass } from "./models";
+import { ModelError } from "@jellytind/model-router";
+import { capabilityProblem, createConfiguredModel, createModelForClass } from "./models";
 
 /**
  * The permission grant AI editing runs under.
@@ -34,7 +35,12 @@ export async function createManuscriptEditor(
   repo: StoryRepository,
   secrets: SecretStore,
 ): Promise<ManuscriptEditor> {
-  const model = await createConfiguredModel(loadModelSettings(), secrets);
+  // Every edit arrives as a structured proposal a human reviews, so a model
+  // known not to produce structured output cannot do this work at all.
+  const refusal = capabilityProblem("drafting", ["structuredOutput"]);
+  if (refusal !== null) throw new ModelError("unsupported", refusal);
+
+  const model = await createConfiguredModel(secrets, "drafting");
   return new ManuscriptEditor({ repo, model, grant: MANUSCRIPT_EDIT_GRANT });
 }
 
@@ -76,7 +82,7 @@ export async function createDiagnosisAnalyst(
   repo: StoryRepository,
   secrets: SecretStore,
 ): Promise<DiagnosisAnalyst> {
-  const model = await createConfiguredModel(loadModelSettings(), secrets);
+  const model = await createConfiguredModel(secrets, "reasoning");
   return new DiagnosisAnalyst({ repo, model, grant: STORY_DEBUG_GRANT });
 }
 
@@ -90,7 +96,7 @@ export async function createDependencyAnalyst(
   repo: StoryRepository,
   secrets: SecretStore,
 ): Promise<DependencyAnalyst> {
-  const model = await createConfiguredModel(loadModelSettings(), secrets);
+  const model = await createConfiguredModel(secrets, "reasoning");
   return new DependencyAnalyst({ repo, model, grant: STORY_DEBUG_GRANT });
 }
 
@@ -117,7 +123,7 @@ export async function createRefactorPlanner(
   repo: StoryRepository,
   secrets: SecretStore,
 ): Promise<RefactorPlanner> {
-  const model = await createConfiguredModel(loadModelSettings(), secrets);
+  const model = await createConfiguredModel(secrets, "reasoning");
   return new RefactorPlanner({ repo, model });
 }
 
@@ -140,7 +146,7 @@ export const SKILL_READING_GRANT: PermissionGrant = {
  */
 export async function createSkillAnalyst(secrets: SecretStore): Promise<ModelSkillAnalyst | null> {
   try {
-    const model = await createConfiguredModel(loadModelSettings(), secrets);
+    const model = await createConfiguredModel(secrets, "utility");
     return new ModelSkillAnalyst({ model, grant: SKILL_READING_GRANT });
   } catch {
     return null;
@@ -162,13 +168,13 @@ export async function createAgentWorkExecutor(
 ): Promise<ModelAgentWorkExecutor | null> {
   try {
     // One probe: if the default model cannot be built, nothing here can run.
-    await createConfiguredModel(loadModelSettings(), secrets);
+    await createConfiguredModel(secrets);
   } catch {
     return null;
   }
   return new ModelAgentWorkExecutor({
     repo,
-    modelFor: (routingClass) => createConfiguredModel(settingsForClass(routingClass), secrets),
+    modelFor: (routingClass) => createModelForClass(routingClass, secrets),
   });
 }
 
@@ -183,7 +189,7 @@ export async function createReaderAnalyst(
   secrets: SecretStore,
 ): Promise<ModelReaderAnalyst | null> {
   try {
-    const model = await createConfiguredModel(loadModelSettings(), secrets);
+    const model = await createConfiguredModel(secrets, "simulation");
     return new ModelReaderAnalyst({ model });
   } catch {
     return null;
@@ -199,7 +205,7 @@ export async function createCharacterAnalyst(
   secrets: SecretStore,
 ): Promise<ModelCharacterAnalyst | null> {
   try {
-    const model = await createConfiguredModel(loadModelSettings(), secrets);
+    const model = await createConfiguredModel(secrets, "simulation");
     return new ModelCharacterAnalyst({ model });
   } catch {
     return null;

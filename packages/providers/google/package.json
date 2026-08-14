@@ -1,0 +1,17 @@
+{
+  "name": "@jellytind/provider-google",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Google Gemini adapter over the official generative-language API.",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "sideEffects": false,
+  "dependencies": {
+    "@jellytind/model-router": "workspace:*",
+    "@jellytind/shared": "workspace:*"
+  }
+}

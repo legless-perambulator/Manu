@@ -22,10 +22,17 @@ export { parseModelJson } from "./model";
 export { ModelError, unsupportedCapability } from "./errors";
 export type { ModelErrorCode } from "./errors";
 
-export { ModelRegistry, describeModel } from "./registry";
-export type { ModelDescriptor, CostMetadata } from "./registry";
+export { ModelRegistry, describeModel, capabilityState, capabilityRefusal } from "./registry";
+export type { ModelDescriptor, CostMetadata, CapabilityState } from "./registry";
 
-export type { ModelProvider, ProviderCredentials } from "./provider";
+export { ProviderRegistry, AUTH_METHODS } from "./provider";
+export type {
+  ModelProvider,
+  ProviderCredentials,
+  ProviderDescriptor,
+  ConnectionTestResult,
+  AuthMethod,
+} from "./provider";
 
 export { InMemorySecretStore, secretKeyForProvider } from "./secrets";
 export type { SecretStore } from "./secrets";
