@@ -195,14 +195,18 @@ build continues.
 
 ## Not yet
 
-- **Act Builder / `/write-book`** — building more than one chapter as one
-  operation is deliberately out of scope.
+- **Book Build / `/write-book`** — building more than one act as one operation
+  is deliberately out of scope. (Building more than one _chapter_ as one
+  operation is the Act Builder's job — [ACT_BUILDER.md](ACT_BUILDER.md) — which
+  runs this pipeline as a child, once per chapter.)
 - **Token accounting.** Usage counts calls per class; the model interface does
   not yet expose token totals for structured calls.
 
 ## Relationship to other subsystems
 
 - [PLANNING.md](PLANNING.md) — the approved chapter plan a build consumes.
+- [ACT_BUILDER.md](ACT_BUILDER.md) — the act-level workflow that runs chapter
+  builds as children.
 - [AI_EDITING.md](AI_EDITING.md) — the single-edit machinery this reuses.
 - [ORCHESTRATION.md](ORCHESTRATION.md) — the multi-agent workflow engine; the
   chapter builder is a purpose-built loop, not a workflow graph, because its

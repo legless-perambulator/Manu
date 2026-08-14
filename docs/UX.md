@@ -115,7 +115,7 @@ the question a writer is asking:
 | ------------ | -------------------------------------------------------------------------------------------------------- |
 | **Write**    | Manuscript · Outline · Chapter plan · Notes · Research                                                   |
 | **Story**    | Characters · Story bible · State · Knowledge · Relationships · Objects · Plot threads · Timeline · World |
-| **Assist**   | Details · Manu Agent · Context · Find in project                                                         |
+| **Assist**   | Write chapter · Write act · Details · Manu Agent · Context · Find in project                             |
 | **Check**    | Story Build · Story tests · Diagnose · Passes · Workflows · Readers · Behaviour · Mystery · Voice        |
 | **Change**   | Changes · Versions · Consequences · Restructure                                                          |
 | **Advanced** | Modules · **Project files**                                                                              |

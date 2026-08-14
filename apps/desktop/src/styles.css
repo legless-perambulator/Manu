@@ -3734,3 +3734,337 @@ progress {
   width: 100%;
   margin: 6px 0;
 }
+
+/* ── Act builder (Phase 33) ──────────────────────────────── */
+/* The act's plan and the build that carries it out: a chapter checklist,
+   the goals' standing, and the same four verbs as a chapter build. */
+.abuild {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 14px;
+  overflow: auto;
+  flex: 1;
+}
+.abuild__plan,
+.abuild__run,
+.abuild__start {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.abuild__pick {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+.abuild__pick .field--grow {
+  flex: 1;
+}
+.abuild__meta {
+  margin: 0;
+  font-size: var(--manu-text-xs);
+  color: var(--manu-ink-subtle);
+}
+.abuild__chapters-edit {
+  border: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.abuild__chapters-edit legend,
+.abuild__goal-group h4 {
+  font-size: var(--manu-text-xs);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: var(--manu-tracking-label);
+  color: var(--manu-ink-subtle);
+  margin: 0;
+  padding: 0 0 4px;
+}
+.abuild__chapter-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.abuild__chapter-tick {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--manu-text-base);
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+}
+.abuild__role {
+  width: 130px;
+  font-size: var(--manu-text-xs);
+}
+.abuild__goals > summary,
+.abuild__opening > summary,
+.abuild__goalreport > summary,
+.abuild__diagnostics > summary,
+.abuild__history > summary,
+.abuild__replan > summary {
+  cursor: pointer;
+  font-size: var(--manu-text-sm);
+  color: var(--manu-ink-muted);
+}
+.abuild__goal-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 8px 0 0;
+}
+.abuild__goal-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.abuild__goal-row select {
+  max-width: 38%;
+}
+.abuild__goal-row input:not(.abuild__num) {
+  flex: 1;
+  min-width: 0;
+}
+.abuild__num {
+  width: 52px;
+}
+.abuild__setup-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-size: var(--manu-text-sm);
+}
+.abuild__setup-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.abuild__setup-row label {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  font-size: var(--manu-text-xs);
+  color: var(--manu-ink-muted);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.abuild__plan-actions,
+.abuild__actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.abuild__findings {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.abuild__policies {
+  border: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.abuild__policies legend {
+  font-size: var(--manu-text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--manu-tracking-label);
+  color: var(--manu-ink-subtle);
+  padding: 0 0 4px;
+}
+.abuild__policy {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  cursor: pointer;
+  font-size: var(--manu-text-base);
+}
+.abuild__policy input {
+  margin-top: 3px;
+}
+.abuild__policy strong {
+  display: block;
+  font-weight: 500;
+}
+.abuild__hint {
+  display: block;
+  font-size: var(--manu-text-xs);
+  color: var(--manu-ink-subtle);
+}
+.abuild__tick {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: var(--manu-text-sm);
+  cursor: pointer;
+}
+.abuild__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.abuild__title {
+  margin: 0;
+  font-size: var(--manu-text-lg);
+  font-weight: 500;
+}
+.abuild__status {
+  font-size: var(--manu-text-xs);
+  color: var(--manu-ink-muted);
+  white-space: nowrap;
+}
+.abuild__status--failed {
+  color: var(--manu-error);
+}
+.abuild__opening ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-size: var(--manu-text-sm);
+  color: var(--manu-ink-muted);
+}
+.abuild__chapters {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.abuild__chapter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: var(--manu-radius-sm);
+  font-size: var(--manu-text-base);
+}
+.abuild__chapter--building {
+  background: var(--manu-accent-wash);
+}
+.abuild__glyph {
+  width: 1.2em;
+  text-align: center;
+  color: var(--manu-ink-subtle);
+}
+.abuild__chapter--completed .abuild__glyph {
+  color: var(--manu-success);
+}
+.abuild__chapter--failed .abuild__glyph {
+  color: var(--manu-error);
+}
+.abuild__chapter-name {
+  background: none;
+  border: none;
+  color: var(--manu-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  padding: 0;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.abuild__chapter-name:hover {
+  color: var(--manu-accent-text);
+}
+.abuild__chapter-meta {
+  font-size: var(--manu-text-xs);
+  color: var(--manu-ink-subtle);
+  white-space: nowrap;
+}
+.abuild__inspect {
+  border: 1px solid var(--manu-border);
+  border-radius: var(--manu-radius-md);
+  padding: 8px 10px;
+  font-size: var(--manu-text-sm);
+}
+.abuild__inspect-scenes {
+  margin: 6px 0 0;
+  padding-left: 16px;
+}
+.abuild__inspect-scenes ul {
+  margin: 2px 0 6px;
+  padding-left: 16px;
+  color: var(--manu-ink-muted);
+}
+.abuild__goalreport ul {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.abuild__goal {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-size: var(--manu-text-sm);
+}
+.abuild__goal-glyph {
+  width: 1.1em;
+  text-align: center;
+  color: var(--manu-ink-subtle);
+}
+.abuild__goal--satisfied .abuild__goal-glyph {
+  color: var(--manu-success);
+}
+.abuild__goal-evidence {
+  color: var(--manu-ink-subtle);
+  font-size: var(--manu-text-xs);
+}
+.abuild__gate {
+  border: 1px solid var(--manu-border-strong);
+  border-radius: var(--manu-radius-md);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.abuild__question {
+  margin: 0;
+  font-size: var(--manu-text-base);
+}
+.abuild__replan {
+  flex: 1;
+}
+.abuild__replan textarea {
+  width: 100%;
+  margin: 6px 0;
+}
+.abuild__diagnostics ul,
+.abuild__history ul {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.abuild__past {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: var(--manu-text-sm);
+}
+.abuild__past-meta {
+  color: var(--manu-ink-subtle);
+  font-size: var(--manu-text-xs);
+  white-space: nowrap;
+}

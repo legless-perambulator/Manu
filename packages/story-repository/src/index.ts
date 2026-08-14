@@ -78,6 +78,8 @@ export { SkillRunStore } from "./skill-run-store";
 export { WorkflowRunStore } from "./workflow-run-store";
 export { ChapterBuildStore } from "./chapter-build-store";
 export { ChapterPlanStore } from "./chapter-plan-store";
+export { ActPlanStore } from "./act-plan-store";
+export { ActBuildStore } from "./act-build-store";
 export { ReaderSimulationStore } from "./reader-sim-store";
 export { PersonalityStore } from "./personality-store";
 export { MysteryStore } from "./mystery-store";

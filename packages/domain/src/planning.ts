@@ -315,4 +315,10 @@ export interface PlanFinding {
   readonly message: string;
   /** The planned scene the finding is about, when it is about one. */
   readonly sceneKey?: string;
+  /**
+   * The entities behind the finding, structurally, so a caller can reason
+   * about it without parsing prose — the act builder uses this to tell "stale"
+   * from "an earlier planned chapter still promises to deliver this" (§6).
+   */
+  readonly refs?: Readonly<Record<string, string>>;
 }

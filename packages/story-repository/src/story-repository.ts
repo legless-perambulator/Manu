@@ -95,6 +95,8 @@ import {
   type ThreadDormancy,
   type ThreadState,
   type ThreadStep,
+  QUALITATIVE_LEVELS,
+  type DimensionValue,
   type RelationshipChange,
   type RelationshipState,
   type StateBoundary,
@@ -154,7 +156,16 @@ import { SkillRunStore } from "./skill-run-store";
 import { WorkflowRunStore } from "./workflow-run-store";
 import { ChapterBuildStore } from "./chapter-build-store";
 import { ChapterPlanStore } from "./chapter-plan-store";
+import { ActPlanStore } from "./act-plan-store";
+import { ActBuildStore } from "./act-build-store";
 import type { ChapterPlan, PlanFinding, PlannedScene } from "@jellytind/domain";
+import {
+  summariseGoalReport,
+  type ActGoalResult,
+  type ActGoalReport,
+  type ActPlan,
+  type ActPlanFinding,
+} from "@jellytind/domain";
 import { ReaderSimulationStore } from "./reader-sim-store";
 import { PersonalityStore } from "./personality-store";
 import { MysteryStore } from "./mystery-store";
@@ -302,6 +313,10 @@ export class StoryRepository {
   readonly personalities: PersonalityStore;
   /** Chapter plans — the layer between outline and builder (docs/PLANNING.md). */
   readonly plans: ChapterPlanStore;
+  /** Act plans — goals that span chapters (docs/ACT_BUILDER.md). */
+  readonly actPlans: ActPlanStore;
+  /** Act builds, resumable across sessions (docs/ACT_BUILDER.md). */
+  readonly actBuilds: ActBuildStore;
   /** Clues, suspects and deductions (docs/MYSTERY_ENGINE.md). */
   readonly mysteries: MysteryStore;
   /** Which genre modules are switched on (docs/GENRE_MODULES.md). */
@@ -373,6 +388,11 @@ export class StoryRepository {
     // Journaled: a plan is the writer's working document, and editing it is a
     // change to the project like editing any plot file (docs/PLANNING.md).
     this.plans = new ChapterPlanStore(this.store);
+    // Journaled for the same reason: an act plan is authored plot material.
+    this.actPlans = new ActPlanStore(this.store);
+    // Not journaled: like a chapter build, an act build's record is progress
+    // bookkeeping; what it commits arrives through the child builds' change sets.
+    this.actBuilds = new ActBuildStore(rawStore);
     // Journaled: who did it, and what each clue really means, is canon.
     this.mysteries = new MysteryStore(this.store);
     // Not journaled: which modules are switched on is a setting about the
@@ -2985,6 +3005,7 @@ export class StoryRepository {
               code: "revelation_unavailable",
               message: `${where} has ${change.sourceEntityId} revealing ${change.factId} to ${change.characterId}, but entering this chapter ${change.sourceEntityId} does not hold it${holder === undefined ? "" : ` (state: ${holder.state})`}.`,
               sceneKey: planned.key,
+              refs: { characterId: change.sourceEntityId, factId: change.factId },
             });
           }
         }
@@ -3009,6 +3030,7 @@ export class StoryRepository {
             code: "payoff_without_setup",
             message: `${where} pays off ${id}, but nothing has planted it — not in the manuscript, and not earlier in this plan.`,
             sceneKey: planned.key,
+            refs: { setupId: id },
           });
         }
       }
@@ -3127,6 +3149,436 @@ export class StoryRepository {
       },
     );
     return approved;
+  }
+
+  // ── Act plans (Phase 33) ────────────────────────────────────────────────────
+
+  /**
+   * Save an act plan through the journal — the same contract as
+   * {@link saveChapterPlan}: the write is an ordinary change set, and the
+   * store's bounded snapshots ride on top for structural comparison.
+   */
+  async saveActPlan(
+    plan: Parameters<ActPlanStore["save"]>[0],
+    options: { note?: string; actor?: "human" | "agent"; taskId?: string; modelId?: string } = {},
+  ): Promise<ActPlan> {
+    let stored!: ActPlan;
+    await this.recordChange(
+      {
+        actor: options.actor ?? "human",
+        operation: "edit_act_plan",
+        summary: `Plan ${plan.title}${options.note === undefined ? "" : ` — ${options.note}`}`,
+        ...(options.taskId !== undefined ? { taskId: options.taskId } : {}),
+        ...(options.modelId !== undefined ? { modelId: options.modelId } : {}),
+      },
+      async () => {
+        stored = await this.actPlans.save(plan, {
+          now: this.clock(),
+          ...(options.note !== undefined ? { note: options.note } : {}),
+        });
+        await this.touch();
+      },
+    );
+    return stored;
+  }
+
+  /**
+   * Approve the current act plan, pinning the version act builds hold on to.
+   *
+   * Unlike chapter-plan approval nothing is materialised: the act's chapters
+   * already exist as entities. Approval refuses a plan naming chapters the
+   * project does not have — an approved plan must be buildable as written.
+   */
+  async approveActPlan(actId: string): Promise<ActPlan> {
+    const plan = await this.actPlans.get(actId);
+    if (plan === null) {
+      throw new RepositoryError("entity_not_found", `No act plan exists for ${actId}.`);
+    }
+    const known = new Set((await this.listChapters()).map((c) => c.id as string));
+    const unknown = plan.chapters.filter((c) => !known.has(c.chapterId));
+    if (unknown.length > 0) {
+      throw new RepositoryError(
+        "entity_not_found",
+        `The plan for ${plan.title} names chapters this project does not contain: ${unknown
+          .map((c) => c.chapterId)
+          .join(", ")}.`,
+      );
+    }
+    let approved!: ActPlan;
+    await this.recordChange(
+      {
+        actor: "human",
+        operation: "approve_act_plan",
+        summary: `Approve the plan for ${plan.title}`,
+      },
+      async () => {
+        approved = await this.actPlans.approve(actId, { now: this.clock() });
+        await this.touch();
+      },
+    );
+    return approved;
+  }
+
+  /**
+   * Check an act plan against the project, deterministically
+   * (docs/ACT_BUILDER.md). Whether the act is *good* is not checked here.
+   */
+  async validateActPlan(plan: ActPlan): Promise<ActPlanFinding[]> {
+    const findings: ActPlanFinding[] = [];
+    const [chapters, scenes, threads, characters, relationships, setups, facts, tests] =
+      await Promise.all([
+        this.listChapters(),
+        this.listScenes(),
+        this.listPlotThreads(),
+        this.listCharacters(),
+        this.listRelationships(),
+        this.listSetups(),
+        this.listFacts(),
+        this.listStoryTests(),
+      ]);
+
+    if (plan.chapters.length === 0) {
+      findings.push({
+        severity: "warning",
+        code: "empty_act",
+        message: "The act has no chapters yet.",
+      });
+    }
+
+    const chapterById = new Map(chapters.map((c) => [c.id as string, c]));
+    const seen = new Set<string>();
+    for (const member of plan.chapters) {
+      if (!chapterById.has(member.chapterId)) {
+        findings.push({
+          severity: "error",
+          code: "unknown_chapter",
+          message: `The act names ${member.chapterId}, which does not exist in this project.`,
+          chapterId: member.chapterId,
+        });
+        continue;
+      }
+      if (seen.has(member.chapterId)) {
+        findings.push({
+          severity: "error",
+          code: "duplicate_chapter",
+          message: `${member.chapterId} appears in the act more than once.`,
+          chapterId: member.chapterId,
+        });
+      }
+      seen.add(member.chapterId);
+      if (!scenes.some((scene) => (scene.chapterId as string | undefined) === member.chapterId)) {
+        findings.push({
+          severity: "warning",
+          code: "chapter_without_scenes",
+          message: `${chapterById.get(member.chapterId)?.title ?? member.chapterId} has no scenes; a build will stop there until scenes exist or an approved plan creates them.`,
+          chapterId: member.chapterId,
+        });
+      }
+    }
+
+    // Act order should follow manuscript order — a plan that builds Chapter 9
+    // before Chapter 6 is probably a mistake, but it is the writer's to make.
+    const orders = plan.chapters
+      .map((member) => chapterById.get(member.chapterId)?.order)
+      .filter((order): order is number => order !== undefined);
+    for (let i = 1; i < orders.length; i += 1) {
+      if ((orders[i] as number) < (orders[i - 1] as number)) {
+        findings.push({
+          severity: "warning",
+          code: "chapter_out_of_order",
+          message:
+            "The act's chapters are not in manuscript order. The build follows the act's order.",
+        });
+        break;
+      }
+    }
+
+    const referenced: { kind: string; ids: readonly string[]; known: Set<string> }[] = [
+      {
+        kind: "plot thread",
+        ids: plan.plotThreadGoals.map((goal) => goal.threadId),
+        known: new Set(threads.map((t) => t.id as string)),
+      },
+      {
+        kind: "character",
+        ids: plan.characterArcGoals.map((goal) => goal.characterId),
+        known: new Set(characters.map((c) => c.id as string)),
+      },
+      {
+        kind: "relationship",
+        ids: plan.relationshipGoals.map((goal) => goal.relationshipId),
+        known: new Set(relationships.map((r) => r.id as string)),
+      },
+      {
+        kind: "setup",
+        ids: [...plan.requiredSetupIds, ...plan.requiredPayoffIds],
+        known: new Set(setups.map((s) => s.id as string)),
+      },
+      {
+        kind: "fact",
+        ids: [
+          ...plan.forbiddenFacts.map((constraint) => constraint.factId),
+          ...plan.characterArcGoals
+            .map((goal) => goal.factId)
+            .filter((id): id is string => id !== undefined),
+        ],
+        known: new Set(facts.map((f) => f.id as string)),
+      },
+      {
+        kind: "story test",
+        ids: plan.storyTestIds,
+        known: new Set(tests.map((t) => t.id as string)),
+      },
+    ];
+    for (const { kind, ids, known } of referenced) {
+      for (const id of new Set(ids)) {
+        if (!known.has(id)) {
+          findings.push({
+            severity: "error",
+            code: "unknown_reference",
+            message: `The act's goals reference ${kind} ${id}, which does not exist in this project.`,
+          });
+        }
+      }
+    }
+
+    // A payoff the act requires, whose setup is neither planted in the
+    // manuscript nor required to be planted by this same act.
+    const setupById = new Map(setups.map((s) => [s.id as string, s]));
+    for (const id of plan.requiredPayoffIds) {
+      const setup = setupById.get(id);
+      if (setup === undefined) continue;
+      if (setup.setupSceneIds.length === 0 && !plan.requiredSetupIds.includes(id)) {
+        findings.push({
+          severity: "error",
+          code: "payoff_without_setup",
+          message: `The act requires ${id} to pay off, but nothing has planted it — not in the manuscript, and not among the act's required setups.`,
+        });
+      }
+    }
+    return findings;
+  }
+
+  /**
+   * Where the act's goals stand, answered from recorded state alone (§3, §8).
+   *
+   * Deterministic wherever a goal carries a hook (a target status, a fact and
+   * knowledge state, a tracked relationship dimension, a setup). A goal that is
+   * only the author's intent comes back `not_evaluated` with whatever the
+   * record can say as evidence — measurement, never judgement. No model is
+   * involved anywhere in this method.
+   */
+  async evaluateActGoals(plan: ActPlan): Promise<ActGoalReport> {
+    const [chapters, scenes, setups] = await Promise.all([
+      this.listChapters(),
+      this.listScenes(),
+      this.listSetups(),
+    ]);
+    const actChapterIds = new Set(plan.chapters.map((member) => member.chapterId));
+    const ordered = orderScenes(scenes, chapters);
+    const actScenes = ordered.filter(
+      (scene) => scene.chapterId !== undefined && actChapterIds.has(scene.chapterId as string),
+    );
+    const actSceneIds = new Set(actScenes.map((scene) => scene.id as string));
+
+    // Boundaries: entering the act (after the last scene before its first
+    // scene) and leaving it (after its last scene). Goals ask about the exit.
+    const lastActScene = actScenes[actScenes.length - 1];
+    const closing: StateBoundary | null =
+      lastActScene === undefined ? null : { sceneId: lastActScene.id as string, position: "after" };
+    const firstActScene = actScenes[0];
+    const firstIndex =
+      firstActScene === undefined
+        ? -1
+        : ordered.findIndex((scene) => scene.id === firstActScene.id);
+    const before = firstIndex > 0 ? ordered[firstIndex - 1] : undefined;
+    const entry: StateBoundary | null =
+      before === undefined ? null : { sceneId: before.id as string, position: "after" };
+
+    const results: ActGoalResult[] = [];
+
+    for (const goal of plan.plotThreadGoals) {
+      const touches = actScenes.filter((scene) =>
+        (scene.plotThreadIds as readonly string[]).includes(goal.threadId),
+      ).length;
+      const evidenceParts = [`${String(touches)} act scene(s) touch the thread`];
+      let status: ActGoalResult["status"] = "not_evaluated";
+      let method: ActGoalResult["method"] = "semantic";
+      if (goal.minAdvances !== undefined || goal.targetStatus !== undefined) {
+        method = "deterministic";
+        let ok = true;
+        if (goal.minAdvances !== undefined) ok = touches >= goal.minAdvances;
+        if (ok && goal.targetStatus !== undefined && closing !== null) {
+          const state = await this.getThreadState(goal.threadId, closing);
+          evidenceParts.push(`status at act end: ${state.status}`);
+          ok = state.status === goal.targetStatus;
+        } else if (goal.targetStatus !== undefined && closing === null) {
+          ok = false;
+          evidenceParts.push("no act scenes yet, so the target status cannot hold");
+        }
+        status = ok ? "satisfied" : "unsatisfied";
+      }
+      results.push({
+        kind: "thread",
+        refId: goal.threadId,
+        statement: goal.intent,
+        status,
+        method,
+        evidence: evidenceParts.join("; "),
+      });
+    }
+
+    for (const goal of plan.characterArcGoals) {
+      if (goal.factId !== undefined && goal.target !== undefined && closing !== null) {
+        const graph = await this.getFactKnowledgeGraph(goal.factId, closing);
+        const holder = graph.holders.find((h) => h.characterId === goal.characterId);
+        const state = holder?.state ?? "unknown";
+        results.push({
+          kind: "arc",
+          refId: goal.characterId,
+          statement: goal.movement,
+          status: state === goal.target ? "satisfied" : "unsatisfied",
+          method: "deterministic",
+          evidence: `${goal.characterId} holds ${goal.factId} as "${state}" at act end (target: "${goal.target}")`,
+        });
+      } else {
+        results.push({
+          kind: "arc",
+          refId: goal.characterId,
+          statement: goal.movement,
+          status: "not_evaluated",
+          method: "semantic",
+          evidence:
+            goal.factId === undefined
+              ? "the author's intent; needs the writer's reading"
+              : "no act scenes yet",
+        });
+      }
+    }
+
+    for (const goal of plan.relationshipGoals) {
+      if (goal.dimension !== undefined && goal.direction !== undefined && closing !== null) {
+        const at = await this.getRelationshipAt(goal.relationshipId, closing);
+        const end = at.dimensions[goal.dimension as keyof typeof at.dimensions];
+        const start =
+          entry === null
+            ? undefined
+            : (await this.getRelationshipAt(goal.relationshipId, entry)).dimensions[
+                goal.dimension as keyof typeof at.dimensions
+              ];
+        const moved = compareDimension(start, end);
+        if (moved === null) {
+          results.push({
+            kind: "relationship",
+            refId: goal.relationshipId,
+            statement: goal.intent,
+            status: "unsatisfied",
+            method: "deterministic",
+            evidence: `no recorded change to ${goal.dimension} across the act`,
+          });
+        } else {
+          const ok = goal.direction === "falls" ? moved < 0 : moved > 0;
+          results.push({
+            kind: "relationship",
+            refId: goal.relationshipId,
+            statement: goal.intent,
+            status: ok ? "satisfied" : "unsatisfied",
+            method: "deterministic",
+            evidence: `${goal.dimension} ${moved < 0 ? "fell" : moved > 0 ? "rose" : "held level"} across the act (${describeValue(start)} → ${describeValue(end)})`,
+          });
+        }
+      } else {
+        const history = (await this.getRelationshipHistory(goal.relationshipId)).filter((change) =>
+          actSceneIds.has(change.sceneId),
+        );
+        results.push({
+          kind: "relationship",
+          refId: goal.relationshipId,
+          statement: goal.intent,
+          status: "not_evaluated",
+          method: "semantic",
+          evidence: `${String(history.length)} recorded change(s) within the act; the intent needs the writer's reading`,
+        });
+      }
+    }
+
+    const setupById = new Map(setups.map((s) => [s.id as string, s]));
+    for (const id of plan.requiredSetupIds) {
+      const setup = setupById.get(id);
+      const planted =
+        setup !== undefined &&
+        setup.setupSceneIds.some((sceneId) => actSceneIds.has(sceneId as string));
+      results.push({
+        kind: "setup",
+        refId: id,
+        statement: `${id} is planted within the act`,
+        status: planted ? "satisfied" : "unsatisfied",
+        method: "deterministic",
+        evidence:
+          setup === undefined
+            ? `${id} does not exist`
+            : planted
+              ? "planted in an act scene"
+              : "no act scene plants it",
+      });
+    }
+    for (const id of plan.requiredPayoffIds) {
+      const setup = setupById.get(id);
+      const paid =
+        setup !== undefined &&
+        setup.payoffSceneIds.some((sceneId) => actSceneIds.has(sceneId as string));
+      results.push({
+        kind: "payoff",
+        refId: id,
+        statement: `${id} pays off within the act`,
+        status: paid ? "satisfied" : "unsatisfied",
+        method: "deterministic",
+        evidence:
+          setup === undefined
+            ? `${id} does not exist`
+            : paid
+              ? "paid off in an act scene"
+              : "no act scene pays it off",
+      });
+    }
+
+    for (const constraint of plan.forbiddenFacts) {
+      if (closing === null) {
+        results.push({
+          kind: "forbidden_fact",
+          refId: constraint.factId,
+          statement: constraint.reason ?? `${constraint.factId} stays withheld through the act`,
+          status: "not_evaluated",
+          method: "deterministic",
+          evidence: "no act scenes yet",
+        });
+        continue;
+      }
+      const graph = await this.getFactKnowledgeGraph(constraint.factId, closing);
+      const offenders = graph.holders.filter(
+        (holder) =>
+          (constraint.characterId === undefined || holder.characterId === constraint.characterId) &&
+          holder.state !== "unknown" &&
+          holder.state !== "disbelieved",
+      );
+      results.push({
+        kind: "forbidden_fact",
+        refId: constraint.factId,
+        statement: constraint.reason ?? `${constraint.factId} stays withheld through the act`,
+        status: offenders.length === 0 ? "satisfied" : "unsatisfied",
+        method: "deterministic",
+        evidence:
+          offenders.length === 0
+            ? "nobody it protects holds the information at act end"
+            : `held at act end by ${offenders.map((h) => `${h.characterId} (${h.state})`).join(", ")}`,
+      });
+    }
+
+    return summariseGoalReport(
+      results,
+      this.clock(),
+      closing === null ? undefined : closing.sceneId,
+    );
   }
 
   beginTransaction(summary = "Staged changes", meta: TransactionMeta = {}): StagedTransaction {
@@ -3407,6 +3859,34 @@ async function loadIdGenerator(store: ProjectStore): Promise<SequentialIdGenerat
   // Reconstruct from every existing entity id so new IDs never collide.
   const ids = [...(await new EntityGraph(store).existingIds())];
   return SequentialIdGenerator.fromExistingIds(ids);
+}
+
+/**
+ * Compare a relationship dimension across two boundaries: negative = fell,
+ * positive = rose, zero = level, `null` = nothing comparable was recorded.
+ * Magnitudes compare with magnitudes and levels with levels — the level bands
+ * are deliberately lossy, so the two forms are never mixed in one comparison.
+ */
+function compareDimension(
+  start: DimensionValue | undefined,
+  end: DimensionValue | undefined,
+): number | null {
+  if (end === undefined) return null;
+  if (start?.magnitude !== undefined && end.magnitude !== undefined) {
+    return Math.sign(end.magnitude - start.magnitude);
+  }
+  if (start?.level !== undefined && end.level !== undefined) {
+    return Math.sign(
+      QUALITATIVE_LEVELS.indexOf(end.level) - QUALITATIVE_LEVELS.indexOf(start.level),
+    );
+  }
+  return null;
+}
+
+function describeValue(value: DimensionValue | undefined): string {
+  if (value === undefined) return "—";
+  if (value.magnitude !== undefined) return String(value.magnitude);
+  return value.level ?? "—";
 }
 
 export { SCHEMA_VERSION, APP_FORMAT_VERSION };

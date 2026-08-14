@@ -334,3 +334,49 @@ export type {
   RelationshipChangePlan,
   WordRange,
 } from "./planning";
+
+// ── Act planning and act builds (Phase 33) ──────────────────────────────────
+export {
+  CHAPTER_ROLE_SUGGESTIONS,
+  actTestScope,
+  compareActPlanVersions,
+  emptyActPlan,
+  summariseGoalReport,
+  testAppliesToAct,
+} from "./act-plan";
+export type {
+  ActArcGoal,
+  ActChapter,
+  ActGoalReport,
+  ActGoalResult,
+  ActPlan,
+  ActPlanComparison,
+  ActPlanFinding,
+  ActPlanRevision,
+  ActRelationshipGoal,
+  ActThreadGoal,
+} from "./act-plan";
+export {
+  ACT_APPROVAL_POLICIES,
+  ACT_AUTONOMY_MODES,
+  ACT_BUILD_STATUSES,
+  ACT_BUILD_STEPS,
+  ACT_CHAPTER_STATUSES,
+  ACT_RESUMABLE_STATUSES,
+  addRunCost,
+  isActBuildFinished,
+  isActBuildResumable,
+  summariseActBuild,
+} from "./act-build";
+export type {
+  ActApprovalPolicy,
+  ActAutonomyMode,
+  ActBuild,
+  ActBuildStatus,
+  ActBuildStep,
+  ActBuildSummary,
+  ActChapterRecord,
+  ActChapterStatus,
+  ActDiagnostic,
+  ActPending,
+} from "./act-build";

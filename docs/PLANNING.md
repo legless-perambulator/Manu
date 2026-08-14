@@ -9,8 +9,9 @@ and beats — Manu's genuine intermediate representation (Phase 32).
   `@jellytind/agent-runtime` (the four plan tools)
 - **Status:** **Implemented and tested.** Manual planning, structured
   generation, deterministic validation, review and approval, plan-vs-draft
-  comparison, and direct consumption by the Chapter Builder. The Act Builder
-  remains **PLANNED**.
+  comparison, and direct consumption by the Chapter Builder. Above chapter
+  plans sit act plans — goals that span chapters — consumed by the Act
+  Builder ([ACT_BUILDER.md](ACT_BUILDER.md)).
 
 ## The shape
 
@@ -164,6 +165,8 @@ plan, the impact summary, and Approve all work with no model configured.
 ## Relationship to other subsystems
 
 - [CHAPTER_BUILDER.md](CHAPTER_BUILDER.md) — what consumes an approved plan.
+- [ACT_BUILDER.md](ACT_BUILDER.md) — the act plans above chapter plans, and
+  the workflow that confirms, consumes and re-proposes chapter plans.
 - [STORY_STATE.md](STORY_STATE.md) — the state validation reads at the chapter's entry.
 - [SPECIALIST_AGENTS.md](SPECIALIST_AGENTS.md) — the two agents that operate on plans.
 - [VERSIONING.md](VERSIONING.md) — the journal every plan save rides.

@@ -72,3 +72,6 @@ export type {
   PlanProposalResult,
   SceneCoverage,
 } from "./plan-architect";
+
+export { ActBuilder } from "./act-builder";
+export type { ActBuildModels, ActBuilderOptions, StartActBuildOptions } from "./act-builder";
