@@ -6,6 +6,8 @@ interface Props {
   onOpenFile: (path: string) => void;
   onSelectEntity: (id: string) => void;
   refreshToken: number;
+  /** Arrange the hits' scenes on the Story Map, chronologically (Phase 38 §12). */
+  onShowOnMap?: (sceneIds: readonly string[]) => void;
 }
 
 const FILTERS: ResultKind[] = [
@@ -29,7 +31,13 @@ function label(kind: ResultKind): string {
   return KIND_LABELS[kind] ?? kind;
 }
 
-export function SearchPanel({ repo, onOpenFile, onSelectEntity, refreshToken }: Props) {
+export function SearchPanel({
+  repo,
+  onOpenFile,
+  onSelectEntity,
+  refreshToken,
+  onShowOnMap,
+}: Props) {
   const [query, setQuery] = useState("");
   const [active, setActive] = useState<Set<ResultKind>>(new Set());
   const [hits, setHits] = useState<SearchHit[]>([]);
@@ -101,6 +109,22 @@ export function SearchPanel({ repo, onOpenFile, onSelectEntity, refreshToken }: 
       </div>
       <div className="search__results">
         {ran && hits.length === 0 && <p className="placeholder">No matches.</p>}
+        {onShowOnMap !== undefined && hits.some((hit) => hit.meta.sceneId !== undefined) && (
+          <button
+            className="btn btn--ghost btn--small"
+            onClick={() =>
+              onShowOnMap([
+                ...new Set(
+                  hits
+                    .map((hit) => hit.meta.sceneId)
+                    .filter((sceneId): sceneId is string => sceneId !== undefined),
+                ),
+              ])
+            }
+          >
+            Show on Story Map
+          </button>
+        )}
         {hits.map((hit) => (
           <button key={hit.id} className="result" onClick={() => openHit(hit)}>
             <div className="result__head">

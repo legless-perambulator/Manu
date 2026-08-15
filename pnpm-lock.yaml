@@ -98,6 +98,9 @@ importers:
       '@jellytind/story-debugger':
         specifier: workspace:*
         version: link:../../packages/story-debugger
+      '@jellytind/story-map':
+        specifier: workspace:*
+        version: link:../../packages/story-map
       '@jellytind/story-refactor':
         specifier: workspace:*
         version: link:../../packages/story-refactor
@@ -416,6 +419,24 @@ importers:
       '@jellytind/shared':
         specifier: workspace:*
         version: link:../shared
+      '@jellytind/story-compiler':
+        specifier: workspace:*
+        version: link:../story-compiler
+      '@jellytind/story-state':
+        specifier: workspace:*
+        version: link:../story-state
+
+  packages/story-map:
+    dependencies:
+      '@jellytind/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@jellytind/shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@jellytind/story-causality':
+        specifier: workspace:*
+        version: link:../story-causality
       '@jellytind/story-compiler':
         specifier: workspace:*
         version: link:../story-compiler

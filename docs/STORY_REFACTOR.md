@@ -191,6 +191,11 @@ radius with every affected entity and why, the affected manuscript, the risks
 with their sources, the proposed changes step by step, then — after staging —
 the validation, the diffs per file, and Accept / Discard.
 
+"Visualise impact on the Story Map" (Phase 38) opens the same blast radius as
+a causality view on the Story Map, focused on the refactor's target — the
+change's reach drawn over the story rather than listed
+([STORY_MAP.md](STORY_MAP.md)).
+
 ## Agent tool
 
 ```

@@ -23,6 +23,7 @@ These documents are **living**: update the relevant document whenever an archite
 | [CONTEXT_COMPILER.md](CONTEXT_COMPILER.md)         | How working context is constructed for each operation.          |
 | [STORY_COMPILER.md](STORY_COMPILER.md)             | Deterministic + semantic story checks and the build.            |
 | [STORY_TESTS.md](STORY_TESTS.md)                   | Writer-authored assertions the build holds the story to.        |
+| [STORY_MAP.md](STORY_MAP.md)                       | The visual story-intelligence layer: six views, one system.     |
 | [AGENT_RUNTIME.md](AGENT_RUNTIME.md)               | Agent orchestration, tasks and multi-agent coordination.        |
 | [AGENT_TOOLS.md](AGENT_TOOLS.md)                   | The typed tool surface agents operate through.                  |
 | [SPECIALIST_AGENTS.md](SPECIALIST_AGENTS.md)       | The nine writing specialists and what each may reach.           |

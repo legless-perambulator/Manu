@@ -222,3 +222,6 @@ direction is worked out from the relation.
 - [STORY_DEBUGGER.md](STORY_DEBUGGER.md) — investigates _why_ something is not
   working; this records _what rests on what_.
 - [VERSIONING.md](VERSIONING.md) — dependencies are change sets.
+- [STORY_MAP.md](STORY_MAP.md) — the Story Map's causality view expands
+  prerequisites and consequences around a focus and draws the same blast
+  radius visually.

@@ -77,6 +77,7 @@ import { BehaviourPanel } from "./BehaviourPanel";
 import { MysteryPanel } from "./MysteryPanel";
 import { ModulesPanel } from "./ModulesPanel";
 import { UsagePanel } from "./UsagePanel";
+import { StoryMapPanel, type MapFocus } from "./StoryMapPanel";
 import { WorldPanel } from "./WorldPanel";
 import { CausalityPanel } from "./CausalityPanel";
 import { ChapterBuildPanel } from "./ChapterBuildPanel";
@@ -132,6 +133,8 @@ export function Workspace({
   const [refreshToken, setRefreshToken] = useState(0);
   /** A semantic finding handed to the Story Debugger as its opening problem. */
   const [debugSeed, setDebugSeed] = useState<string | null>(null);
+  /** Where the Story Map should land next: search results, a refactor focus. */
+  const [mapFocus, setMapFocus] = useState<MapFocus | null>(null);
   const [editor, setEditor] = useState<ManuscriptEditor | null>(null);
   const [proposal, setProposal] = useState<EditProposal | null>(null);
   const [aiBusy, setAiBusy] = useState(false);
@@ -582,6 +585,20 @@ export function Workspace({
             onOpenFile={setOpenPath}
             onSelectEntity={selectEntity}
             refreshToken={refreshToken}
+            onShowOnMap={(sceneIds) => {
+              setMapFocus({ view: "timeline", sceneIds });
+              showPanel("storymap");
+            }}
+          />
+        );
+      case "storymap":
+        return (
+          <StoryMapPanel
+            repo={repo}
+            refreshToken={refreshToken}
+            onOpenScene={(sceneId) => void openScene(sceneId)}
+            onSelectEntity={selectEntity}
+            focus={mapFocus}
           />
         );
       case "state":
@@ -821,6 +838,10 @@ export function Workspace({
             refreshToken={refreshToken}
             onChanged={refresh}
             onSelectEntity={selectEntity}
+            onVisualiseImpact={(entityId) => {
+              setMapFocus({ view: "causality", focusId: entityId });
+              showPanel("storymap");
+            }}
           />
         );
       case "modules":

@@ -32,6 +32,7 @@ export const LEFT_PANELS = [
   "threads",
   "timeline",
   "world",
+  "storymap",
   "chapterbuild",
   "actbuild",
   "bookbuild",
@@ -197,6 +198,13 @@ export const PANELS: readonly PanelDefinition[] = [
     purpose: "Everything the enabled genre modules record",
     side: "left",
     needsExtensionKinds: true,
+  },
+  {
+    id: "storymap",
+    group: "story",
+    label: "Story Map",
+    purpose: "Explore the story visually: time, knowledge, relationships, causality",
+    side: "left",
   },
   {
     id: "chapterbuild",

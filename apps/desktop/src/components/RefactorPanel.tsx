@@ -24,6 +24,8 @@ interface Props {
   refreshToken: number;
   onChanged: () => void;
   onSelectEntity: (id: string) => void;
+  /** Open the Story Map's causality view on the change's target (Phase 38 §17). */
+  onVisualiseImpact?: (entityId: string) => void;
 }
 
 /** What each refactor class needs the writer to fill in. */
@@ -60,7 +62,14 @@ const FIELD_LABEL: Readonly<Record<string, string>> = {
  * Nothing here is applied until the writer says so. The staged refactor holds
  * the edits; walking away costs nothing.
  */
-export function RefactorPanel({ repo, secrets, refreshToken, onChanged, onSelectEntity }: Props) {
+export function RefactorPanel({
+  repo,
+  secrets,
+  refreshToken,
+  onChanged,
+  onSelectEntity,
+  onVisualiseImpact,
+}: Props) {
   const [kind, setKind] = useState<RefactorKind>("change_relationship");
   const [instruction, setInstruction] = useState("");
   const [values, setValues] = useState<Record<string, string>>({});
@@ -270,6 +279,14 @@ export function RefactorPanel({ repo, secrets, refreshToken, onChanged, onSelect
           <section className="state__section">
             <h3>Blast radius</h3>
             <p className="ctx__why">{analysis.summary}</p>
+            {onVisualiseImpact !== undefined && analysis.targets[0] !== undefined && (
+              <button
+                className="btn btn--small"
+                onClick={() => onVisualiseImpact(analysis.targets[0] as string)}
+              >
+                Visualise impact on the Story Map
+              </button>
+            )}
             <ul className="state__knowledge">
               {Object.entries(analysis.counts)
                 .filter(([, count]) => count > 0)

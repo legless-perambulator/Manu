@@ -31,6 +31,7 @@
     "@jellytind/skills": "workspace:*",
     "@jellytind/story-causality": "workspace:*",
     "@jellytind/story-debugger": "workspace:*",
+    "@jellytind/story-map": "workspace:*",
     "@jellytind/story-refactor": "workspace:*",
     "@jellytind/story-repository": "workspace:*",
     "@jellytind/story-state": "workspace:*",

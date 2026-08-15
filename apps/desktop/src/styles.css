@@ -4605,3 +4605,357 @@ progress {
   flex-direction: column;
   gap: var(--space-2);
 }
+
+/* ── Story Map (Phase 38) — restrained visual story intelligence ──────────── */
+
+.smap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  min-width: 0;
+}
+
+.smap__views {
+  display: flex;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: var(--space-2);
+}
+
+.smap__view {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--text-sm);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.smap__view.is-active {
+  color: var(--text-primary);
+  background: var(--bg-raised, rgba(128, 128, 128, 0.12));
+}
+
+.smap__scrubber {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.smap__scrubber input[type="range"] {
+  flex: 1;
+  min-width: 0;
+}
+
+.smap__point {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  white-space: nowrap;
+}
+
+.smap__filters,
+.smap__controls,
+.smap__ordertoggle {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.smap__toggle {
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.smap__strip {
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
+  flex-wrap: wrap;
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-2);
+}
+
+.smap__canvas {
+  min-width: 0;
+}
+
+.smap__scroll {
+  overflow-x: auto;
+}
+
+.smap__svg {
+  display: block;
+}
+
+.smap__scene {
+  fill: var(--bg-raised, rgba(128, 128, 128, 0.25));
+  stroke: var(--text-muted);
+  stroke-width: 1.25;
+  cursor: pointer;
+}
+
+.smap__scene--flashback {
+  fill: transparent;
+  stroke-dasharray: 3 2;
+}
+
+.smap__scene--hit {
+  stroke: var(--accent, #7a8ca8);
+  stroke-width: 2;
+}
+
+.smap__event {
+  fill: transparent;
+  stroke: var(--text-muted);
+  stroke-width: 1;
+}
+
+.smap__flag {
+  fill: var(--status-error, #c0554d);
+}
+
+.smap__label {
+  font-size: 10px;
+  fill: var(--text-muted);
+}
+
+.smap__lane {
+  stroke: var(--border-subtle);
+  stroke-width: 1;
+}
+
+.smap__stop {
+  fill: var(--text-muted);
+  cursor: pointer;
+}
+
+.smap__pointline {
+  stroke: var(--accent, #7a8ca8);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+}
+
+.smap__testspan {
+  stroke: var(--text-muted);
+  stroke-width: 2;
+  opacity: 0.5;
+}
+
+.smap__fail {
+  font-size: 11px;
+  fill: var(--status-error, #c0554d);
+}
+
+.smap__panes {
+  display: flex;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.smap__rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.smap__row {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  font-size: var(--text-sm);
+  flex-wrap: wrap;
+}
+
+.smap__kstate {
+  text-transform: uppercase;
+  font-size: var(--text-xs, 11px);
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.smap__kstate--known {
+  color: var(--text-primary);
+}
+
+.smap__kstate--unknown {
+  opacity: 0.6;
+}
+
+.smap__edge {
+  stroke: var(--border-subtle);
+  stroke-width: 2;
+  cursor: pointer;
+}
+
+.smap__edge.is-selected {
+  stroke: var(--text-primary);
+}
+
+.smap__node {
+  fill: var(--bg-raised, rgba(128, 128, 128, 0.18));
+  stroke: var(--text-muted);
+  cursor: pointer;
+}
+
+.smap__detail {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  font-size: var(--text-sm);
+  min-width: 200px;
+}
+
+.smap__detail h4 {
+  margin: 0 0 var(--space-2);
+}
+
+.smap__columns {
+  display: flex;
+  gap: var(--space-3);
+  overflow-x: auto;
+  padding: var(--space-2) 0;
+}
+
+.smap__column {
+  min-width: 170px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.smap__colhead {
+  margin: 0;
+  font-size: var(--text-xs, 11px);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.smap__cnode {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-1) var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--text-sm);
+}
+
+.smap__cnode.is-focus {
+  border-color: var(--text-primary);
+}
+
+.smap__cnode.is-affected {
+  border-style: dashed;
+  border-color: var(--status-warning, #b98a3c);
+}
+
+.smap__cnodebtn {
+  background: transparent;
+  border: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  padding: 0;
+}
+
+.smap__flagword {
+  font-size: var(--text-xs, 11px);
+  color: var(--status-error, #c0554d);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.smap__threadstrip {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  gap: var(--space-2);
+  overflow-x: auto;
+}
+
+.smap__tchapter {
+  min-width: 96px;
+  border-top: 2px solid var(--border-subtle);
+  padding-top: var(--space-1);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--text-sm);
+}
+
+.smap__tchapter.is-dormant {
+  border-top-style: dashed;
+  color: var(--text-muted);
+}
+
+.smap__tchaptertitle {
+  font-size: var(--text-xs, 11px);
+  color: var(--text-muted);
+}
+
+.smap__tquiet {
+  font-size: var(--text-xs, 11px);
+  color: var(--text-muted);
+}
+
+.smap__tmark {
+  background: transparent;
+  border: none;
+  color: inherit;
+  font: inherit;
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: pointer;
+  padding: 0;
+}
+
+.smap__tmark--introduced,
+.smap__tmark--resolved {
+  color: var(--text-primary);
+}
+
+.smap__arc {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  border-left: 2px solid var(--border-subtle);
+  padding-left: var(--space-3);
+}
+
+.smap__milestone {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  font-size: var(--text-sm);
+  flex-wrap: wrap;
+}
+
+.smap__mkind {
+  font-size: var(--text-xs, 11px);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  min-width: 84px;
+}

@@ -245,6 +245,8 @@ exactly as true without it.
   no-future-leakage guarantee.
 - [STORY_COMPILER.md](STORY_COMPILER.md) — `checkTimeline` is the reusable
   foundation for the "Timeline valid" line in a story build.
+- [STORY_MAP.md](STORY_MAP.md) — the Story Map's timeline view draws both
+  orderings side by side and derives flashbacks from the chronology's ranks.
 
 ## Invariants
 
