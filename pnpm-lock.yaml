@@ -392,6 +392,9 @@ importers:
       '@jellytind/domain':
         specifier: workspace:*
         version: link:../domain
+      '@jellytind/model-router':
+        specifier: workspace:*
+        version: link:../model-router
       '@jellytind/shared':
         specifier: workspace:*
         version: link:../shared

@@ -12,8 +12,10 @@ over structured state rather than by a model re-reading the manuscript.
   build runs the writer's deterministic Story Tests
   ([STORY_TESTS.md](STORY_TESTS.md)). Every rule is covered by a reachability
   test that drives it until it emits, so none can quietly become a stub
-  (`rule-audit.test.ts`, Phase 30.5B3). Semantic checks, semantic test evaluation
-  and full incremental compilation are **PLANNED**.
+  (`rule-audit.test.ts`, Phase 30.5B3). The **semantic layer** (Phase 37) —
+  clearly-labelled heuristics and model judgements with evidence, confidence,
+  lifecycle, caching and scope — is **implemented and tested**; see "The
+  semantic layer" below.
 
 ### The rule audit
 
@@ -273,31 +275,69 @@ its chapter's prose and selects the scene. Diagnostics new since the last build
 are marked, and resolved ones are listed struck through — the answer to "did that
 work, and did I break anything?".
 
-## What is deliberately absent
+## The semantic layer (Phase 37)
 
-No check here is faked. These are named in the vision and are **not**
-implemented, because they cannot yet be made reliable:
+The compiler now has a second, **structurally separate** layer: semantic
+analysis of the prose itself — pacing, tension, scene purpose, motivation,
+character voice, dialogue, prose habits, foreshadowing, structural repetition.
+Everything about it holds the promise made above:
 
-- POV rules beyond a scene's own coherence — needs prose analysis
-- duplicate aliases and inconsistent physical descriptions — semantic
-- repeated phrases and voice convergence — semantic
-- most world rules — prose, and therefore model work
-- pacing and scene-purpose judgements — semantic
-- evaluation of **semantic** Story Tests — needs Reader Simulation; they are
-  recorded and reported as not evaluated ([STORY_TESTS.md](STORY_TESTS.md))
+- **Nothing here is an error.** A `SemanticFinding` has no `Severity`, cannot
+  fail a build, and cannot enter the deterministic diagnostic stream. The
+  `Severity` union gained nothing.
+- **Every finding is labelled what it is** (§1): `heuristic` — a fixed
+  procedure over the text (repeated phrases, scene rhythm, quiet stretches,
+  beat repetition, setup hammering) — or `model_judgement`, a model's reading
+  through validated structured output, carrying the model's id.
+- **Evidence is mandatory** (§4): scenes, entities and concrete notes —
+  shared tendencies, quoted lines, counts. The engine drops any finding
+  without them; a vague "they sound similar" never reaches the writer.
+- **Confidence is qualitative** (§5): `low / medium / high`. No invented
+  probabilities.
+- **The writer's voice wins** (§7): a prose rule consults the confirmed
+  Author Voice — the writer's own rules and confirmed tendencies only — and
+  suppresses findings about a style the writer has said is deliberate,
+  reporting the suppression rather than hiding it.
+- **Genre adapts, the core does not** (§8): rules may read the enabled
+  modules — with `mystery` on, setup visibility is framed as clue visibility
+  — and `requiresModule` gates whole rules, so no genre assumption runs
+  globally.
+- **Simulations are labelled simulations** (§9–10): reader-simulation
+  boredom strengthens a pacing finding as _"(simulation, not a real
+  reader)"_, and the Character Simulator is consulted only about decisions
+  already flagged, never wholesale.
+- **Cost is controlled** (§11–13): **Quick** runs the heuristics with zero
+  model calls; **Full** adds the judgements, routed as `semantic_analysis`
+  through the Model Router. Scope is scene / chapter / act / book, and
+  judgements are cached against the prose in scope, the rule version and the
+  judging model — unchanged material is never re-bought.
+- **Findings have a lifecycle** (§14): `open → acknowledged / ignored`, and
+  `resolved` when a marked finding stops occurring. "This is intentional" is
+  remembered on disk; a rebuild does not nag.
 
-A build a writer cannot trust is worse than a shorter one.
+A rule is a value — `SemanticCompilerRule` with a category, a scope weight, a
+context recipe, a validated output schema and an interpreter — registered in
+`SEMANTIC_RULES`, and switchable off per project (§6).
 
-## Semantic analysis, when it arrives
+Semantic **Story Tests** are now evaluated too ([STORY_TESTS.md](STORY_TESTS.md)):
+verdicts are `PASS / CONCERN / INCONCLUSIVE`, never booleans, each preserving
+the scope analysed, the context sent, the evidence, the model, the judgement
+and its uncertainty (§18–19). An unanswered question is still never a passing
+one: with no model, every semantic test is honestly `INCONCLUSIVE`.
 
-Every result will be classified — `FACT` / `DETERMINISTIC RESULT` /
-`MODEL JUDGEMENT` / `INFERENCE` / `SUGGESTION` — and semantic findings will
-carry their evidence. Never _"This scene is boring."_ Instead:
+In the Story Build panel the two layers are visually distinct (§15):
+deterministic errors and warnings first, then a softer semantic section with
+per-category counts. A finding offers **Debug** — handing itself to the Story
+Debugger as the investigation's opening problem (§16) — **This is
+intentional**, and **Ignore**. Nothing rewrites anything: changes go through
+the ordinary revision and refactor systems (§17).
 
-> "Three reader simulations reported reduced engagement here, and the scene
-> contains lower conflict than the preceding five scenes."
+## What is deliberately absent from the deterministic layer
 
-The `Severity` union will gain nothing: a model judgement is never an `error`.
+No deterministic check is faked. POV rules beyond a scene's own coherence,
+duplicate aliases, most world rules — prose questions live in the semantic
+layer now, as labelled judgements, and are never promoted to errors. A build
+a writer cannot trust is worse than a shorter one.
 
 ## Relationship to other subsystems
 

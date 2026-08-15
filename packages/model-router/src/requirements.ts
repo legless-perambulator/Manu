@@ -30,6 +30,7 @@ export const ROUTED_OPERATIONS = [
   "character_simulation",
   "research",
   "skill_reading",
+  "semantic_analysis",
   "summarisation",
   "metadata_extraction",
   "search_query",
@@ -186,6 +187,15 @@ export const OPERATION_REQUIREMENTS: Readonly<Record<RoutedOperation, OperationR
   skill_reading: req({
     operation: "skill_reading",
     label: "Skill semantic reading",
+    purpose: "utility",
+    routingClass: "cheap_analysis",
+    structuredOutput: "required",
+    costSensitivity: "high",
+    localEligible: true,
+  }),
+  semantic_analysis: req({
+    operation: "semantic_analysis",
+    label: "Semantic story analysis",
     purpose: "utility",
     routingClass: "cheap_analysis",
     structuredOutput: "required",

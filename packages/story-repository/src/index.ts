@@ -85,6 +85,7 @@ export { BookBuildStore } from "./book-build-store";
 export { ResearchStore } from "./research-store";
 export { UsageStore } from "./usage-store";
 export type { StoredUsageRecord, ModelFeedbackRecord } from "./usage-store";
+export { SemanticStore } from "./semantic-store";
 export { ReaderSimulationStore } from "./reader-sim-store";
 export { PersonalityStore } from "./personality-store";
 export { MysteryStore } from "./mystery-store";

@@ -20,6 +20,12 @@ interface Props {
   onOpenScene: (sceneId: string) => void;
   /** Hand a motivation question to the Character Simulator. */
   onSimulateBehaviour: () => void;
+  /**
+   * A problem handed in from outside — a semantic finding from the Story
+   * Build (Phase 37 §16). Pre-fills the problem statement; the writer still
+   * chooses the mode and presses run.
+   */
+  seedProblem?: string;
 }
 
 /** Which pickers each mode needs, and which of them it cannot work without. */
@@ -75,9 +81,16 @@ export function DebugPanel({
   onSelectEntity,
   onOpenScene,
   onSimulateBehaviour,
+  seedProblem,
 }: Props) {
   const [mode, setMode] = useState<DebugMode>("reveal");
   const [problem, setProblem] = useState("");
+
+  // A semantic finding arriving from the Story Build becomes the problem
+  // statement (Phase 37 §16). It seeds; it never runs anything by itself.
+  useEffect(() => {
+    if (seedProblem !== undefined && seedProblem !== "") setProblem(seedProblem);
+  }, [seedProblem]);
   const [values, setValues] = useState<Record<string, string>>({});
   const [command, setCommand] = useState("");
   const [report, setReport] = useState<DebugReport | null>(null);

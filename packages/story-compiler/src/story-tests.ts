@@ -204,7 +204,10 @@ export class ScopeError extends Error {}
  * 37" means "before chapter 37 begins" — which is what a writer means when they
  * say it.
  */
-export function resolveScope(scope: TestScope, input: TestRunInput): string[] {
+export function resolveScope(
+  scope: TestScope,
+  input: Pick<TestRunInput, "scenes" | "chapters">,
+): string[] {
   const order = orderScenes(input.scenes, input.chapters).map((s) => s.id as string);
   if (scope.kind === "always") return order;
 
@@ -237,7 +240,7 @@ export function resolveScope(scope: TestScope, input: TestRunInput): string[] {
 function anchorIndex(
   anchorId: string,
   order: readonly string[],
-  input: TestRunInput,
+  input: Pick<TestRunInput, "scenes" | "chapters">,
   last = false,
 ): number {
   const direct = order.indexOf(anchorId);

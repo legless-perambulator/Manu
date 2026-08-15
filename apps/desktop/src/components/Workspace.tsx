@@ -130,6 +130,8 @@ export function Workspace({
   const [selectedChangeId, setSelectedChangeId] = useState<string | null>(null);
   const [activityLine, setActivityLine] = useState<string | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
+  /** A semantic finding handed to the Story Debugger as its opening problem. */
+  const [debugSeed, setDebugSeed] = useState<string | null>(null);
   const [editor, setEditor] = useState<ManuscriptEditor | null>(null);
   const [proposal, setProposal] = useState<EditProposal | null>(null);
   const [aiBusy, setAiBusy] = useState(false);
@@ -694,10 +696,15 @@ export function Workspace({
         return (
           <BuildPanel
             repo={repo}
+            secrets={secrets}
             refreshToken={refreshToken}
             onChanged={refresh}
             onSelectEntity={selectEntity}
             onOpenScene={(sceneId) => void openScene(sceneId)}
+            onDebugFinding={(question) => {
+              setDebugSeed(question);
+              showPanel("debug");
+            }}
           />
         );
       case "tests":
@@ -720,6 +727,7 @@ export function Workspace({
             onSimulateBehaviour={() => showPanel("behaviour")}
             onSelectEntity={selectEntity}
             onOpenScene={(sceneId) => void openScene(sceneId)}
+            {...(debugSeed !== null ? { seedProblem: debugSeed } : {})}
           />
         );
       case "skills":

@@ -7,9 +7,13 @@ long as the book is being written.
 - **Packages:** `@jellytind/domain` (the vocabulary),
   `@jellytind/story-compiler` (the engine), `@jellytind/story-repository`
   (persistence and validation)
-- **Status (Phase 17):** **Deterministic tests implemented and tested.**
-  Semantic tests are **declared, recorded and reported as not evaluated** — the
-  shape exists, the evaluator does not.
+- **Status (Phase 17, updated Phase 37):** **Deterministic tests implemented
+  and tested.** Semantic tests are now **evaluated too** — by the semantic
+  compiler layer, with verdicts `PASS / CONCERN / INCONCLUSIVE` and the full
+  record of scope, context, evidence, model and uncertainty
+  ([STORY_COMPILER.md](STORY_COMPILER.md) — "The semantic layer"). The
+  deterministic build alone still reports them `not_evaluated`: only a run
+  with a model can answer them, and an unanswered question is never a pass.
 
 ## The premise
 
@@ -28,10 +32,10 @@ intentions as persistent executable assertions.**
 
 ## Two kinds of test, kept apart
 
-| Kind              | Decided by                     | Can be `passed`?          |
-| ----------------- | ------------------------------ | ------------------------- |
-| **deterministic** | recorded state, replayed       | yes — it is true or false |
-| **semantic**      | a model's reading of the prose | not yet: `not_evaluated`  |
+| Kind              | Decided by                     | Can be `passed`?                           |
+| ----------------- | ------------------------------ | ------------------------------------------ |
+| **deterministic** | recorded state, replayed       | yes — it is true or false                  |
+| **semantic**      | a model's reading of the prose | never boolean: `PASS/CONCERN/INCONCLUSIVE` |
 
 `DeterministicAssertion` and `SemanticAssertion` are **separate unions**, so
 the type system refuses to mix them, and `type` on a stored test is derived from
@@ -39,10 +43,12 @@ the assertion rather than chosen by the writer. Collapsing the two would let an
 opinion be reported as a fact, which is the failure this whole product exists to
 avoid.
 
-A semantic test is never reported as passing. It comes back as
-`not_evaluated`, with a reason, and is never turned into a build diagnostic —
-**an unanswered question is not a satisfied one**, and a green suite that
-quietly included unevaluated judgements would be a lie.
+A semantic test is never reported as a deterministic pass. In the
+deterministic build it comes back `not_evaluated`, with a reason, and is
+never turned into a build diagnostic — **an unanswered question is not a
+satisfied one**. A semantic build with a model evaluates it to `PASS`,
+`CONCERN` or `INCONCLUSIVE`, and a concern with no evidence degrades to
+inconclusive rather than pretending certainty.
 
 ## The model
 

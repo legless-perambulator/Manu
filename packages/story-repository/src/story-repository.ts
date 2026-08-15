@@ -117,6 +117,7 @@ import {
   type BuildContext,
   type BuildInputKind,
   type BuildSummary,
+  type SemanticBuildContext,
   type StoryBuild,
   type TestRunSummary,
 } from "@jellytind/story-compiler";
@@ -163,6 +164,7 @@ import { BookBuildStore } from "./book-build-store";
 import type { BookPlan, BookPlanFinding } from "@jellytind/domain";
 import { ResearchStore } from "./research-store";
 import { UsageStore } from "./usage-store";
+import { SemanticStore } from "./semantic-store";
 import { findResearchPlaceholders } from "@jellytind/domain";
 import type { ResearchItem, ResearchScope, ResearchTask } from "@jellytind/domain";
 import { listSceneSpans } from "./scene-text";
@@ -333,6 +335,8 @@ export class StoryRepository {
   readonly research: ResearchStore;
   /** What model calls actually cost, call by call (docs/MODEL_ROUTER.md). */
   readonly usage: UsageStore;
+  /** Semantic findings' lifecycle, cache and configuration (docs/STORY_COMPILER.md). */
+  readonly semantic: SemanticStore;
   /** Clues, suspects and deductions (docs/MYSTERY_ENGINE.md). */
   readonly mysteries: MysteryStore;
   /** Which genre modules are switched on (docs/GENRE_MODULES.md). */
@@ -420,6 +424,9 @@ export class StoryRepository {
     // about the story. It is still the writer's money, so it is never lost to
     // a restart — records land on disk as calls complete (Phase 36 §10).
     this.usage = new UsageStore(rawStore);
+    // Not journaled: a judgement about the story is not a change to it. The
+    // writer's "this is intentional" survives restarts because it is on disk.
+    this.semantic = new SemanticStore(rawStore);
     // Journaled: who did it, and what each clue really means, is canon.
     this.mysteries = new MysteryStore(this.store);
     // Not journaled: which modules are switched on is a setting about the
@@ -4018,6 +4025,69 @@ export class StoryRepository {
    * attributed to the scene whose span holds it. Deterministic; the research
    * skill and the builders read this, and nothing acts on it automatically.
    */
+  /**
+   * Everything the semantic compiler reads, assembled once (Phase 37).
+   *
+   * Prose arrives per scene — read from the chapter files through the scene
+   * spans — so a scene-scoped semantic build genuinely reads one scene.
+   * The voice profile is included whole; the rules themselves only honour
+   * the writer's own rules and confirmed tendencies (§7).
+   */
+  async semanticContext(): Promise<SemanticBuildContext> {
+    const [
+      scenes,
+      chapters,
+      characters,
+      relationships,
+      setups,
+      decisions,
+      dependencies,
+      transitions,
+      voice,
+      modules,
+      simulationSummaries,
+    ] = await Promise.all([
+      this.listScenes(),
+      this.listChapters(),
+      this.listCharacters(),
+      this.listRelationships(),
+      this.listSetups(),
+      this.listDecisions(),
+      this.listDependencies(),
+      this.listStateTransitions(),
+      this.voice.load(),
+      this.modules.enabled(),
+      this.readerSims.list(6),
+    ]);
+
+    const prose: Record<string, string> = {};
+    for (const chapter of chapters) {
+      const file = (await this.readProjectFile(chapter.filePath)) ?? "";
+      for (const span of listSceneSpans(file)) {
+        prose[span.sceneId] = file.slice(span.start, span.end).trim();
+      }
+    }
+
+    const readerSimulations = (
+      await Promise.all(simulationSummaries.map((summary) => this.readerSims.get(summary.id)))
+    ).filter((simulation): simulation is NonNullable<typeof simulation> => simulation !== null);
+
+    return {
+      scenes,
+      chapters,
+      characters,
+      relationships,
+      setups,
+      decisions,
+      dependencies,
+      transitions,
+      prose,
+      voice,
+      modules,
+      readerSimulations,
+    };
+  }
+
   async findResearchGaps(): Promise<
     { chapterId: string; chapterTitle: string; sceneId?: string; question: string }[]
   > {

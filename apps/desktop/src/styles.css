@@ -4476,3 +4476,132 @@ progress {
   display: flex;
   gap: var(--space-1);
 }
+
+/* ── Semantic build layer (Phase 37) — softer than errors, on purpose ─────── */
+
+.sem {
+  border-top: 1px dashed var(--border-subtle);
+  opacity: 0.96;
+}
+
+.sem__title {
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.sem__controls {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.sem__summary {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.sem__rules {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.sem__rule {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+  font-size: var(--text-sm);
+}
+
+.sem__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.sem__item {
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.sem__item--settled {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-muted);
+}
+
+.sem__head {
+  display: flex;
+  gap: var(--space-2);
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+
+.sem__kind,
+.sem__cat,
+.sem__confidence,
+.sem__verdict {
+  font-size: var(--text-xs, 11px);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.sem__kind {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-1);
+}
+
+.sem__confidence--high {
+  color: var(--text-primary);
+}
+
+.sem__verdict--concern {
+  color: var(--status-warning, #b98a3c);
+}
+
+.sem__verdict--pass {
+  color: var(--status-ok, #5a9a6f);
+}
+
+.sem__message {
+  font-size: var(--text-sm);
+}
+
+.sem__evidence {
+  margin: 0;
+  padding-left: var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.sem__verbs {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.sem__settled summary {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.sem__tests {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
