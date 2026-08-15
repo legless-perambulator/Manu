@@ -128,7 +128,9 @@ export class OpenAiCompatibleModel implements LanguageModel {
 
   async generateText(request: GenerateRequest, options?: RequestOptions): Promise<GenerateResult> {
     const json = await this.call(this.body(request), options);
-    return { text: firstText(json), usage: usageOf(json), stopReason: stopOf(json) };
+    const usage = usageOf(json);
+    options?.onUsage?.(usage);
+    return { text: firstText(json), usage, stopReason: stopOf(json) };
   }
 
   async generateStructured<T>(request: StructuredRequest<T>, options?: RequestOptions): Promise<T> {
@@ -139,6 +141,7 @@ export class OpenAiCompatibleModel implements LanguageModel {
       this.body(request, { response_format: { type: "json_object" } }),
       options,
     );
+    options?.onUsage?.(usageOf(json));
     return parseModelJson(request.schema, firstText(json));
   }
 
@@ -172,10 +175,12 @@ export class OpenAiCompatibleModel implements LanguageModel {
       return { id: String(call.id ?? ""), name: String(call.function?.name ?? ""), input };
     });
 
+    const usage = usageOf(json);
+    options?.onUsage?.(usage);
     return {
       text: typeof message?.content === "string" ? message.content : "",
       toolCalls,
-      usage: usageOf(json),
+      usage,
       stopReason: toolCalls.length > 0 ? "tool_use" : stopOf(json),
     };
   }
@@ -242,6 +247,7 @@ export class OpenAiCompatibleModel implements LanguageModel {
         }
       }
     }
+    options?.onUsage?.(usage);
     yield { type: "done", usage, stopReason };
   }
 }
@@ -307,10 +313,18 @@ function mapStop(reason: string): StopReason {
 }
 
 function usageOf(json: Record<string, unknown>): TokenUsage {
-  const usage = json.usage as { prompt_tokens?: unknown; completion_tokens?: unknown } | undefined;
+  const usage = json.usage as
+    | {
+        prompt_tokens?: unknown;
+        completion_tokens?: unknown;
+        prompt_tokens_details?: { cached_tokens?: unknown };
+      }
+    | undefined;
+  const cached = usage?.prompt_tokens_details?.cached_tokens;
   return {
     inputTokens: typeof usage?.prompt_tokens === "number" ? usage.prompt_tokens : 0,
     outputTokens: typeof usage?.completion_tokens === "number" ? usage.completion_tokens : 0,
+    ...(typeof cached === "number" ? { cachedInputTokens: cached } : {}),
   };
 }
 

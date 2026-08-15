@@ -9,6 +9,7 @@ import type {
   BookPlanFinding,
   Chapter,
   Character,
+  ModelRouteNote,
   PlotThread,
   Relationship,
 } from "@jellytind/domain";
@@ -16,7 +17,9 @@ import { describeBookProgress } from "@jellytind/domain";
 import { BookBuilder } from "@jellytind/editing";
 import type { SecretStore } from "@jellytind/model-router";
 import type { StoryRepository } from "@jellytind/story-repository";
-import { createConfiguredModel } from "../lib/models";
+import { createRoutedModel, routeNote, routingProfiles } from "../lib/routing";
+import { describeClassUsage } from "../lib/costs";
+import type { RoutingClass } from "@jellytind/domain";
 
 interface Props {
   repo: StoryRepository;
@@ -107,6 +110,8 @@ export function BookBuildPanel({ repo, secrets, branchId, refreshToken, onChange
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const builder = useRef<BookBuilder | null>(null);
+  /** Why each model was chosen — recorded on the build it starts (§19). */
+  const routingNotes = useRef<ModelRouteNote[]>([]);
 
   const reload = useCallback(async () => {
     const [held, ids, threadList, characterList, relationshipList, chapterList, builds] =
@@ -176,17 +181,26 @@ export function BookBuildPanel({ repo, secrets, branchId, refreshToken, onChange
 
   const ensureBuilder = useCallback(async (): Promise<BookBuilder> => {
     if (builder.current !== null) return builder.current;
-    const drafting = await createConfiguredModel(secrets, "drafting");
-    const analysis = await createConfiguredModel(secrets, "utility").catch(() => undefined);
-    const planning = await createConfiguredModel(secrets, "reasoning").catch(() =>
-      createConfiguredModel(secrets, "default").catch(() => undefined),
+    // Every slot resolves through the Model Router (Phase 36 §21): the policy,
+    // privacy rules and pins in Settings decide which configured model does
+    // which work, and every call the whole book build makes — through every
+    // act and chapter — lands in the usage ledger (§10).
+    const drafting = await createRoutedModel(repo, secrets, "scene_drafting");
+    const analysis = await createRoutedModel(repo, secrets, "state_extraction").catch(
+      () => undefined,
     );
+    const planning = await createRoutedModel(repo, secrets, "chapter_planning").catch(
+      () => undefined,
+    );
+    routingNotes.current = [drafting, analysis, planning]
+      .map((routed) => (routed === undefined ? null : routeNote(routed.decision)))
+      .filter((note): note is ModelRouteNote => note !== null);
     builder.current = new BookBuilder({
       repo,
       models: {
-        drafting,
-        ...(analysis === undefined ? {} : { analysis }),
-        ...(planning === undefined ? {} : { planning }),
+        drafting: drafting.model,
+        ...(analysis === undefined ? {} : { analysis: analysis.model }),
+        ...(planning === undefined ? {} : { planning: planning.model }),
       },
       grant: BOOK_GRANT,
       onProgress: (build) => setActive(build),
@@ -288,6 +302,8 @@ export function BookBuildPanel({ repo, secrets, branchId, refreshToken, onChange
         : {}),
     });
   }, [active, activeActs]);
+
+  const profiles = useMemo(() => routingProfiles(), []);
 
   const currentTask = useMemo(() => {
     if (liveAct === null || active === null || finished) return null;
@@ -715,7 +731,11 @@ export function BookBuildPanel({ repo, secrets, branchId, refreshToken, onChange
               <button
                 className="btn btn--primary btn--small"
                 disabled={busy}
-                onClick={() => void run((b) => b.start({ branchId, approvalPolicy: policy }))}
+                onClick={() =>
+                  void run((b) =>
+                    b.start({ branchId, approvalPolicy: policy, routing: routingNotes.current }),
+                  )
+                }
               >
                 {busy ? "Working…" : "Build the book"}
               </button>
@@ -804,6 +824,35 @@ export function BookBuildPanel({ repo, secrets, branchId, refreshToken, onChange
             {progress === "" ? "" : ` · ${progress}`}
             {words !== null ? ` · ${String(words)} words` : ""}
           </p>
+
+          {Object.keys(active.usage.byClass).length > 0 && (
+            <p className="hint">
+              {Object.entries(active.usage.byClass)
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(
+                  ([cls, entry]) =>
+                    `${cls.replaceAll("_", " ")}: ${describeClassUsage(
+                      entry,
+                      active.modelAssignments[cls as RoutingClass],
+                      profiles,
+                    )}`,
+                )
+                .join(" · ")}
+            </p>
+          )}
+
+          {active.routing !== undefined && active.routing.length > 0 && (
+            <details className="abuild__goalreport">
+              <summary>Why these models</summary>
+              <ul>
+                {active.routing.map((note) => (
+                  <li key={note.operation} className="hint">
+                    {note.operation.replaceAll("_", " ")} → {note.modelId}. {note.reason}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
 
           {active.goalReport !== undefined && (
             <details className="abuild__goalreport">

@@ -10,7 +10,7 @@ import {
   type TransitionKind,
   type WorldState,
 } from "@jellytind/story-state";
-import { createConfiguredModel } from "../lib/models";
+import { createRoutedModel } from "../lib/routing";
 import { explainEditError, MANUSCRIPT_EDIT_GRANT } from "../lib/editing";
 
 interface Props {
@@ -114,7 +114,7 @@ export function StatePanel({ repo, secrets, refreshToken, onChanged }: Props) {
     setBusy(true);
     setError(null);
     try {
-      const model = await createConfiguredModel(secrets, "utility");
+      const { model } = await createRoutedModel(repo, secrets, "state_extraction");
       const extractor = new StateExtractor({
         repo,
         model,

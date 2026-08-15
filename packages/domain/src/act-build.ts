@@ -1,5 +1,5 @@
 import type { ActGoalReport } from "./act-plan";
-import type { ApprovalPolicy } from "./chapter-build";
+import type { ApprovalPolicy, ModelRouteNote } from "./chapter-build";
 import type { RoutingClass, RunCost } from "./orchestration";
 
 /**
@@ -183,6 +183,8 @@ export interface ActBuild {
   /** Unresolved [RESEARCH: …] policy passed to every child build (Phase 35 §20). */
   readonly researchGapPolicy?: "pause" | "proceed";
   readonly modelAssignments: Readonly<Partial<Record<RoutingClass, string>>>;
+  /** Why each model was chosen, when routed (Phase 36 §19). */
+  readonly routing?: readonly ModelRouteNote[];
   /** Checkpoint taken before anything was written. The whole act reverts here. */
   readonly checkpointId?: string;
   readonly currentStep: ActBuildStep;

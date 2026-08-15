@@ -11,7 +11,7 @@ import {
 import { PlanArchitect } from "@jellytind/editing";
 import type { SecretStore } from "@jellytind/model-router";
 import type { StoryRepository } from "@jellytind/story-repository";
-import { createConfiguredModel } from "../lib/models";
+import { createRoutedModel } from "../lib/routing";
 import { chapterNumberLabel } from "../lib/naming";
 
 interface Props {
@@ -186,9 +186,7 @@ export function ChapterPlanPanel({ repo, secrets, refreshToken, onChanged }: Pro
     setBusy("Drafting a plan…");
     setError(null);
     try {
-      const model = await createConfiguredModel(secrets, "reasoning").catch(() =>
-        createConfiguredModel(secrets, "default"),
-      );
+      const { model } = await createRoutedModel(repo, secrets, "chapter_planning");
       const architect = new PlanArchitect({ repo, model, grant: PLAN_GRANT });
       const result = await architect.proposeChapterPlan({
         chapterId,

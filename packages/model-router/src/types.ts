@@ -19,6 +19,14 @@ export interface RequestOptions {
   readonly signal?: AbortSignal;
   /** Client-side timeout in milliseconds (maps to a `timeout` failure). */
   readonly timeoutMs?: number;
+  /**
+   * Told the provider-reported token usage of every completed call, including
+   * calls whose method does not return usage in its result (notably
+   * `generateStructured`). Every adapter MUST invoke this once per billed
+   * round trip, so cost accounting sees actual usage rather than estimates
+   * (Phase 36 §10).
+   */
+  readonly onUsage?: (usage: TokenUsage) => void;
 }
 
 export type MessageRole = "user" | "assistant";
@@ -43,6 +51,8 @@ export type StopReason = "stop" | "max_tokens" | "stop_sequence" | "tool_use" | 
 export interface TokenUsage {
   readonly inputTokens: number;
   readonly outputTokens: number;
+  /** Input tokens served from the provider's cache, when it said (§10). */
+  readonly cachedInputTokens?: number;
 }
 
 export interface GenerateResult {

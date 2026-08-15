@@ -4,13 +4,15 @@ import type {
   ApprovalPolicy,
   ChapterBuild,
   ChapterBuildSummary,
+  ModelRouteNote,
   SceneBuildRecord,
 } from "@jellytind/domain";
 import type { Chapter } from "@jellytind/domain";
 import { ChapterBuilder } from "@jellytind/editing";
-import type { SecretStore } from "@jellytind/model-router";
+import type { RouteDecision, SecretStore } from "@jellytind/model-router";
 import type { StoryRepository } from "@jellytind/story-repository";
-import { createConfiguredModel } from "../lib/models";
+import { budgetVerdict, estimateChapterBuildCost, formatCostRange } from "../lib/costs";
+import { createRoutedModel, routeFor, routeNote } from "../lib/routing";
 import { chapterNumberLabel } from "../lib/naming";
 
 interface Props {
@@ -80,8 +82,18 @@ export function ChapterBuildPanel({
   const [active, setActive] = useState<ChapterBuild | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** The route preview (§20), the honest estimate (§12), the budget word (§13). */
+  const [plan, setPlan] = useState<{
+    drafting: RouteDecision;
+    analysis: RouteDecision;
+    estimate: string;
+    budget: { allowed: boolean; message?: string };
+  } | null>(null);
+  const [showPlan, setShowPlan] = useState(false);
   /** One builder per panel life, so pause flags reach the running loop. */
   const builder = useRef<ChapterBuilder | null>(null);
+  /** Why each model was chosen — recorded on the build it starts (§19). */
+  const routingNotes = useRef<ModelRouteNote[]>([]);
 
   const reload = useCallback(async () => {
     const [list, builds] = await Promise.all([repo.listChapters(), repo.chapterBuilds.list()]);
@@ -99,21 +111,71 @@ export function ChapterBuildPanel({
 
   /**
    * The builder is created on demand: opening the panel must not require a
-   * configured model. Drafting is required; analysis reuses the utility model
-   * where one is set, and the pipeline says honestly when it is absent.
+   * configured model. Both slots resolve through the Model Router — drafting
+   * as "scene_drafting", analysis as "state_extraction" — so the policy,
+   * privacy rules and pins in Settings decide, and every call the build makes
+   * lands in the usage ledger (Phase 36 §10, §21).
    */
   const ensureBuilder = useCallback(async (): Promise<ChapterBuilder> => {
     if (builder.current !== null) return builder.current;
-    const drafting = await createConfiguredModel(secrets, "drafting");
-    const analysis = await createConfiguredModel(secrets, "utility").catch(() => undefined);
+    const drafting = await createRoutedModel(repo, secrets, "scene_drafting");
+    const analysis = await createRoutedModel(repo, secrets, "state_extraction").catch(
+      () => undefined,
+    );
+    routingNotes.current = [
+      routeNote(drafting.decision),
+      ...(analysis !== undefined ? [routeNote(analysis.decision)] : []),
+    ].filter((note): note is ModelRouteNote => note !== null);
     builder.current = new ChapterBuilder({
       repo,
-      models: { drafting, ...(analysis === undefined ? {} : { analysis }) },
+      models: {
+        drafting: drafting.model,
+        ...(analysis === undefined ? {} : { analysis: analysis.model }),
+      },
       grant: BUILD_GRANT,
       onProgress: (build) => setActive(build),
     });
     return builder.current;
   }, [repo, secrets]);
+
+  // The route preview needs no model call at all: the same pure decision the
+  // build will use, shown before anything starts (§20, §28).
+  useEffect(() => {
+    if (chapterId === "") {
+      setPlan(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const scenes = (await repo.listScenes()).filter((scene) => scene.chapterId === chapterId);
+      const drafting = routeFor("scene_drafting");
+      const analysis = routeFor("state_extraction");
+      const estimate =
+        drafting.selected === undefined
+          ? null
+          : estimateChapterBuildCost({
+              drafting: drafting.selected,
+              ...(analysis.selected !== undefined ? { analysis: analysis.selected } : {}),
+              sceneCount: scenes.length,
+            });
+      const verdict = await budgetVerdict(repo, estimate?.high.amount ?? null);
+      if (cancelled) return;
+      setPlan({
+        drafting,
+        analysis,
+        estimate: formatCostRange(estimate),
+        budget: verdict.allowed
+          ? {
+              allowed: true,
+              ...(verdict.warning !== undefined ? { message: verdict.warning } : {}),
+            }
+          : { allowed: false, message: verdict.reason },
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [chapterId, repo, refreshToken]);
 
   const run = useCallback(
     async (work: (b: ChapterBuilder) => Promise<ChapterBuild>) => {
@@ -179,11 +241,52 @@ export function ChapterBuildPanel({
               </label>
             ))}
           </fieldset>
+          {plan !== null && (
+            <div className="cbuild__routing">
+              <button
+                type="button"
+                className="btn btn--ghost btn--small"
+                onClick={() => setShowPlan((held) => !held)}
+              >
+                {showPlan ? "Hide model plan" : "View model plan"}
+              </button>
+              {showPlan && (
+                <ul className="cbuild__routes">
+                  {(
+                    [
+                      ["Scene drafting", plan.drafting],
+                      ["State extraction", plan.analysis],
+                    ] as const
+                  ).map(([label, decision]) => (
+                    <li key={label}>
+                      <strong>{label}</strong> —{" "}
+                      {decision.selected !== undefined
+                        ? `${decision.selected.displayName}. ${decision.reasons.join(" ")}`
+                        : (decision.blocked ?? "No model available.")}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <p className="hint">{plan.estimate}</p>
+              {plan.budget.message !== undefined && (
+                <p className={plan.budget.allowed ? "hint" : "status status--error"} role="status">
+                  {plan.budget.message}
+                </p>
+              )}
+            </div>
+          )}
           <button
             className="btn btn--primary btn--small"
-            disabled={busy || chapterId === ""}
+            disabled={busy || chapterId === "" || plan?.budget.allowed === false}
             onClick={() =>
-              void run((b) => b.start({ chapterId, branchId, approvalPolicy: policy }))
+              void run((b) =>
+                b.start({
+                  chapterId,
+                  branchId,
+                  approvalPolicy: policy,
+                  routing: routingNotes.current,
+                }),
+              )
             }
           >
             {busy ? "Working…" : "Build the chapter"}

@@ -167,7 +167,9 @@ export class GoogleLanguageModel implements LanguageModel {
 
   async generateText(request: GenerateRequest, options?: RequestOptions): Promise<GenerateResult> {
     const json = await this.call(this.body(request), options);
-    return { text: textOf(json), usage: usageOf(json), stopReason: stopOf(json) };
+    const usage = usageOf(json);
+    options?.onUsage?.(usage);
+    return { text: textOf(json), usage, stopReason: stopOf(json) };
   }
 
   async generateStructured<T>(request: StructuredRequest<T>, options?: RequestOptions): Promise<T> {
@@ -175,6 +177,7 @@ export class GoogleLanguageModel implements LanguageModel {
       this.body(request, { generationConfig: { responseMimeType: "application/json" } }),
       options,
     );
+    options?.onUsage?.(usageOf(json));
     return parseModelJson(request.schema, textOf(json));
   }
 
@@ -202,10 +205,12 @@ export class GoogleLanguageModel implements LanguageModel {
         name: String(call.name ?? ""),
         input: call.args ?? {},
       }));
+    const usage = usageOf(json);
+    options?.onUsage?.(usage);
     return {
       text: textOf(json),
       toolCalls,
-      usage: usageOf(json),
+      usage,
       stopReason: toolCalls.length > 0 ? "tool_use" : stopOf(json),
     };
   }
@@ -244,10 +249,17 @@ function textOf(json: Record<string, unknown>): string {
 
 function usageOf(json: Record<string, unknown>): TokenUsage {
   const usage = json.usageMetadata as
-    { promptTokenCount?: unknown; candidatesTokenCount?: unknown } | undefined;
+    | {
+        promptTokenCount?: unknown;
+        candidatesTokenCount?: unknown;
+        cachedContentTokenCount?: unknown;
+      }
+    | undefined;
+  const cached = usage?.cachedContentTokenCount;
   return {
     inputTokens: typeof usage?.promptTokenCount === "number" ? usage.promptTokenCount : 0,
     outputTokens: typeof usage?.candidatesTokenCount === "number" ? usage.candidatesTokenCount : 0,
+    ...(typeof cached === "number" ? { cachedInputTokens: cached } : {}),
   };
 }
 

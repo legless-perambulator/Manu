@@ -14,6 +14,21 @@ import type { RoutingClass, RunCost } from "./orchestration";
  * being closed, and resume at Scene 3 rather than starting again at Scene 1.
  */
 
+/**
+ * Why a build's work was given to a particular model (Phase 36 §19).
+ *
+ * Written once when the build starts, from the Model Router's decision, and
+ * never revised: it is a record of what was decided, in the writer's terms —
+ * "Scene drafting → Claude: your model for drafting work."
+ */
+export interface ModelRouteNote {
+  /** The routed operation, e.g. "scene_drafting". */
+  readonly operation: string;
+  readonly modelId: string;
+  /** One writer-readable sentence. */
+  readonly reason: string;
+}
+
 export const CHAPTER_BUILD_STATUSES = [
   /** Created, nothing run yet. */
   "pending",
@@ -193,6 +208,12 @@ export interface ChapterBuild {
   readonly autoConfirmObjective: boolean;
   /** Which configured model each class of work resolved to, when it ran. */
   readonly modelAssignments: Readonly<Partial<Record<RoutingClass, string>>>;
+  /**
+   * Why each model was chosen, when the build was started through the Model
+   * Router (Phase 36 §19). Provenance, recorded verbatim at start; absent for
+   * builds wired directly to models.
+   */
+  readonly routing?: readonly ModelRouteNote[];
   /**
    * Bounds the pipeline honours, kept on the record so a build resumed after a
    * restart behaves identically to an uninterrupted one (§11).

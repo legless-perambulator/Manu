@@ -76,6 +76,7 @@ import { ReadersPanel } from "./ReadersPanel";
 import { BehaviourPanel } from "./BehaviourPanel";
 import { MysteryPanel } from "./MysteryPanel";
 import { ModulesPanel } from "./ModulesPanel";
+import { UsagePanel } from "./UsagePanel";
 import { WorldPanel } from "./WorldPanel";
 import { CausalityPanel } from "./CausalityPanel";
 import { ChapterBuildPanel } from "./ChapterBuildPanel";
@@ -560,6 +561,8 @@ export function Workspace({
             refreshToken={refreshToken}
           />
         );
+      case "usage":
+        return <UsagePanel repo={repo} refreshToken={refreshToken} />;
       case "entities":
         return (
           <EntitiesPanel

@@ -18,6 +18,7 @@ import {
   type ActChapterRecord,
   type ActDiagnostic,
   type ActPlan,
+  type ModelRouteNote,
   type RoutingClass,
 } from "@jellytind/domain";
 import type { LanguageModel } from "@jellytind/model-router";
@@ -83,6 +84,12 @@ export interface StartActBuildOptions {
   readonly maxSceneRevisions?: number;
   /** Unresolved [RESEARCH: …] policy for every child build (Phase 35 §20). */
   readonly researchGapPolicy?: ActBuild["researchGapPolicy"];
+  /**
+   * Why each model was chosen, when the caller routed them (Phase 36 §19).
+   * Stored on this build and passed to every child chapter build, so the
+   * provenance reads the same at every level.
+   */
+  readonly routing?: readonly ModelRouteNote[];
 }
 
 export interface ActBuilderOptions {
@@ -217,6 +224,7 @@ export class ActBuilder {
         ? { researchGapPolicy: options.researchGapPolicy }
         : {}),
       modelAssignments: this.assignments(),
+      ...(options.routing !== undefined ? { routing: options.routing } : {}),
       currentStep: "validate_prerequisites",
       chapters: plan.chapters.map((member): MutableChapter => ({
         chapterId: member.chapterId,
@@ -740,6 +748,7 @@ export class ActBuilder {
         ...(build.researchGapPolicy !== undefined
           ? { researchGapPolicy: build.researchGapPolicy }
           : {}),
+        ...(build.routing !== undefined ? { routing: build.routing } : {}),
       });
       record.chapterBuildId = child.id;
     }

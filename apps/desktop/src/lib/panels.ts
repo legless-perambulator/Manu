@@ -52,6 +52,7 @@ export const LEFT_PANELS = [
   "versions",
   "causality",
   "refactor",
+  "usage",
   "modules",
   "files",
 ] as const;
@@ -336,6 +337,13 @@ export const PANELS: readonly PanelDefinition[] = [
     group: "change",
     label: "Restructure",
     purpose: "Analyse, plan and validate a structural change",
+    side: "left",
+  },
+  {
+    id: "usage",
+    group: "advanced",
+    label: "Usage & costs",
+    purpose: "What AI work actually cost — today, this month, this project",
     side: "left",
   },
   {

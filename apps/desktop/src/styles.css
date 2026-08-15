@@ -4315,3 +4315,164 @@ progress {
   flex-direction: column;
   gap: 4px;
 }
+
+/* ── Model routing & usage (Phase 36) ─────────────────────────────────────── */
+
+.routing {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+  padding-top: var(--space-4);
+}
+
+.routing__policies {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+}
+
+.routing__policy {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+  cursor: pointer;
+}
+
+.routing__policy input {
+  margin-top: 3px;
+}
+
+.routing__policy > span {
+  display: flex;
+  flex-direction: column;
+}
+
+.routing__hint {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.routing__advanced {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  border-left: 2px solid var(--border-subtle);
+  padding-left: var(--space-3);
+}
+
+.routing__advanced h4,
+.routing h4 {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.routing__row {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+  font-size: var(--text-sm);
+}
+
+.routing__rules {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.routing__budgets {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.routing__plan,
+.routing__pricing,
+.usage__totals {
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+  width: 100%;
+}
+
+.routing__plan th,
+.routing__plan td,
+.routing__pricing th,
+.routing__pricing td,
+.usage__totals th,
+.usage__totals td {
+  border-bottom: 1px solid var(--border-subtle);
+  padding: var(--space-1) var(--space-2);
+  text-align: left;
+  vertical-align: top;
+}
+
+.routing__pricing input {
+  width: 6rem;
+}
+
+.routing__why {
+  color: var(--text-muted);
+}
+
+.routing__blocked {
+  color: var(--status-error, #c0554d);
+}
+
+.cbuild__routing {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cbuild__routes {
+  margin: 0;
+  padding-left: var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.usage {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+}
+
+.usage__heading {
+  margin: 0;
+  font-size: var(--text-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.usage__builds {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.usage__build {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.usage__verdicts {
+  display: flex;
+  gap: var(--space-1);
+}

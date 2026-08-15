@@ -95,11 +95,19 @@ function extractToolCalls(content: readonly AnthropicContentBlock[]): ToolCall[]
 export function fromAnthropicResponse(body: AnthropicResponseBody): GenerateResult {
   return {
     text: joinText(body.content),
-    usage: {
-      inputTokens: body.usage.input_tokens,
-      outputTokens: body.usage.output_tokens,
-    },
+    usage: usageOf(body),
     stopReason: mapStopReason(body.stop_reason),
+  };
+}
+
+/** Normalise wire usage, keeping cache-served input tokens when reported. */
+function usageOf(body: AnthropicResponseBody): GenerateResult["usage"] {
+  return {
+    inputTokens: body.usage.input_tokens,
+    outputTokens: body.usage.output_tokens,
+    ...(body.usage.cache_read_input_tokens !== undefined
+      ? { cachedInputTokens: body.usage.cache_read_input_tokens }
+      : {}),
   };
 }
 
@@ -108,10 +116,7 @@ export function fromAnthropicToolResponse(body: AnthropicResponseBody): ToolCall
   return {
     text: joinText(body.content),
     toolCalls: extractToolCalls(body.content),
-    usage: {
-      inputTokens: body.usage.input_tokens,
-      outputTokens: body.usage.output_tokens,
-    },
+    usage: usageOf(body),
     stopReason: mapStopReason(body.stop_reason),
   };
 }

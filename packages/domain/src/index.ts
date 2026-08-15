@@ -312,6 +312,7 @@ export type {
   ChapterBuildStatus,
   ChapterBuildStep,
   ChapterBuildSummary,
+  ModelRouteNote,
   PlanCoverageItem,
   SceneBuildRecord,
   SceneBuildStatus,

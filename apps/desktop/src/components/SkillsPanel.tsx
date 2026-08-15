@@ -97,7 +97,7 @@ export function SkillsPanel({
     const controller = new AbortController();
     cancel.current = controller;
     try {
-      const analyst = await createSkillAnalyst(secrets);
+      const analyst = await createSkillAnalyst(repo, secrets);
       const runner = new SkillRunner({ repo, runs: repo.skillRuns, analyst });
       const finished = await what(runner);
       setRun(finished);

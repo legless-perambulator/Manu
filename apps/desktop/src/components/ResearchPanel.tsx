@@ -5,7 +5,7 @@ import { RESEARCH_STATUSES, emptyResearchItem } from "@jellytind/domain";
 import { ResearchAgent } from "@jellytind/editing";
 import type { SecretStore } from "@jellytind/model-router";
 import type { StoryRepository } from "@jellytind/story-repository";
-import { createConfiguredModel } from "../lib/models";
+import { createRoutedModel } from "../lib/routing";
 import { documentName } from "../lib/naming";
 
 interface Props {
@@ -122,9 +122,7 @@ export function ResearchPanel({ repo, secrets, refreshToken, onChanged, selected
 
   const ensureAgent = useCallback(async (): Promise<ResearchAgent> => {
     if (agent.current !== null) return agent.current;
-    const model = await createConfiguredModel(secrets, "reasoning").catch(() =>
-      createConfiguredModel(secrets, "default"),
-    );
+    const { model } = await createRoutedModel(repo, secrets, "research");
     agent.current = new ResearchAgent({ repo, model, grant: RESEARCH_GRANT });
     return agent.current;
   }, [repo, secrets]);

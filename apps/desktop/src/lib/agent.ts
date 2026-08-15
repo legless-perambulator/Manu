@@ -23,7 +23,7 @@ import type { SecretStore } from "@jellytind/model-router";
 import type { StoryRepository } from "@jellytind/story-repository";
 import { refactorAccess } from "@jellytind/story-refactor";
 import { ModelError } from "@jellytind/model-router";
-import { capabilityProblem, createConfiguredModel } from "./models";
+import { createRoutedModel } from "./routing";
 
 /**
  * Wiring for the desktop Agent panel.
@@ -82,12 +82,18 @@ export async function startInvestigation(
 
   // An investigation *is* a tool loop. A model known not to call tools cannot
   // run one, and saying so now beats a mystifying empty answer later
-  // (docs/MODEL_ROUTER.md — capabilities).
-  const refusal = capabilityProblem("reasoning", ["tools"]);
-  if (refusal !== null) throw new ModelError("unsupported", refusal);
-
-  const model = await createConfiguredModel(secrets, "reasoning");
-  const agent = new InvestigationAgent({ model, executor, store: repo.agents });
+  // (docs/MODEL_ROUTER.md — capabilities). Unknown is let through, as ever.
+  const routed = await createRoutedModel(repo, secrets, "diagnosis");
+  if (
+    !routed.profile.capabilities.tools &&
+    routed.profile.unknownCapabilities?.includes("tools") !== true
+  ) {
+    throw new ModelError(
+      "unsupported",
+      `${routed.profile.displayName} does not support tool calling, which an investigation needs. Choose another model in Settings → AI Providers.`,
+    );
+  }
+  const agent = new InvestigationAgent({ model: routed.model, executor, store: repo.agents });
 
   const task = createTask({
     id: await repo.agents.nextTaskId(),

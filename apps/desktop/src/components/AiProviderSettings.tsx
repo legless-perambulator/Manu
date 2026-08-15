@@ -28,6 +28,7 @@ import {
 } from "../lib/models";
 import { outOfScopeReason } from "../lib/network-scope";
 import { describeSecretBackend } from "../lib/secrets";
+import { ModelRoutingSettings } from "./ModelRoutingSettings";
 
 interface Props {
   secrets: SecretStore;
@@ -180,6 +181,8 @@ export function AiProviderSettings({ secrets, onClose }: Props) {
             )}
 
             <PurposeAssignments settings={settings} onChange={commit} />
+
+            <ModelRoutingSettings key={settings.connections.map((c) => c.id).join("|")} />
           </section>
         </div>
       </div>

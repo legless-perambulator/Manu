@@ -16,7 +16,10 @@ import {
   type AttitudeDimension,
   type Staleness,
 } from "@jellytind/reader-sim";
+import { estimateOperationCost } from "@jellytind/model-router";
 import { createReaderAnalyst } from "../lib/editing";
+import { formatCostRange } from "../lib/costs";
+import { routeFor } from "../lib/routing";
 import { ReaderChart } from "./ReaderChart";
 
 interface Props {
@@ -25,6 +28,30 @@ interface Props {
   refreshToken: number;
   onChanged: () => void;
   onSelectEntity: (id: string) => void;
+}
+
+/**
+ * The honest scale line (Phase 36 §24): a simulation is many small calls, and
+ * the writer sees roughly how many — and what that likely costs — before
+ * starting one, phrased as the estimate it is.
+ */
+function simulationCostLine(
+  until: string,
+  chapters: readonly { id: string; title: string }[],
+): string {
+  const decision = routeFor("reader_simulation");
+  if (decision.selected === undefined) return "";
+  const count = Math.max(
+    1,
+    until === "" ? chapters.length : chapters.findIndex((chapter) => chapter.id === until) + 1,
+  );
+  const range = estimateOperationCost({
+    profile: decision.selected,
+    inputTokens: count * 6_000,
+    outputTokensLow: count * 300,
+    outputTokensHigh: count * 800,
+  });
+  return `Routed to ${decision.selected.displayName}. ${formatCostRange(range)}`;
 }
 
 /**
@@ -96,7 +123,7 @@ export function ReadersPanel({ repo, secrets, refreshToken, onChanged, onSelectE
     const controller = new AbortController();
     cancel.current = controller;
     try {
-      const analyst = await createReaderAnalyst(secrets);
+      const analyst = await createReaderAnalyst(repo, secrets);
       const simulator = new ReaderSimulator({ repo, sims: repo.readerSims, analyst });
       const finished = await what(simulator);
       setSimulation(finished);
@@ -160,6 +187,16 @@ export function ReadersPanel({ repo, secrets, refreshToken, onChanged, onSelectE
             ))}
           </select>
         </div>
+
+        {chapters.length > 0 && (
+          <p className="hint">
+            A read makes about one model call per chapter —{" "}
+            {until === ""
+              ? String(chapters.length)
+              : String(chapters.findIndex((chapter) => chapter.id === until) + 1)}{" "}
+            here. {simulationCostLine(until, chapters)}
+          </p>
+        )}
 
         <div className="agent__actions">
           <button

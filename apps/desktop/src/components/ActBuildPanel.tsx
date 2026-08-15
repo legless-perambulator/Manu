@@ -10,6 +10,7 @@ import type {
   ChapterPlan,
   Character,
   Fact,
+  ModelRouteNote,
   PlotThread,
   Relationship,
   Setup,
@@ -18,7 +19,7 @@ import { CHAPTER_ROLE_SUGGESTIONS } from "@jellytind/domain";
 import { ActBuilder } from "@jellytind/editing";
 import type { SecretStore } from "@jellytind/model-router";
 import type { StoryRepository } from "@jellytind/story-repository";
-import { createConfiguredModel } from "../lib/models";
+import { createRoutedModel, routeNote } from "../lib/routing";
 import { chapterNumberLabel } from "../lib/naming";
 
 interface Props {
@@ -114,6 +115,8 @@ export function ActBuildPanel({ repo, secrets, branchId, refreshToken, onChanged
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const builder = useRef<ActBuilder | null>(null);
+  /** Why each model was chosen — recorded on the build it starts (§19). */
+  const routingNotes = useRef<ModelRouteNote[]>([]);
 
   const reload = useCallback(async () => {
     const [ids, list, threadList, characterList, relationshipList, setupList, factList, builds] =
@@ -177,17 +180,26 @@ export function ActBuildPanel({ repo, secrets, branchId, refreshToken, onChanged
 
   const ensureBuilder = useCallback(async (): Promise<ActBuilder> => {
     if (builder.current !== null) return builder.current;
-    const drafting = await createConfiguredModel(secrets, "drafting");
-    const analysis = await createConfiguredModel(secrets, "utility").catch(() => undefined);
-    const planning = await createConfiguredModel(secrets, "reasoning").catch(() =>
-      createConfiguredModel(secrets, "default").catch(() => undefined),
+    // Every slot resolves through the Model Router, so the policy, privacy
+    // rules and pins decide, and every call lands in the usage ledger
+    // (Phase 36 §10, §21). Analysis and planning stay optional: the pipeline
+    // says honestly when either is absent.
+    const drafting = await createRoutedModel(repo, secrets, "scene_drafting");
+    const analysis = await createRoutedModel(repo, secrets, "state_extraction").catch(
+      () => undefined,
     );
+    const planning = await createRoutedModel(repo, secrets, "chapter_planning").catch(
+      () => undefined,
+    );
+    routingNotes.current = [drafting, analysis, planning]
+      .map((routed) => (routed === undefined ? null : routeNote(routed.decision)))
+      .filter((note): note is ModelRouteNote => note !== null);
     builder.current = new ActBuilder({
       repo,
       models: {
-        drafting,
-        ...(analysis === undefined ? {} : { analysis }),
-        ...(planning === undefined ? {} : { planning }),
+        drafting: drafting.model,
+        ...(analysis === undefined ? {} : { analysis: analysis.model }),
+        ...(planning === undefined ? {} : { planning: planning.model }),
       },
       grant: ACT_GRANT,
       onProgress: (build) => setActive(build),
@@ -859,6 +871,7 @@ export function ActBuildPanel({ repo, secrets, branchId, refreshToken, onChanged
                           approvalPolicy: policy,
                           autonomy,
                           generateMissingPlans: generatePlans,
+                          routing: routingNotes.current,
                         }),
                       )
                     }

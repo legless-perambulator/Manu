@@ -290,7 +290,7 @@ export function BehaviourPanel({
             disabled={busy || action.trim() === "" || snapshot === null}
             onClick={() =>
               void run(async () => {
-                const analyst = await createCharacterAnalyst(secrets);
+                const analyst = await createCharacterAnalyst(repo, secrets);
                 setInstead(null);
                 setTest(
                   await testBehaviour(
@@ -309,7 +309,7 @@ export function BehaviourPanel({
             disabled={busy || action.trim() === "" || snapshot === null}
             onClick={() =>
               void run(async () => {
-                const analyst = await createCharacterAnalyst(secrets);
+                const analyst = await createCharacterAnalyst(repo, secrets);
                 setInstead(
                   await whatWouldTheyDo(
                     repo,
@@ -481,7 +481,7 @@ export function BehaviourPanel({
           disabled={busy || characterId === ""}
           onClick={() =>
             void run(async () => {
-              const analyst = await createCharacterAnalyst(secrets);
+              const analyst = await createCharacterAnalyst(repo, secrets);
               setAudit(await auditAgency(repo, characterId, { analyst }));
             })
           }

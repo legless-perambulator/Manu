@@ -162,6 +162,7 @@ import { BookPlanStore } from "./book-plan-store";
 import { BookBuildStore } from "./book-build-store";
 import type { BookPlan, BookPlanFinding } from "@jellytind/domain";
 import { ResearchStore } from "./research-store";
+import { UsageStore } from "./usage-store";
 import { findResearchPlaceholders } from "@jellytind/domain";
 import type { ResearchItem, ResearchScope, ResearchTask } from "@jellytind/domain";
 import { listSceneSpans } from "./scene-text";
@@ -330,6 +331,8 @@ export class StoryRepository {
   readonly bookBuilds: BookBuildStore;
   /** The research library — sourced knowledge, apart from canon (docs/RESEARCH.md). */
   readonly research: ResearchStore;
+  /** What model calls actually cost, call by call (docs/MODEL_ROUTER.md). */
+  readonly usage: UsageStore;
   /** Clues, suspects and deductions (docs/MYSTERY_ENGINE.md). */
   readonly mysteries: MysteryStore;
   /** Which genre modules are switched on (docs/GENRE_MODULES.md). */
@@ -413,6 +416,10 @@ export class StoryRepository {
     // Items journal (they are authored knowledge, written inside recordChange
     // sessions below); tasks live under .writer/ and pass through unrecorded.
     this.research = new ResearchStore(this.store);
+    // Not journaled: accounting is bookkeeping about API spend, not a claim
+    // about the story. It is still the writer's money, so it is never lost to
+    // a restart — records land on disk as calls complete (Phase 36 §10).
+    this.usage = new UsageStore(rawStore);
     // Journaled: who did it, and what each clue really means, is canon.
     this.mysteries = new MysteryStore(this.store);
     // Not journaled: which modules are switched on is a setting about the

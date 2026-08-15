@@ -1,4 +1,5 @@
 import type { ActGoalReport } from "./act-plan";
+import type { ModelRouteNote } from "./chapter-build";
 import type { RoutingClass, RunCost } from "./orchestration";
 
 /**
@@ -213,6 +214,8 @@ export interface BookBuild {
    * keep their provenance and are never regenerated for it (§15).
    */
   readonly modelAssignments: Readonly<Partial<Record<RoutingClass, string>>>;
+  /** Why each model was chosen, when routed (Phase 36 §19). */
+  readonly routing?: readonly ModelRouteNote[];
   /** Checkpoint taken before anything was written. */
   readonly checkpointId?: string;
   readonly currentStep: BookBuildStep;

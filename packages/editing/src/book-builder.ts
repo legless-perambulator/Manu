@@ -19,6 +19,7 @@ import {
   type BookBuildSummary,
   type BookDiagnostic,
   type BookPlan,
+  type ModelRouteNote,
   type RoutingClass,
 } from "@jellytind/domain";
 import type { StoryRepository } from "@jellytind/story-repository";
@@ -65,6 +66,11 @@ export interface StartBookBuildOptions {
   readonly gates?: Partial<BookBuild["gates"]>;
   /** Unresolved [RESEARCH: …] policy for every chapter build (Phase 35 §20). */
   readonly researchGapPolicy?: BookBuild["researchGapPolicy"];
+  /**
+   * Why each model was chosen, when the caller routed them (Phase 36 §19).
+   * Stored on this build and passed down through every act and chapter build.
+   */
+  readonly routing?: readonly ModelRouteNote[];
 }
 
 export interface BookBuilderOptions {
@@ -202,6 +208,7 @@ export class BookBuilder {
         ? { researchGapPolicy: options.researchGapPolicy }
         : {}),
       modelAssignments: this.assignments(),
+      ...(options.routing !== undefined ? { routing: options.routing } : {}),
       currentStep: "validate_prerequisites",
       acts: plan.acts.map((member): MutableAct => ({
         actId: member.actId,
@@ -634,6 +641,7 @@ export class BookBuilder {
         ...(build.researchGapPolicy !== undefined
           ? { researchGapPolicy: build.researchGapPolicy }
           : {}),
+        ...(build.routing !== undefined ? { routing: build.routing } : {}),
       });
       record.actBuildId = child.id;
     }

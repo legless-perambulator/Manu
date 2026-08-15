@@ -147,7 +147,9 @@ export class AnthropicLanguageModel implements LanguageModel {
 
   async generateText(request: GenerateRequest, options?: RequestOptions): Promise<GenerateResult> {
     const json = await this.post(toAnthropicRequest(this.model, request), options);
-    return fromAnthropicResponse(json);
+    const result = fromAnthropicResponse(json);
+    options?.onUsage?.(result.usage);
+    return result;
   }
 
   async generateStructured<T>(request: StructuredRequest<T>, options?: RequestOptions): Promise<T> {
@@ -158,7 +160,9 @@ export class AnthropicLanguageModel implements LanguageModel {
   async runWithTools(request: ToolCallRequest, options?: RequestOptions): Promise<ToolCallResult> {
     const body = toAnthropicRequest(this.model, request, { tools: request.tools });
     const json = await this.post(body, options);
-    return fromAnthropicToolResponse(json);
+    const result = fromAnthropicToolResponse(json);
+    options?.onUsage?.(result.usage);
+    return result;
   }
 
   async *streamText(
@@ -193,7 +197,10 @@ export class AnthropicLanguageModel implements LanguageModel {
         }
         const event = mapStreamData(parsed, state);
         if (event !== null) {
-          if (event.type === "done") sawDone = true;
+          if (event.type === "done") {
+            sawDone = true;
+            options?.onUsage?.(event.usage);
+          }
           yield event;
         }
       }
@@ -203,11 +210,9 @@ export class AnthropicLanguageModel implements LanguageModel {
       cleanup();
     }
     if (!sawDone) {
-      yield {
-        type: "done",
-        usage: { inputTokens: state.inputTokens, outputTokens: state.outputTokens },
-        stopReason: state.stopReason,
-      };
+      const usage = { inputTokens: state.inputTokens, outputTokens: state.outputTokens };
+      options?.onUsage?.(usage);
+      yield { type: "done", usage, stopReason: state.stopReason };
     }
   }
 }

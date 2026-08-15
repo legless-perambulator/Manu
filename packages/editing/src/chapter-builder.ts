@@ -17,14 +17,20 @@ import {
   type ChapterBuildStatus,
   type ChapterBuildStep,
   type ChapterBuildSummary,
+  type ModelRouteNote,
   type PlanCoverageItem,
   type RoutingClass,
-  type RunCost,
   type Scene,
   type SceneBuildRecord,
   type SceneLengthTarget,
 } from "@jellytind/domain";
-import { ModelError, type LanguageModel, type OutputSchema } from "@jellytind/model-router";
+import {
+  ModelError,
+  instrumentModel,
+  type LanguageModel,
+  type OutputSchema,
+  type TokenUsage,
+} from "@jellytind/model-router";
 import {
   resolveSceneRange,
   listSceneSpans,
@@ -102,6 +108,13 @@ export interface StartBuildOptions {
   readonly maxContinuations?: number;
   /** What an unresolved [RESEARCH: …] placeholder does to the build (Phase 35 §20). */
   readonly researchGapPolicy?: "pause" | "proceed";
+  /**
+   * Why each model was chosen, when the caller routed them (Phase 36 §19).
+   * Recorded verbatim on the build for provenance; the builder itself neither
+   * routes nor re-routes — routing happens once, in the Model Router, before
+   * the models are handed over (§21).
+   */
+  readonly routing?: readonly ModelRouteNote[];
 }
 
 export interface ChapterBuilderOptions {
@@ -240,6 +253,7 @@ export class ChapterBuilder {
       approvalPolicy: policy,
       autoConfirmObjective: options.autoConfirmObjective ?? policy === "auto_until_error",
       modelAssignments: this.assignments(),
+      ...(options.routing !== undefined ? { routing: options.routing } : {}),
       maxRevisions: options.maxRevisions ?? 1,
       maxContinuations: options.maxContinuations ?? 3,
       ...(options.researchGapPolicy !== undefined
@@ -806,15 +820,18 @@ export class ChapterBuilder {
       return "continue";
     }
 
+    let reported: TokenUsage | undefined;
     const extractor = new StateExtractor({
       repo: this.repo,
-      model: this.models.analysis,
+      model: instrumentModel(this.models.analysis, (usage) => {
+        reported = usage;
+      }),
       grant: this.grant,
       now: this.now,
       maxContextTokens: this.maxContextTokens,
     });
     const proposal = await extractor.analyseScene(record.sceneId);
-    this.count(build, "cheap_analysis", 1);
+    this.count(build, "cheap_analysis", 1, reported);
     record.transitionsProposed = proposal.transitions.length;
 
     let confirmed = 0;
@@ -908,6 +925,7 @@ export class ChapterBuilder {
     }
 
     const prose = await this.sceneProse(build, record.sceneId);
+    let reported: TokenUsage | undefined;
     const result = await this.models.analysis.generateStructured(
       {
         system:
@@ -921,9 +939,14 @@ export class ChapterBuilder {
         schema: COVERAGE_SCHEMA,
         maxOutputTokens: 1_500,
       },
-      { timeoutMs: 120_000 },
+      {
+        timeoutMs: 120_000,
+        onUsage: (usage) => {
+          reported = usage;
+        },
+      },
     );
-    this.count(build, "cheap_analysis", 1);
+    this.count(build, "cheap_analysis", 1, reported);
 
     record.coverage = result.beats.map((beat): PlanCoverageItem => ({ ...beat, source: "model" }));
     const unmet = record.coverage.filter((beat) => !beat.met);
@@ -1109,6 +1132,7 @@ export class ChapterBuilder {
       messages: { role: "user"; content: string }[];
     },
   ) {
+    let reported: TokenUsage | undefined;
     const result = await this.models.drafting.generateStructured(
       {
         system: request.system,
@@ -1116,22 +1140,32 @@ export class ChapterBuilder {
         schema: PROPOSAL_SCHEMA,
         maxOutputTokens: 8_000,
       },
-      { timeoutMs: 240_000 },
+      {
+        timeoutMs: 240_000,
+        onUsage: (usage) => {
+          reported = usage;
+        },
+      },
     );
-    this.count(build, cls, 1);
+    this.count(build, cls, 1, reported);
     return result;
   }
 
-  private count(build: Working, cls: RoutingClass, calls: number): void {
+  /** Accumulate a call — and, when the provider reported them, its tokens (§10). */
+  private count(build: Working, cls: RoutingClass, calls: number, usage?: TokenUsage): void {
     const byClass = { ...build.usage.byClass };
     const entry = byClass[cls] ?? { calls: 0, inputTokens: 0, outputTokens: 0 };
-    byClass[cls] = { ...entry, calls: entry.calls + calls };
+    byClass[cls] = {
+      calls: entry.calls + calls,
+      inputTokens: entry.inputTokens + (usage?.inputTokens ?? 0),
+      outputTokens: entry.outputTokens + (usage?.outputTokens ?? 0),
+    };
     build.usage = {
       byClass,
       calls: build.usage.calls + calls,
-      inputTokens: build.usage.inputTokens,
-      outputTokens: build.usage.outputTokens,
-    } as RunCost;
+      inputTokens: build.usage.inputTokens + (usage?.inputTokens ?? 0),
+      outputTokens: build.usage.outputTokens + (usage?.outputTokens ?? 0),
+    };
   }
 
   private assignments(): Readonly<Partial<Record<RoutingClass, string>>> {

@@ -84,7 +84,9 @@ export class MockLanguageModel implements LanguageModel {
       return Promise.reject(error);
     }
     const text = this.replyText(request);
-    return Promise.resolve({ text, usage: this.usageFor(request, text), stopReason: "stop" });
+    const usage = this.usageFor(request, text);
+    options?.onUsage?.(usage);
+    return Promise.resolve({ text, usage, stopReason: "stop" });
   }
 
   async *streamText(
@@ -97,7 +99,9 @@ export class MockLanguageModel implements LanguageModel {
     const text = this.replyText(request);
     const chunks = this.behavior.chunks ?? text.match(/.{1,8}/gs) ?? (text === "" ? [] : [text]);
     for (const delta of chunks) yield { type: "text-delta", delta };
-    yield { type: "done", usage: this.usageFor(request, text), stopReason: "stop" };
+    const usage = this.usageFor(request, text);
+    options?.onUsage?.(usage);
+    yield { type: "done", usage, stopReason: "stop" };
   }
 
   generateStructured<T>(request: StructuredRequest<T>, options?: RequestOptions): Promise<T> {
@@ -111,6 +115,7 @@ export class MockLanguageModel implements LanguageModel {
       this.behavior.structured !== undefined
         ? JSON.stringify(this.behavior.structured)
         : this.replyText(request);
+    options?.onUsage?.(this.usageFor(request, raw));
     try {
       return Promise.resolve(parseModelJson(request.schema, raw));
     } catch (error) {
@@ -128,10 +133,12 @@ export class MockLanguageModel implements LanguageModel {
     }
     const text = this.replyText(request);
     const toolCalls = this.behavior.toolCalls ?? [];
+    const usage = this.usageFor(request, text);
+    options?.onUsage?.(usage);
     return Promise.resolve({
       text,
       toolCalls,
-      usage: this.usageFor(request, text),
+      usage,
       stopReason: toolCalls.length > 0 ? "tool_use" : "stop",
     });
   }

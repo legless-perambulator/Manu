@@ -42,7 +42,7 @@ export interface AnthropicContentBlock {
 export interface AnthropicResponseBody {
   content: AnthropicContentBlock[];
   stop_reason: string | null;
-  usage: { input_tokens: number; output_tokens: number };
+  usage: { input_tokens: number; output_tokens: number; cache_read_input_tokens?: number };
 }
 
 /** Shape of a streaming SSE `data:` payload (only the fields we consume). */

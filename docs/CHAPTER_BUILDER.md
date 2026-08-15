@@ -205,14 +205,19 @@ build continues.
 - The record on disk is sufficient to resume after a crash, from the step reached.
 - Cancellation preserves committed work and leaves the project valid.
 
-## Not yet
+## Token accounting (Phase 36)
 
-- **Token accounting.** Usage counts calls per class; the model interface does
-  not yet expose token totals for structured calls. (Building more than one
-  chapter as one operation is the Act Builder's job, and more than one act the
-  Book Builder's — [ACT_BUILDER.md](ACT_BUILDER.md),
-  [BOOK_BUILDER.md](BOOK_BUILDER.md) — each running this pipeline as the leaf
-  where prose is actually made.)
+Usage counts calls **and tokens** per routing class: every adapter reports
+provider-stated usage through `RequestOptions.onUsage`, the pipeline
+accumulates it into `usage.byClass`, and the desktop's routed models
+additionally land each call in the project's usage ledger with its
+cost-at-the-time ([MODEL_ROUTER.md](MODEL_ROUTER.md) — "Cost and usage").
+A build started through the Model Router also carries `routing` — why each
+model was chosen, verbatim from the decision. (Building more than one chapter
+as one operation is the Act Builder's job, and more than one act the Book
+Builder's — [ACT_BUILDER.md](ACT_BUILDER.md),
+[BOOK_BUILDER.md](BOOK_BUILDER.md) — each running this pipeline as the leaf
+where prose is actually made.)
 
 ## Relationship to other subsystems
 

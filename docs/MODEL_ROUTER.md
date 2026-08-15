@@ -2,9 +2,9 @@
 
 The product must never be permanently bound to one model provider. All model operations go through a provider-independent abstraction.
 
-- **Packages:** `@jellytind/model-router` (interface, registries, secrets, routing), `@jellytind/provider-anthropic`, `@jellytind/provider-google`, `@jellytind/provider-openai-compatible` (adapters)
+- **Packages:** `@jellytind/model-router` (interface, registries, secrets, routing engine, cost accounting), `@jellytind/provider-anthropic`, `@jellytind/provider-google`, `@jellytind/provider-openai-compatible` (adapters)
 - **Depends on:** `@jellytind/shared`
-- **Status:** Interface, capabilities, typed failures, model registry, provider registry, model discovery, connection testing, secret storage, mock provider, task routing, and six provider identities (Anthropic, OpenAI, Google Gemini, OpenRouter, Ollama, any OpenAI-compatible server) are **implemented and tested**. Cost accounting and privacy-routing policy are **PLANNED**.
+- **Status:** Interface, capabilities, typed failures, model registry, provider registry, model discovery, connection testing, secret storage, mock provider, six provider identities (Anthropic, OpenAI, Google Gemini, OpenRouter, Ollama, any OpenAI-compatible server), and — since Phase 36 — the **Model Router proper**: routing profiles, per-operation requirements, routing policies, the deterministic routing engine, privacy constraints, budgets, token/usage accounting and cost formatting are all **implemented and tested**.
 
 ## The interface
 
@@ -24,8 +24,14 @@ All request/response types are provider-independent (`ModelMessage`,
 layer outside an adapter imports a vendor SDK, and no application code branches
 on a particular model name.
 
-`RequestOptions` carries the two per-call controls every provider must honour:
-an `AbortSignal` and a client-side `timeoutMs`.
+`RequestOptions` carries the per-call controls every provider must honour: an
+`AbortSignal`, a client-side `timeoutMs`, and — Phase 36 §10 — an `onUsage`
+callback every adapter invokes once per billed round trip with the
+provider-reported `TokenUsage` (including `cachedInputTokens` where the wire
+says). This is what lets `generateStructured`, whose return value is only the
+parsed object, still be counted with actual tokens rather than estimates.
+`instrumentModel(model, sink)` wraps any model so every call additionally
+reports to a sink without displacing the caller's own `onUsage`.
 
 ### Capabilities
 
@@ -324,26 +330,80 @@ agree — including that every shipped provider's default address is reachable.
 A server on some other port therefore needs the capability file edited and the
 application rebuilt. That is a real limitation, stated rather than hidden.
 
-## Task routing (implemented, policy PLANNED)
+## The Model Router (Phase 36)
 
-`ModelRouter` maps a `ModelTask` (`planning`, `drafting`, `continuity`,
-`copy_edit`, `metadata`, `reader_sim`, `research`, `embedding`) to a concrete
-`LanguageModel`, with a fallback default. It is deterministic and side-effect
-free; cost/privacy/per-agent policy layers on later without changing the
-contract.
+Routing is **explicit, inspectable policy — not magic** (§1). One pure
+function, `routeOperation`, maps (operation, configured models, policy,
+overrides) to a decision with its reasons; because it is side-effect free, the
+same call answers three questions: which model will run, what the route
+preview shows before anything starts (§20), and what a routing test asserts
+with no live API call (§28). `planRoutes` runs it across a whole workflow.
 
-The intended eventual shape:
+### Profiles (§2)
 
-```
-Planning     → strongest reasoning model
-Drafting     → preferred prose model
-Continuity   → large-context reasoning model
-Copy editing → inexpensive model
-Metadata     → cheap/local model
-Reader sims  → inexpensive parallel models
-Research     → research-capable model
-Embeddings   → embedding model
-```
+`ModelProfile` is what a configured model is _to this writer_: connection,
+provider, capabilities (with `unknownCapabilities` — unknowns stay unknown),
+context window and output limit where known, writer-assigned `qualityTier` /
+`speedTier`, `pricing` (absent = unknown), `local`, `privacyClass`, and
+`availability` (`available · rate_limited · unavailable` — a rate limit is a
+temporary fact with an expiry, §15). `profileFromDescriptor` builds one from a
+catalogue descriptor plus what only the configuration knows.
+
+### Operation requirements (§3)
+
+`OPERATION_REQUIREMENTS` is the one central declaration of what each kind of
+AI work needs — the Story Architect's high reasoning and required structured
+output, the Drafter's prose quality, extraction's structured output and high
+cost sensitivity, simulations' parallel-friendly cheapness, research's tool
+preference — never scattered through prompts. Each operation also names the
+purpose that anchors it (§5) and the orchestration routing class it reports
+under.
+
+### Policies (§4) and anchors (§5)
+
+`ROUTING_POLICIES`: **Best quality**, **Balanced**, **Economy**, **Local
+first**, **Custom**. The writer's manual purpose assignments (Default /
+Reasoning / Drafting / Utility / Simulation) are preserved as **anchors**: an
+explicit assignment simply wins under Best quality, Balanced and Custom;
+Economy and Local first may prefer elsewhere for exactly the work those
+policies exist for — cheapest-capable bulk analysis, local-eligible utility
+work — and the decision says so. A local model never wins a _cost_ preference
+merely by being free: routing work local is Local first's explicit job, so
+switching policies means what it says (§30).
+
+### Order of authority
+
+1. **Capability, context-size and privacy filters** (§6–§8, §17) — a model
+   that cannot or may not do the work is out, whatever any preference says,
+   and every exclusion is recorded with its reason. Privacy restrictions are
+   never routed around; if nothing eligible remains, the decision is blocked
+   and states every reason.
+2. **A pin** (§22) — the writer's word for one operation. An incompatible pin
+   **blocks** with the incompatibility surfaced; it is never silently ignored.
+3. **The policy**, anchored as above.
+4. **Availability** (§14–§15) — last, so a fallback is always the best
+   eligible model that is actually up, with `fallbackFrom` on the record.
+
+### Privacy (§17)
+
+`PrivacyPolicy`: `local_only` (nothing leaves the machine) or `allow_cloud`
+with rules — _never send manuscript prose to provider X_. Content classes
+(`manuscript_prose · story_metadata · research_query`) default per operation,
+honestly broad: anything that reads or writes scene text carries prose. Local
+models are exempt from provider rules — the material never leaves.
+
+### Budgets (§13)
+
+`BudgetLimits` (monthly, per-build, per-operation approval threshold) checked
+by `checkBudget` against **actual recorded spend**. A hard limit blocks —
+never silently exceeded; a soft limit warns; an unknown estimate against a
+hard limit warns honestly instead of pretending zero.
+
+### The legacy `ModelRouter` class
+
+The Phase 6 `ModelRouter` (task → model bindings with a default) remains as a
+simple binding table; the engine above is the policy layer that was planned to
+sit over it.
 
 ## Provider adapters
 
@@ -359,21 +419,49 @@ Embeddings   → embedding model
 Every adapter is tested against an injected `fetch`. **No test requires a real
 credential or touches a network.**
 
-Still to come: cost limits, automatic routing and privacy preferences.
+## Cost and usage (Phase 36 §9–§12, §26)
 
-## Cost and token intelligence — PLANNED
+Two rules hold everywhere: **actual usage is counted, never invented**, and
+**unknown cost is "unknown", not zero**.
 
-Because novel-scale agentic work can be expensive, track tokens, estimated cost,
-model, operation, agent, project and workflow. `TokenUsage` is already returned
-by every call and `costMetadata` already lives on descriptors; the accounting
-layer that turns those into policies — _use a local model for metadata
-extraction_; _use a premium model only for final prose_; _maximum £2 per chapter
-build_; _ask before operations estimated above £X_ — comes later.
+- `UsageRecord` is one call as it actually happened: operation, routing class,
+  build, provider, model, provider-reported tokens (input / output / cached),
+  and `cost` computed from pricing known _at the time_ — absent means unknown.
+  `usageRecordFor` builds one; the desktop's routed models write them into the
+  project's ledger (`.writer/usage/ledger.json`, `repo.usage`).
+- Pricing enters the system only through the writer's pricing table in
+  Settings → AI providers (providers do not publish machine-readable prices);
+  `costMetadata` on descriptors is honoured where a catalogue carries it.
+- `summariseUsage` totals calls, tokens and money per currency, keeping
+  unknown-cost calls counted **beside** the money, never folded in.
+  `formatApiCost`: money when known, "API cost: 0 (local model)" for local,
+  "Cost unavailable" otherwise — never an invented number.
+- `estimateOperationCost` + `formatCostRange` produce the §12 pre-operation
+  estimate: a range that admits being one ("this is an estimate, not a
+  promise"), or `null` when pricing is unknown — an estimate is never
+  fabricated.
+- The **Usage & costs** panel shows Today / This month / Project lifetime and
+  a per-kind breakdown; build dashboards show per-class calls, tokens and cost
+  where pricing is known (§11, §25). Lightweight **Good result / Poor result**
+  verdicts (§18) are stored beside the model that did the work — nothing is
+  trained on them and nothing reroutes behind the writer's back.
 
-## Privacy routing — PLANNED
+## Routing in the product (§19–§21, §27)
 
-Routing respects privacy preferences — e.g. keep sensitive manuscripts on local
-models / BYOK endpoints. See [SECURITY_PRIVACY.md](SECURITY_PRIVACY.md).
+The desktop's `lib/routing.ts` is the single entry point (§21): it builds
+profiles from the configured connections, reads the routing settings
+(`policy · privacy · budgets · pins · pricing · tiers`), and
+`createRoutedModel(repo, secrets, operation)` resolves a decision, constructs
+the model, and instruments it so every call lands in the usage ledger. The
+Chapter/Act/Book builders, the manuscript editor, diagnosis, dependency
+analysis, refactor planning, skills, research and both simulators all resolve
+their models through it — none of them contains routing logic of its own.
+Builds started through it record `routing` — which model was chosen for which
+operation and why — as provenance (§19); Settings → AI providers carries the
+Model routing section (policy as the one basic choice; privacy, budgets,
+pricing and pins behind the advanced disclosure) and the live plan table —
+"View model plan" — showing exactly what will run before anything does (§20,
+§27).
 
 ## Invariants
 
@@ -388,4 +476,10 @@ models / BYOK endpoints. See [SECURITY_PRIVACY.md](SECURITY_PRIVACY.md).
 - Capabilities nobody has stated are recorded as unknown, not guessed.
 - Every connection is an API connection; no consumer subscription is implied.
 - Provider abstractions are testable with no external API call.
-- Routing decisions, token usage and cost are recorded per operation — **PLANNED**.
+- Routing decisions, token usage and cost are recorded per operation.
+- Routing is a pure function of configuration; the preview, the run and the
+  tests all get the same answer.
+- A privacy restriction or a hard budget is never routed around or silently
+  exceeded; an incompatible pin blocks with the reason, never quietly ignored.
+- Unknown stays unknown: capabilities, pricing and tiers nobody has stated are
+  never guessed, and unknown costs are counted, not zeroed.

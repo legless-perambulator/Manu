@@ -11,8 +11,9 @@ import type { PermissionGrant } from "@jellytind/agent-runtime";
 import type { SecretStore } from "@jellytind/model-router";
 import type { StoryRepository } from "@jellytind/story-repository";
 import { RefactorPlanner } from "@jellytind/story-refactor";
-import { ModelError } from "@jellytind/model-router";
-import { capabilityProblem, createConfiguredModel, createModelForClass } from "./models";
+import type { RoutingClass } from "@jellytind/domain";
+import type { RoutedOperation } from "@jellytind/model-router";
+import { createRoutedModel } from "./routing";
 
 /**
  * The permission grant AI editing runs under.
@@ -35,12 +36,11 @@ export async function createManuscriptEditor(
   repo: StoryRepository,
   secrets: SecretStore,
 ): Promise<ManuscriptEditor> {
-  // Every edit arrives as a structured proposal a human reviews, so a model
-  // known not to produce structured output cannot do this work at all.
-  const refusal = capabilityProblem("drafting", ["structuredOutput"]);
-  if (refusal !== null) throw new ModelError("unsupported", refusal);
-
-  const model = await createConfiguredModel(secrets, "drafting");
+  // Routed as "manuscript_edit": structured output is a declared requirement
+  // of the operation, so a model known not to produce it is excluded before
+  // anything runs, with the refusal stated (Phase 36 §3, §6). Every call the
+  // editor makes lands in the usage ledger.
+  const { model } = await createRoutedModel(repo, secrets, "manuscript_edit");
   return new ManuscriptEditor({ repo, model, grant: MANUSCRIPT_EDIT_GRANT });
 }
 
@@ -82,7 +82,7 @@ export async function createDiagnosisAnalyst(
   repo: StoryRepository,
   secrets: SecretStore,
 ): Promise<DiagnosisAnalyst> {
-  const model = await createConfiguredModel(secrets, "reasoning");
+  const { model } = await createRoutedModel(repo, secrets, "diagnosis");
   return new DiagnosisAnalyst({ repo, model, grant: STORY_DEBUG_GRANT });
 }
 
@@ -96,7 +96,7 @@ export async function createDependencyAnalyst(
   repo: StoryRepository,
   secrets: SecretStore,
 ): Promise<DependencyAnalyst> {
-  const model = await createConfiguredModel(secrets, "reasoning");
+  const { model } = await createRoutedModel(repo, secrets, "dependency_analysis");
   return new DependencyAnalyst({ repo, model, grant: STORY_DEBUG_GRANT });
 }
 
@@ -123,7 +123,7 @@ export async function createRefactorPlanner(
   repo: StoryRepository,
   secrets: SecretStore,
 ): Promise<RefactorPlanner> {
-  const model = await createConfiguredModel(secrets, "reasoning");
+  const { model } = await createRoutedModel(repo, secrets, "refactor_planning");
   return new RefactorPlanner({ repo, model });
 }
 
@@ -144,9 +144,12 @@ export const SKILL_READING_GRANT: PermissionGrant = {
  * configured — in which case those steps are skipped with a stated reason and
  * every deterministic step still runs.
  */
-export async function createSkillAnalyst(secrets: SecretStore): Promise<ModelSkillAnalyst | null> {
+export async function createSkillAnalyst(
+  repo: StoryRepository,
+  secrets: SecretStore,
+): Promise<ModelSkillAnalyst | null> {
   try {
-    const model = await createConfiguredModel(secrets, "utility");
+    const { model } = await createRoutedModel(repo, secrets, "skill_reading");
     return new ModelSkillAnalyst({ model, grant: SKILL_READING_GRANT });
   } catch {
     return null;
@@ -166,15 +169,26 @@ export async function createAgentWorkExecutor(
   repo: StoryRepository,
   secrets: SecretStore,
 ): Promise<ModelAgentWorkExecutor | null> {
+  // A workflow step asks for a *kind* of thinking; the router resolves each
+  // class to a representative routed operation, so workflow steps obey the
+  // same policy, privacy and pins as everything else (Phase 36 §21).
+  const operationForClass: Partial<Record<RoutingClass, RoutedOperation>> = {
+    premium_reasoning: "story_architecture",
+    premium_prose: "scene_drafting",
+    cheap_analysis: "summarisation",
+  };
   try {
-    // One probe: if the default model cannot be built, nothing here can run.
-    await createConfiguredModel(secrets);
+    // One probe: if reasoning work cannot be routed, nothing here can run.
+    await createRoutedModel(repo, secrets, "story_architecture");
   } catch {
     return null;
   }
   return new ModelAgentWorkExecutor({
     repo,
-    modelFor: (routingClass) => createModelForClass(routingClass, secrets),
+    modelFor: async (routingClass) => {
+      const operation = operationForClass[routingClass] ?? "summarisation";
+      return (await createRoutedModel(repo, secrets, operation)).model;
+    },
   });
 }
 
@@ -186,10 +200,11 @@ export async function createAgentWorkExecutor(
  * panel says so rather than offering an empty run (docs/SIMULATIONS.md).
  */
 export async function createReaderAnalyst(
+  repo: StoryRepository,
   secrets: SecretStore,
 ): Promise<ModelReaderAnalyst | null> {
   try {
-    const model = await createConfiguredModel(secrets, "simulation");
+    const { model } = await createRoutedModel(repo, secrets, "reader_simulation");
     return new ModelReaderAnalyst({ model });
   } catch {
     return null;
@@ -202,10 +217,11 @@ export async function createReaderAnalyst(
  * could not weigh (docs/SIMULATIONS.md).
  */
 export async function createCharacterAnalyst(
+  repo: StoryRepository,
   secrets: SecretStore,
 ): Promise<ModelCharacterAnalyst | null> {
   try {
-    const model = await createConfiguredModel(secrets, "simulation");
+    const { model } = await createRoutedModel(repo, secrets, "character_simulation");
     return new ModelCharacterAnalyst({ model });
   } catch {
     return null;
