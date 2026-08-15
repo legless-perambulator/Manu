@@ -127,6 +127,24 @@ export function estimateChapterBuildCost(input: {
 }
 
 /**
+ * The mapping scope's price, in the same honest terms as everything else
+ * (Phase 40 §29): an estimate over per-excerpt working figures, or null when
+ * the model's pricing is unknown — never a made-up number.
+ */
+export function estimateMappingCost(input: {
+  readonly profile: ModelProfile;
+  readonly operations: number;
+}): CostRange | null {
+  const operations = Math.max(1, input.operations);
+  return estimateOperationCost({
+    profile: input.profile,
+    inputTokens: operations * 6_000,
+    outputTokensLow: operations * 150,
+    outputTokensHigh: operations * 450,
+  });
+}
+
+/**
  * May work with this estimated ceiling start? Checks the configured budgets
  * against actual ledger spend (§13). A hard limit blocks; a soft limit warns;
  * no configured budget allows silently.

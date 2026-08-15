@@ -1,0 +1,19 @@
+{
+  "name": "@jellytind/story-mapper",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Reverse story mapping: reconstruct a structured Story Repository from an existing manuscript.",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "sideEffects": false,
+  "dependencies": {
+    "@jellytind/domain": "workspace:*",
+    "@jellytind/manuscript-io": "workspace:*",
+    "@jellytind/story-repository": "workspace:*",
+    "@jellytind/persistence": "workspace:*"
+  }
+}

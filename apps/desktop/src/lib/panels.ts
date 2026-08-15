@@ -33,6 +33,7 @@ export const LEFT_PANELS = [
   "timeline",
   "world",
   "storymap",
+  "mapping",
   "chapterbuild",
   "actbuild",
   "bookbuild",
@@ -55,6 +56,7 @@ export const LEFT_PANELS = [
   "causality",
   "refactor",
   "usage",
+  "export",
   "modules",
   "files",
 ] as const;
@@ -205,6 +207,13 @@ export const PANELS: readonly PanelDefinition[] = [
     group: "story",
     label: "Story Map",
     purpose: "Explore the story visually: time, knowledge, relationships, causality",
+    side: "left",
+  },
+  {
+    id: "mapping",
+    group: "story",
+    label: "Map Manuscript",
+    purpose: "Reconstruct structured story data from an imported book, with review",
     side: "left",
   },
   {
@@ -360,6 +369,13 @@ export const PANELS: readonly PanelDefinition[] = [
     group: "advanced",
     label: "Usage & costs",
     purpose: "What AI work actually cost — today, this month, this project",
+    side: "left",
+  },
+  {
+    id: "export",
+    group: "write",
+    label: "Export",
+    purpose: "The manuscript as DOCX, EPUB, PDF or text — and the project as an archive",
     side: "left",
   },
   {

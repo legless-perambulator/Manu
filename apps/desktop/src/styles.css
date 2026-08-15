@@ -5097,3 +5097,244 @@ progress {
 .term__suggestion.is-active {
   background: var(--manu-bg);
 }
+
+/* ── Import, mapping and export (Phase 40) ──────────────────────────────── */
+
+.import__chapters {
+  list-style: none;
+  margin: 12px 0;
+  padding: 0;
+  max-height: 40vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.import__chapter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.import__title {
+  flex: 1;
+  min-width: 0;
+}
+
+.import__words,
+.import__boundary {
+  color: var(--manu-ink-muted);
+  font-size: var(--manu-text-xs);
+  white-space: nowrap;
+}
+
+.modal--wide {
+  max-width: 720px;
+  width: 90vw;
+}
+
+.mapping__scope {
+  color: var(--manu-ink-subtle);
+  font-size: var(--manu-text-sm);
+}
+
+.mapping__actions {
+  display: flex;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.mapping__steps {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--manu-text-sm);
+}
+
+.mapping__step {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--manu-ink-muted);
+}
+
+.mapping__step.is-done {
+  color: var(--manu-ink-subtle);
+}
+
+.mapping__step.is-running {
+  color: var(--manu-ink);
+}
+
+.mapping__stepstate {
+  font-size: var(--manu-text-xs);
+  text-align: right;
+}
+
+.mapping__summary {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mapping__cat {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 8px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--manu-radius-sm);
+  color: var(--manu-ink);
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.mapping__cat:hover,
+.mapping__cat.is-open {
+  border-color: var(--manu-border);
+  background: var(--manu-surface-raised);
+}
+
+.mapping__counts {
+  display: flex;
+  gap: 10px;
+  font-size: var(--manu-text-xs);
+  color: var(--manu-ink-muted);
+}
+
+.mapping__counts em {
+  font-style: normal;
+  color: var(--manu-success);
+}
+
+.mapping__counts strong {
+  color: var(--manu-warning);
+}
+
+.mapping__batch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.mapping__list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.mapping__item {
+  border: 1px solid var(--manu-border);
+  border-radius: var(--manu-radius-sm);
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mapping__item.is-accepted,
+.mapping__item.is-applied {
+  border-color: var(--manu-success);
+}
+
+.mapping__item.is-rejected {
+  opacity: 0.55;
+}
+
+.mapping__head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.mapping__summaryline {
+  flex: 1;
+}
+
+.mapping__conf {
+  font-size: var(--manu-text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--manu-tracking-label);
+  color: var(--manu-ink-muted);
+}
+
+.mapping__conf--high {
+  color: var(--manu-success);
+}
+
+.mapping__conf--low {
+  color: var(--manu-warning);
+}
+
+.mapping__origin,
+.mapping__state {
+  font-size: var(--manu-text-xs);
+  color: var(--manu-ink-muted);
+}
+
+.mapping__evidence {
+  font-size: var(--manu-text-xs);
+  color: var(--manu-ink-muted);
+}
+
+.mapping__decide {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.mapping__notes {
+  list-style: none;
+  margin: 4px 0;
+  padding: 0;
+}
+
+.export__formats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.export__format {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--manu-border);
+  border-radius: var(--manu-radius-sm);
+  background: none;
+  color: var(--manu-ink);
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.export__format.is-active {
+  border-color: var(--manu-accent);
+  background: var(--manu-surface-raised);
+}
+
+.export__options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0;
+}

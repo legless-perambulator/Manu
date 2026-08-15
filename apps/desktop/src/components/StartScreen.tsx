@@ -7,6 +7,7 @@ import { TEMPLATES } from "@jellytind/genre";
 import { projectFolderName } from "@jellytind/story-repository";
 import { forgetProject, listRecentProjects } from "../repo/recents";
 import { Wordmark } from "./Wordmark";
+import { ImportWizard } from "./ImportWizard";
 
 interface StartScreenProps {
   onReady: (session: ProjectSession) => void;
@@ -39,6 +40,7 @@ export function StartScreen({ onReady, onOpenSettings }: StartScreenProps) {
   const [busy, setBusy] = useState<null | string>(null);
   const [error, setError] = useState<string | null>(null);
   const [showIntro, setShowIntro] = useState(firstRun);
+  const [importing, setImporting] = useState(false);
   const inApp = isTauri();
 
   const trimmed = title.trim();
@@ -249,9 +251,17 @@ export function StartScreen({ onReady, onOpenSettings }: StartScreenProps) {
             <button className="btn" onClick={() => void handleOpen()} disabled={disabled}>
               Open a folder…
             </button>
+            <button className="btn" onClick={() => setImporting(true)} disabled={disabled}>
+              Import a manuscript…
+            </button>
           </div>
+          <p className="hint">
+            Already wrote the book? Import DOCX, Markdown, plain text or EPUB and Manu will map it
+            into a structured project — or restore a Manu project archive.
+          </p>
         </section>
       </div>
+      {importing && <ImportWizard onReady={onReady} onClose={() => setImporting(false)} />}
     </div>
   );
 }

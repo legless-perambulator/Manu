@@ -25,6 +25,8 @@ These documents are **living**: update the relevant document whenever an archite
 | [STORY_TESTS.md](STORY_TESTS.md)                   | Writer-authored assertions the build holds the story to.        |
 | [STORY_MAP.md](STORY_MAP.md)                       | The visual story-intelligence layer: six views, one system.     |
 | [COMMAND_LANGUAGE.md](COMMAND_LANGUAGE.md)         | The writing terminal: typed commands over the real systems.     |
+| [IMPORT_EXPORT.md](IMPORT_EXPORT.md)               | Manuscript import, professional export, the project archive.    |
+| [STORY_MAPPING.md](STORY_MAPPING.md)               | Reverse mapping an existing book into a structured project.     |
 | [AGENT_RUNTIME.md](AGENT_RUNTIME.md)               | Agent orchestration, tasks and multi-agent coordination.        |
 | [AGENT_TOOLS.md](AGENT_TOOLS.md)                   | The typed tool surface agents operate through.                  |
 | [SPECIALIST_AGENTS.md](SPECIALIST_AGENTS.md)       | The nine writing specialists and what each may reach.           |

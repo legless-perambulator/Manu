@@ -1,3 +1,4 @@
+mod external_io;
 mod project_fs;
 mod secrets;
 
@@ -39,6 +40,8 @@ pub fn run() {
             project_fs::project_promote,
             project_fs::project_discard,
             project_fs::project_child_exists,
+            external_io::external_read,
+            external_io::external_write,
             secrets::secret_backend,
             secrets::secret_set,
             secrets::secret_get,

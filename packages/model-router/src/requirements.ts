@@ -34,6 +34,7 @@ export const ROUTED_OPERATIONS = [
   "summarisation",
   "metadata_extraction",
   "search_query",
+  "manuscript_mapping",
 ] as const;
 export type RoutedOperation = (typeof ROUTED_OPERATIONS)[number];
 
@@ -225,6 +226,18 @@ export const OPERATION_REQUIREMENTS: Readonly<Record<RoutedOperation, OperationR
     purpose: "utility",
     routingClass: "cheap_analysis",
     costSensitivity: "high",
+    localEligible: true,
+  }),
+  // Reverse story mapping (Phase 40): many small structured extractions over
+  // one bounded excerpt each. Exactly the profile cheap and local models fit.
+  manuscript_mapping: req({
+    operation: "manuscript_mapping",
+    label: "Manuscript mapping",
+    purpose: "utility",
+    routingClass: "cheap_analysis",
+    structuredOutput: "required",
+    costSensitivity: "high",
+    parallelFriendly: true,
     localEligible: true,
   }),
 };

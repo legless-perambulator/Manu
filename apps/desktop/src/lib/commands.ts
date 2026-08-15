@@ -557,6 +557,38 @@ export async function buildCommandSet(
 
   commands.register(
     {
+      id: "map-manuscript",
+      aliases: [],
+      group: "Story",
+      summary: "Reconstruct structured story data from the manuscript",
+      usage: "/map-manuscript",
+      args: [],
+      options: [],
+      permission: "workflow",
+      chainable: false,
+      source: CORE,
+    },
+    () => opened("mapping", "Map Manuscript is open. Everything lands as reviewable proposals."),
+  );
+
+  commands.register(
+    {
+      id: "export",
+      aliases: [],
+      group: "Write",
+      summary: "Export the manuscript, or the whole project as an archive",
+      usage: "/export",
+      args: [],
+      options: [],
+      permission: "open",
+      chainable: false,
+      source: CORE,
+    },
+    () => opened("export", "Export is open."),
+  );
+
+  commands.register(
+    {
       id: "research",
       aliases: [],
       group: "Assist",

@@ -65,6 +65,9 @@ importers:
       '@jellytind/genre':
         specifier: workspace:*
         version: link:../../packages/genre
+      '@jellytind/manuscript-io':
+        specifier: workspace:*
+        version: link:../../packages/manuscript-io
       '@jellytind/model-router':
         specifier: workspace:*
         version: link:../../packages/model-router
@@ -104,6 +107,9 @@ importers:
       '@jellytind/story-map':
         specifier: workspace:*
         version: link:../../packages/story-map
+      '@jellytind/story-mapper':
+        specifier: workspace:*
+        version: link:../../packages/story-mapper
       '@jellytind/story-refactor':
         specifier: workspace:*
         version: link:../../packages/story-refactor
@@ -272,6 +278,8 @@ importers:
       '@jellytind/story-repository':
         specifier: workspace:*
         version: link:../story-repository
+
+  packages/manuscript-io: {}
 
   packages/model-router:
     dependencies:
@@ -448,6 +456,21 @@ importers:
       '@jellytind/story-state':
         specifier: workspace:*
         version: link:../story-state
+
+  packages/story-mapper:
+    dependencies:
+      '@jellytind/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@jellytind/manuscript-io':
+        specifier: workspace:*
+        version: link:../manuscript-io
+      '@jellytind/persistence':
+        specifier: workspace:*
+        version: link:../persistence
+      '@jellytind/story-repository':
+        specifier: workspace:*
+        version: link:../story-repository
 
   packages/story-refactor:
     dependencies:

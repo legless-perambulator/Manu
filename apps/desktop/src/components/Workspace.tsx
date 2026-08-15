@@ -87,6 +87,8 @@ import { BookBuildPanel } from "./BookBuildPanel";
 import { ResearchPanel } from "./ResearchPanel";
 import { RefactorPanel } from "./RefactorPanel";
 import { TerminalPanel } from "./TerminalPanel";
+import { MappingPanel } from "./MappingPanel";
+import { ExportPanel } from "./ExportPanel";
 import {
   buildCommandSet,
   paletteEntries,
@@ -673,6 +675,18 @@ export function Workspace({
             seedLine={terminalSeed}
           />
         );
+      case "mapping":
+        return (
+          <MappingPanel
+            repo={repo}
+            secrets={secrets}
+            refreshToken={refreshToken}
+            onChanged={refresh}
+            onSelectEntity={selectEntity}
+          />
+        );
+      case "export":
+        return <ExportPanel repo={repo} refreshToken={refreshToken} />;
       case "storymap":
         return (
           <StoryMapPanel

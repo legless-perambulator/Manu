@@ -89,6 +89,41 @@ export async function openProjectAt(root: string): Promise<ProjectSession> {
   return sessionFor(new TauriProjectStore(root), root);
 }
 
+/**
+ * Restore a project archive's files into a fresh folder (Phase 40 §40).
+ *
+ * The same transactional shape as creation: everything lands in a temporary
+ * directory, is validated as a real project, and only then is promoted into
+ * place under a free name.
+ */
+export async function restoreProjectFiles(
+  parent: string,
+  name: string,
+  files: ReadonlyArray<{ path: string; content: string }>,
+): Promise<ProjectSession> {
+  requireTauri();
+  const folder = await availableFolderName(name, (candidate) =>
+    invoke<boolean>("project_child_exists", { parent, name: candidate }),
+  );
+  const temp = `${TEMP_PREFIX}${Date.now().toString(36)}`;
+  const tempRoot = await invoke<string>("project_prepare", { parent, name: temp });
+  try {
+    const store = new TauriProjectStore(tempRoot);
+    for (const file of files) {
+      await store.writeFile(file.path, file.content);
+    }
+    const check = await StoryRepository.validateProject(store);
+    if (!check.ok) {
+      throw new Error(check.errors[0] ?? "The archive did not restore to a valid project.");
+    }
+    const root = await invoke<string>("project_promote", { parent, from: temp, to: folder });
+    return sessionFor(new TauriProjectStore(root), root);
+  } catch (cause) {
+    await invoke<void>("project_discard", { parent, name: temp }).catch(() => undefined);
+    throw cause;
+  }
+}
+
 /** Re-open the project on a different version. */
 export async function openOnBranch(
   session: ProjectSession,
