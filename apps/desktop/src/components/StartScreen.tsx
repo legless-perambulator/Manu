@@ -8,6 +8,8 @@ import { projectFolderName } from "@jellytind/story-repository";
 import { forgetProject, listRecentProjects } from "../repo/recents";
 import { Wordmark } from "./Wordmark";
 import { ImportWizard } from "./ImportWizard";
+import { bookRoot, peekUniverse } from "../lib/universe-session";
+import type { UniverseManifest } from "@jellytind/universe";
 
 interface StartScreenProps {
   onReady: (session: ProjectSession) => void;
@@ -41,6 +43,10 @@ export function StartScreen({ onReady, onOpenSettings }: StartScreenProps) {
   const [error, setError] = useState<string | null>(null);
   const [showIntro, setShowIntro] = useState(firstRun);
   const [importing, setImporting] = useState(false);
+  const [universePick, setUniversePick] = useState<{
+    root: string;
+    manifest: UniverseManifest;
+  } | null>(null);
   const inApp = isTauri();
 
   const trimmed = title.trim();
@@ -88,6 +94,43 @@ export function StartScreen({ onReady, onOpenSettings }: StartScreenProps) {
         return;
       }
       onReady(await openProjectAt(dir));
+    } catch (e) {
+      setError(messageOf(e));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  /**
+   * Open a universe (Phase 41 §15): pick the universe folder, then a book in
+   * it. A book still opens as a book — the universe adds navigation, not
+   * weight.
+   */
+  async function handleOpenUniverse() {
+    setError(null);
+    const dir = await pickDirectory("Open a universe folder");
+    if (dir === null) return;
+    try {
+      const manifest = await peekUniverse(dir);
+      if (manifest === null) {
+        setError("That folder is not a Manu universe (.universe/universe.json missing).");
+        return;
+      }
+      if (manifest.books.length === 0) {
+        setError(`"${manifest.name}" has no books yet — create or import one, then join it.`);
+        return;
+      }
+      setUniversePick({ root: dir, manifest });
+    } catch (e) {
+      setError(messageOf(e));
+    }
+  }
+
+  async function openUniverseBook(root: string, path: string) {
+    setUniversePick(null);
+    setBusy("Opening…");
+    try {
+      onReady(await openProjectAt(bookRoot(root, { path } as never)));
     } catch (e) {
       setError(messageOf(e));
     } finally {
@@ -254,7 +297,32 @@ export function StartScreen({ onReady, onOpenSettings }: StartScreenProps) {
             <button className="btn" onClick={() => setImporting(true)} disabled={disabled}>
               Import a manuscript…
             </button>
+            <button className="btn" onClick={() => void handleOpenUniverse()} disabled={disabled}>
+              Open a universe…
+            </button>
           </div>
+          {universePick !== null && (
+            <div className="start__universe">
+              <p className="hint">
+                {universePick.manifest.name} — {universePick.manifest.books.length} book(s). Open
+                which?
+              </p>
+              {[...universePick.manifest.books]
+                .sort((a, b) => a.readingOrder - b.readingOrder)
+                .map((book) => (
+                  <button
+                    key={book.bookId}
+                    className="start__recent"
+                    disabled={disabled}
+                    onClick={() => void openUniverseBook(universePick.root, book.path)}
+                  >
+                    <span className="start__recent-title">
+                      {book.readingOrder}. {book.title}
+                    </span>
+                  </button>
+                ))}
+            </div>
+          )}
           <p className="hint">
             Already wrote the book? Import DOCX, Markdown, plain text or EPUB and Manu will map it
             into a structured project — or restore a Manu project archive.

@@ -34,6 +34,7 @@ export const LEFT_PANELS = [
   "world",
   "storymap",
   "mapping",
+  "universe",
   "chapterbuild",
   "actbuild",
   "bookbuild",
@@ -214,6 +215,13 @@ export const PANELS: readonly PanelDefinition[] = [
     group: "story",
     label: "Map Manuscript",
     purpose: "Reconstruct structured story data from an imported book, with review",
+    side: "left",
+  },
+  {
+    id: "universe",
+    group: "story",
+    label: "Universe",
+    purpose: "The shared world across books: canon, timeline, memory, boundaries",
     side: "left",
   },
   {

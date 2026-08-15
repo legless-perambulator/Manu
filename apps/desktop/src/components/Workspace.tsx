@@ -89,6 +89,7 @@ import { RefactorPanel } from "./RefactorPanel";
 import { TerminalPanel } from "./TerminalPanel";
 import { MappingPanel } from "./MappingPanel";
 import { ExportPanel } from "./ExportPanel";
+import { UniversePanel } from "./UniversePanel";
 import {
   buildCommandSet,
   paletteEntries,
@@ -687,6 +688,8 @@ export function Workspace({
         );
       case "export":
         return <ExportPanel repo={repo} refreshToken={refreshToken} />;
+      case "universe":
+        return <UniversePanel session={session} refreshToken={refreshToken} onChanged={refresh} />;
       case "storymap":
         return (
           <StoryMapPanel

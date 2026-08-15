@@ -573,6 +573,22 @@ export async function buildCommandSet(
 
   commands.register(
     {
+      id: "universe",
+      aliases: [],
+      group: "Story",
+      summary: "The shared world across books: canon, timeline, memory",
+      usage: "/universe",
+      args: [],
+      options: [],
+      permission: "open",
+      chainable: false,
+      source: CORE,
+    },
+    () => opened("universe", "Universe is open."),
+  );
+
+  commands.register(
+    {
       id: "export",
       aliases: [],
       group: "Write",

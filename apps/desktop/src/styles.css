@@ -5338,3 +5338,78 @@ progress {
   gap: 6px;
   margin: 8px 0;
 }
+
+/* ── Universe (Phase 41) ────────────────────────────────────────────────── */
+
+.universe__books,
+.universe__timeline,
+.universe__canon {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.universe__books li,
+.universe__canon li,
+.universe__timeline li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: var(--manu-radius-sm);
+}
+
+.universe__books li.is-current {
+  background: var(--manu-surface-raised);
+}
+
+.universe__books em {
+  font-style: normal;
+  color: var(--manu-accent-text);
+  font-size: var(--manu-text-xs);
+}
+
+.universe__order {
+  color: var(--manu-ink-muted);
+  min-width: 1.4em;
+  text-align: right;
+}
+
+.universe__timeline li.is-event {
+  color: var(--manu-ink-subtle);
+}
+
+.universe__timeline li span:last-child {
+  margin-left: auto;
+}
+
+.universe__kind {
+  font-size: var(--manu-text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--manu-tracking-label);
+  color: var(--manu-ink-muted);
+  min-width: 84px;
+}
+
+.universe__context {
+  font-family: var(--manu-font-mono);
+  font-size: var(--manu-text-xs);
+  color: var(--manu-ink-subtle);
+  background: var(--manu-surface-raised);
+  border: 1px solid var(--manu-border);
+  border-radius: var(--manu-radius-sm);
+  padding: 10px 12px;
+  white-space: pre-wrap;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+.start__universe {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}

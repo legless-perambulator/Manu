@@ -1,0 +1,18 @@
+{
+  "name": "@jellytind/universe",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Series and universe projects: shared canon across books, with book-specific state and spoiler boundaries.",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "sideEffects": false,
+  "dependencies": {
+    "@jellytind/domain": "workspace:*",
+    "@jellytind/persistence": "workspace:*",
+    "@jellytind/story-repository": "workspace:*"
+  }
+}

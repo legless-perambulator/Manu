@@ -119,6 +119,9 @@ importers:
       '@jellytind/story-state':
         specifier: workspace:*
         version: link:../../packages/story-state
+      '@jellytind/universe':
+        specifier: workspace:*
+        version: link:../../packages/universe
       '@tauri-apps/api':
         specifier: ^2.1.1
         version: 2.11.1
@@ -547,6 +550,18 @@ importers:
       '@jellytind/shared':
         specifier: workspace:*
         version: link:../shared
+
+  packages/universe:
+    dependencies:
+      '@jellytind/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@jellytind/persistence':
+        specifier: workspace:*
+        version: link:../persistence
+      '@jellytind/story-repository':
+        specifier: workspace:*
+        version: link:../story-repository
 
 packages:
 
