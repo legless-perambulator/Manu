@@ -38,6 +38,7 @@ export const LEFT_PANELS = [
   "bookbuild",
   "inspector",
   "agent",
+  "terminal",
   "context",
   "search",
   "build",
@@ -240,6 +241,13 @@ export const PANELS: readonly PanelDefinition[] = [
     label: "Manu Agent",
     purpose: "Put Manu to work on the project",
     side: "right",
+  },
+  {
+    id: "terminal",
+    group: "assist",
+    label: "Terminal",
+    purpose: "Type commands over the real story systems",
+    side: "left",
   },
   {
     id: "context",

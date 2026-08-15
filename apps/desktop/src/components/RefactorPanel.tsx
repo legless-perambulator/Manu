@@ -26,6 +26,8 @@ interface Props {
   onSelectEntity: (id: string) => void;
   /** Open the Story Map's causality view on the change's target (Phase 38 §17). */
   onVisualiseImpact?: (entityId: string) => void;
+  /** An instruction handed in from outside — `/refactor Make Mara …` (Phase 39 §7). */
+  seedInstruction?: string;
 }
 
 /** What each refactor class needs the writer to fill in. */
@@ -69,9 +71,16 @@ export function RefactorPanel({
   onChanged,
   onSelectEntity,
   onVisualiseImpact,
+  seedInstruction,
 }: Props) {
   const [kind, setKind] = useState<RefactorKind>("change_relationship");
   const [instruction, setInstruction] = useState("");
+
+  // A terminal `/refactor <sentence>` arrives as the instruction. It seeds
+  // the same workflow; analyse, preview, stage and approve are unchanged.
+  useEffect(() => {
+    if (seedInstruction !== undefined && seedInstruction !== "") setInstruction(seedInstruction);
+  }, [seedInstruction]);
   const [values, setValues] = useState<Record<string, string>>({});
   const [names, setNames] = useState<Map<string, string>>(new Map());
   const [analysis, setAnalysis] = useState<RefactorAnalysis | null>(null);

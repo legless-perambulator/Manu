@@ -23,6 +23,8 @@ interface Props {
   onChanged: () => void;
   /** Open the chapter file, so committed scenes can be read while it builds. */
   onOpenFile: (path: string) => void;
+  /** A chapter handed in from outside — `/build chapter 17` (Phase 39 §9). */
+  seedChapterId?: string;
 }
 
 /**
@@ -74,9 +76,15 @@ export function ChapterBuildPanel({
   refreshToken,
   onChanged,
   onOpenFile,
+  seedChapterId,
 }: Props) {
   const [chapters, setChapters] = useState<readonly Chapter[]>([]);
   const [chapterId, setChapterId] = useState<string>("");
+
+  // The terminal pre-selects the chapter; starting the build is still a click.
+  useEffect(() => {
+    if (seedChapterId !== undefined && seedChapterId !== "") setChapterId(seedChapterId);
+  }, [seedChapterId]);
   const [policy, setPolicy] = useState<ApprovalPolicy>("every_scene");
   const [history, setHistory] = useState<readonly ChapterBuildSummary[]>([]);
   const [active, setActive] = useState<ChapterBuild | null>(null);

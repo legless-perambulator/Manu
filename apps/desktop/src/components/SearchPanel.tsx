@@ -8,6 +8,8 @@ interface Props {
   refreshToken: number;
   /** Arrange the hits' scenes on the Story Map, chronologically (Phase 38 §12). */
   onShowOnMap?: (sceneIds: readonly string[]) => void;
+  /** A query handed in from outside — `/find brass key` in the terminal. */
+  seedQuery?: string;
 }
 
 const FILTERS: ResultKind[] = [
@@ -37,8 +39,13 @@ export function SearchPanel({
   onSelectEntity,
   refreshToken,
   onShowOnMap,
+  seedQuery,
 }: Props) {
   const [query, setQuery] = useState("");
+
+  useEffect(() => {
+    if (seedQuery !== undefined && seedQuery !== "") setQuery(seedQuery);
+  }, [seedQuery]);
   const [active, setActive] = useState<Set<ResultKind>>(new Set());
   const [hits, setHits] = useState<SearchHit[]>([]);
   const [ran, setRan] = useState(false);

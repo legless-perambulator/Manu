@@ -15,6 +15,8 @@ interface Props {
   session: ProjectSession;
   onSwitch: (branchId: BranchId) => void;
   onChanged: () => void;
+  /** A name handed in from outside — `/branch darker-ending` (Phase 39). */
+  seedName?: string;
 }
 
 /**
@@ -25,9 +27,14 @@ interface Props {
  * have to learn version control to do it. The word Branch appears only in the
  * stable ID, where an advanced user will recognise it.
  */
-export function VersionsPanel({ session, onSwitch, onChanged }: Props) {
+export function VersionsPanel({ session, onSwitch, onChanged, seedName }: Props) {
   const [versions, setVersions] = useState<Branch[]>([]);
   const [name, setName] = useState("");
+
+  // The terminal pre-fills the name; creating the version is still a click.
+  useEffect(() => {
+    if (seedName !== undefined && seedName !== "") setName(seedName);
+  }, [seedName]);
   const [description, setDescription] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

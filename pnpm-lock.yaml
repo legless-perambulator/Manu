@@ -50,6 +50,9 @@ importers:
       '@jellytind/character-sim':
         specifier: workspace:*
         version: link:../../packages/character-sim
+      '@jellytind/command-language':
+        specifier: workspace:*
+        version: link:../../packages/command-language
       '@jellytind/context-compiler':
         specifier: workspace:*
         version: link:../../packages/context-compiler
@@ -180,6 +183,8 @@ importers:
       '@jellytind/story-state':
         specifier: workspace:*
         version: link:../story-state
+
+  packages/command-language: {}
 
   packages/context-compiler:
     dependencies:

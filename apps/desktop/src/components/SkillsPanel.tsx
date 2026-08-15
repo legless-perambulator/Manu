@@ -21,6 +21,8 @@ interface Props {
   onChanged: () => void;
   onSelectEntity: (id: string) => void;
   onOpenScene: (sceneId: string) => void;
+  /** A command handed in from outside — `/character-pass Mara` (Phase 39). */
+  seedCommand?: string;
 }
 
 const KIND_LABEL: Readonly<Record<string, string>> = {
@@ -47,6 +49,7 @@ export function SkillsPanel({
   onChanged,
   onSelectEntity,
   onOpenScene,
+  seedCommand,
 }: Props) {
   const [custom, setCustom] = useState<SkillDefinition[]>([]);
   const [problems, setProblems] = useState<Array<{ path: string; reason: string }>>([]);
@@ -58,6 +61,11 @@ export function SkillsPanel({
   const [lines, setLines] = useState<string[]>([]);
   const [command, setCommand] = useState("");
   const [busy, setBusy] = useState(false);
+
+  // The terminal pre-fills the pass command; running it is still a keypress.
+  useEffect(() => {
+    if (seedCommand !== undefined && seedCommand !== "") setCommand(seedCommand);
+  }, [seedCommand]);
   const [error, setError] = useState<string | null>(null);
   const cancel = useRef<AbortController | null>(null);
 

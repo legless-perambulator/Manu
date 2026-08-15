@@ -217,3 +217,5 @@ every other controlled model operation.
 - [AUTHOR_VOICE.md](AUTHOR_VOICE.md) — the rules `/remove-ai-tendencies`
   checks, and will not propose breaking.
 - [AI_EDITING.md](AI_EDITING.md) — why a proposal is not an edit.
+- [COMMAND_LANGUAGE.md](COMMAND_LANGUAGE.md) — every skill's `/command`,
+  built-in or custom, is registered in the terminal's command registry.

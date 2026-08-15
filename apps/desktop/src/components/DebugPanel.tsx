@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SecretStore } from "@jellytind/model-router";
 import type { StoryRepository } from "@jellytind/story-repository";
 import {
@@ -26,6 +26,11 @@ interface Props {
    * chooses the mode and presses run.
    */
   seedProblem?: string;
+  /**
+   * A `/debug …` line handed in from the terminal (Phase 39). It runs the
+   * deterministic fast path — the same evidence run, with no model in it.
+   */
+  seedCommand?: string;
 }
 
 /** Which pickers each mode needs, and which of them it cannot work without. */
@@ -82,6 +87,7 @@ export function DebugPanel({
   onOpenScene,
   onSimulateBehaviour,
   seedProblem,
+  seedCommand,
 }: Props) {
   const [mode, setMode] = useState<DebugMode>("reveal");
   const [problem, setProblem] = useState("");
@@ -91,6 +97,19 @@ export function DebugPanel({
   useEffect(() => {
     if (seedProblem !== undefined && seedProblem !== "") setProblem(seedProblem);
   }, [seedProblem]);
+
+  // A terminal `/debug …` line arrives ready to run. The evidence run is
+  // deterministic and read-only, so running it on arrival is safe — the same
+  // keystroke-saving the panel's own command box offers, from further away.
+  const seededRun = useRef<string | null>(null);
+  useEffect(() => {
+    if (seedCommand === undefined || seedCommand === "" || seededRun.current === seedCommand) {
+      return;
+    }
+    seededRun.current = seedCommand;
+    setCommand(seedCommand);
+    void runCommand(seedCommand);
+  }, [seedCommand]);
   const [values, setValues] = useState<Record<string, string>>({});
   const [command, setCommand] = useState("");
   const [report, setReport] = useState<DebugReport | null>(null);
@@ -183,12 +202,12 @@ export function DebugPanel({
   }
 
   /** `/debug betrayal Marcus` — the fast path, with no model in it. */
-  async function runCommand(): Promise<void> {
+  async function runCommand(line: string = command): Promise<void> {
     setBusy(true);
     setError(null);
     setNote(null);
     try {
-      const parsed = await repo.parseDebugCommand(command);
+      const parsed = await repo.parseDebugCommand(line);
       setMode(parsed.request.mode);
       setProblem(parsed.request.problem ?? "");
       const started = Date.now();

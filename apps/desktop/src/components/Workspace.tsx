@@ -86,6 +86,13 @@ import { ActBuildPanel } from "./ActBuildPanel";
 import { BookBuildPanel } from "./BookBuildPanel";
 import { ResearchPanel } from "./ResearchPanel";
 import { RefactorPanel } from "./RefactorPanel";
+import { TerminalPanel } from "./TerminalPanel";
+import {
+  buildCommandSet,
+  paletteEntries,
+  type CommandEnvironment,
+  type ManuCommands,
+} from "../lib/commands";
 
 interface WorkspaceProps {
   session: ProjectSession;
@@ -135,6 +142,17 @@ export function Workspace({
   const [debugSeed, setDebugSeed] = useState<string | null>(null);
   /** Where the Story Map should land next: search results, a refactor focus. */
   const [mapFocus, setMapFocus] = useState<MapFocus | null>(null);
+  /** The command set the terminal and the palette share (Phase 39). */
+  const [commandSet, setCommandSet] = useState<ManuCommands | null>(null);
+  /** A line the palette asked the terminal to run. */
+  const [terminalSeed, setTerminalSeed] = useState<{ line: string; nonce: number } | null>(null);
+  /** Hand-offs from terminal commands into the workflows that own the work. */
+  const [searchSeed, setSearchSeed] = useState<string | null>(null);
+  const [refactorSeed, setRefactorSeed] = useState<string | null>(null);
+  const [versionSeed, setVersionSeed] = useState<string | null>(null);
+  const [chapterBuildSeed, setChapterBuildSeed] = useState<string | null>(null);
+  const [skillSeed, setSkillSeed] = useState<string | null>(null);
+  const [debugCommandSeed, setDebugCommandSeed] = useState<string | null>(null);
   const [editor, setEditor] = useState<ManuscriptEditor | null>(null);
   const [proposal, setProposal] = useState<EditProposal | null>(null);
   const [aiBusy, setAiBusy] = useState(false);
@@ -166,6 +184,21 @@ export function Workspace({
     GenreRuntime.attach(repo);
     void repo.modules.enabled().then(setEnabledModuleIds);
   }, [repo, refreshToken]);
+
+  /**
+   * Build the command set: the standard commands plus every skill's /command,
+   * including the project's own custom skills — rebuilt when modules or the
+   * project change so the registry mirrors what is really available.
+   */
+  useEffect(() => {
+    let active = true;
+    void buildCommandSet(repo, enabledModuleIds).then((built) => {
+      if (active) setCommandSet(built);
+    });
+    return () => {
+      active = false;
+    };
+  }, [repo, enabledModuleIds, refreshToken]);
 
   /** The panels this project can currently see — one filter, used everywhere. */
   const panels = useMemo(
@@ -347,6 +380,32 @@ export function Workspace({
     setLayout((current) => setFocus(current, !current.focus));
   }, []);
 
+  /**
+   * What a terminal command may do to the workbench. Seeds hand work to the
+   * panel that owns it — the terminal never holds a workflow of its own, and
+   * never applies what a workflow would stage (Phase 39 §8, §9).
+   */
+  const environment = useMemo<CommandEnvironment>(
+    () => ({
+      repo,
+      enabledModules: enabledModuleIds,
+      openPath,
+      showPanel,
+      openFile: setOpenPath,
+      selectEntity,
+      openScene: (sceneId: string) => void openScene(sceneId),
+      seedDebug: setDebugCommandSeed,
+      seedRefactor: setRefactorSeed,
+      seedSearch: setSearchSeed,
+      seedVersionName: setVersionSeed,
+      seedChapterBuild: setChapterBuildSeed,
+      seedSkill: setSkillSeed,
+      focusMap: setMapFocus,
+      toggleFocusMode: toggleFocus,
+    }),
+    [repo, enabledModuleIds, openPath, showPanel, selectEntity, openScene, toggleFocus],
+  );
+
   const commands = useMemo<readonly Command[]>(() => {
     const goTo = panels.map<Command>((panel) => ({
       id: `panel.${panel.id}`,
@@ -368,9 +427,19 @@ export function Workspace({
           ),
         ),
     }));
+    // The palette and the terminal share one registry (Phase 39 §6): every
+    // no-argument command is a palette entry that runs through the terminal.
+    const terminalCommands =
+      commandSet === null
+        ? []
+        : paletteEntries(commandSet, (line) => {
+            setTerminalSeed({ line, nonce: Date.now() });
+            showPanel("terminal");
+          });
     return [
       ...goTo,
       ...presets,
+      ...terminalCommands,
       {
         id: "layout.focus",
         section: "Workspace",
@@ -435,7 +504,7 @@ export function Workspace({
         run: onClose,
       },
     ];
-  }, [panels, showPanel, toggleFocus, onChangeTheme, onOpenSettings, onClose]);
+  }, [panels, commandSet, showPanel, toggleFocus, onChangeTheme, onOpenSettings, onClose]);
 
   /**
    * The workbench's keyboard layer.
@@ -466,6 +535,9 @@ export function Workspace({
       } else if (event.shiftKey && key === "f") {
         event.preventDefault();
         showPanel("search");
+      } else if (key === "`") {
+        event.preventDefault();
+        showPanel("terminal");
       } else if (event.shiftKey && key === "e") {
         event.preventDefault();
         setLayout((current) => toggleDock(current, "left"));
@@ -589,6 +661,16 @@ export function Workspace({
               setMapFocus({ view: "timeline", sceneIds });
               showPanel("storymap");
             }}
+            {...(searchSeed !== null ? { seedQuery: searchSeed } : {})}
+          />
+        );
+      case "terminal":
+        return (
+          <TerminalPanel
+            commands={commandSet}
+            environment={environment}
+            refreshToken={refreshToken}
+            seedLine={terminalSeed}
           />
         );
       case "storymap":
@@ -705,6 +787,7 @@ export function Workspace({
             refreshToken={refreshToken}
             onChanged={refresh}
             onOpenFile={setOpenPath}
+            {...(chapterBuildSeed !== null ? { seedChapterId: chapterBuildSeed } : {})}
           />
         );
       case "context":
@@ -745,6 +828,7 @@ export function Workspace({
             onSelectEntity={selectEntity}
             onOpenScene={(sceneId) => void openScene(sceneId)}
             {...(debugSeed !== null ? { seedProblem: debugSeed } : {})}
+            {...(debugCommandSeed !== null ? { seedCommand: debugCommandSeed } : {})}
           />
         );
       case "skills":
@@ -756,6 +840,7 @@ export function Workspace({
             onChanged={refresh}
             onSelectEntity={selectEntity}
             onOpenScene={(sceneId) => void openScene(sceneId)}
+            {...(skillSeed !== null ? { seedCommand: skillSeed } : {})}
           />
         );
       case "workflows":
@@ -817,6 +902,7 @@ export function Workspace({
             session={session}
             onSwitch={(branchId) => setPendingSwitch(branchId)}
             onChanged={refresh}
+            {...(versionSeed !== null ? { seedName: versionSeed } : {})}
           />
         );
       case "causality":
@@ -842,6 +928,7 @@ export function Workspace({
               setMapFocus({ view: "causality", focusId: entityId });
               showPanel("storymap");
             }}
+            {...(refactorSeed !== null ? { seedInstruction: refactorSeed } : {})}
           />
         );
       case "modules":

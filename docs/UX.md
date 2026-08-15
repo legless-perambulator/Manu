@@ -232,6 +232,7 @@ never through it.
 | `⌘⇧E` / `⌘⇧I`     | Toggle the left / right dock          |
 | `⌘⇧B`             | Story Build                           |
 | `⌘⇧F`             | Find in project                       |
+| `` ⌘` ``          | Terminal                              |
 | `↑` `↓` `⏎` `Esc` | Move, run, dismiss inside the palette |
 
 The manuscript owns the **unshifted** chords, because a writer's most frequent
@@ -241,6 +242,11 @@ The **command palette** is how Manu stays visually minimal without losing power.
 Every panel, every preset, Focus Mode, the manuscript's appearance, the theme,
 providers and closing the project are all one search away, which is what lets
 the top bar hold two controls instead of eight.
+
+The **Terminal** panel goes one step further for power users: typed commands —
+`/inspect Mara`, `/build chapter 17` — over the same registry the palette
+lists, with entity resolution, autocomplete and history
+([COMMAND_LANGUAGE.md](COMMAND_LANGUAGE.md)).
 
 ---
 
