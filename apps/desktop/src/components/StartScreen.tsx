@@ -178,6 +178,11 @@ export function StartScreen({ onReady, onOpenSettings }: StartScreenProps) {
             checks continuity without a model. A model, if you connect one, only ever{" "}
             <strong>proposes</strong> — nothing reaches the manuscript until you accept it.
           </p>
+          <p className="intro__line">
+            Manu keeps rolling copies inside the project, and you can point{" "}
+            <strong>scheduled backups</strong> at any folder — an external drive, a synced directory
+            — from the Export panel. Your own backups still matter, like with any writing tool.
+          </p>
           <button className="btn btn--ghost btn--small" onClick={dismissIntro}>
             Got it
           </button>

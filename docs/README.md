@@ -57,6 +57,8 @@ These documents are **living**: update the relevant document whenever an archite
 | [UX.md](UX.md)                                     | Interface principles and the IDE layout.                        |
 | [BRAND.md](BRAND.md)                               | The canonical Manu brand: palette, wordmark, voice.             |
 | [BUILDING.md](BUILDING.md)                         | Running from source and building the Linux AppImage.            |
+| [RELEASING.md](RELEASING.md)                       | Reproducible builds, update channels, signing, platforms.       |
+| [RELEASE_READINESS.md](RELEASE_READINESS.md)       | The honest subsystem classification and 1.0 verdict.            |
 | [ROADMAP.md](ROADMAP.md)                           | Versioned delivery plan (V1–V6).                                |
 | [AUDIT_30_5A.md](AUDIT_30_5A.md)                   | Full product audit at Phase 30 (historical evidence).           |
 | [REMEDIATION_30_5.md](REMEDIATION_30_5.md)         | Data-safety and project-creation remediation.                   |

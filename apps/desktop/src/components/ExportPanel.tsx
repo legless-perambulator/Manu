@@ -14,6 +14,13 @@ import {
   type ManuscriptFormatOptions,
 } from "@jellytind/manuscript-io";
 import { pickSaveFile, writeExternalFile } from "../lib/external-files";
+import { pickDirectory } from "../lib/dialog";
+import {
+  loadBackupSettings,
+  runExternalBackup,
+  saveBackupSettings,
+  type BackupSettings,
+} from "../lib/backup-schedule";
 import { isTauri } from "../tauri";
 
 interface Props {
@@ -56,6 +63,9 @@ export function ExportPanel({ repo, refreshToken }: Props) {
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [backup, setBackup] = useState<BackupSettings>(() =>
+    loadBackupSettings(repo.project.id as string),
+  );
 
   const chosen = useMemo(
     () => FORMATS.find((held) => held.id === format) ?? (FORMATS[0] as (typeof FORMATS)[number]),
@@ -241,6 +251,78 @@ export function ExportPanel({ repo, refreshToken }: Props) {
         </div>
         {status !== null && <p className="status status--ok">{status}</p>}
         {error !== null && <p className="status status--error">{error}</p>}
+      </section>
+
+      <section className="state__section">
+        <h3>Scheduled backups</h3>
+        <p className="hint">
+          Point backups at any folder this machine can reach — an external drive, a NAS mount, a
+          cloud-sync directory. No account needed. Backups are deduplicated: nothing is written when
+          nothing changed, and every backup restores through the start screen's import.
+        </p>
+        <p className="hint">
+          Destination: {backup.destination ?? "not set — external backups are off"}
+          {backup.lastRunAt !== undefined
+            ? ` · last run ${new Date(backup.lastRunAt).toLocaleString()}`
+            : ""}
+        </p>
+        <div className="mapping__actions">
+          <button
+            className="btn"
+            disabled={busy}
+            onClick={() =>
+              void (async () => {
+                const chosenDir = await pickDirectory("Choose a backup folder");
+                if (chosenDir === null) return;
+                const next = { ...backup, destination: chosenDir };
+                saveBackupSettings(repo.project.id as string, next);
+                setBackup(next);
+              })()
+            }
+          >
+            Choose destination…
+          </button>
+          <select
+            value={backup.schedule}
+            onChange={(event) => {
+              const next = {
+                ...backup,
+                schedule: event.target.value as BackupSettings["schedule"],
+              };
+              saveBackupSettings(repo.project.id as string, next);
+              setBackup(next);
+            }}
+          >
+            <option value="manual">Manual only</option>
+            <option value="on_close">On close</option>
+            <option value="daily">Daily</option>
+          </select>
+          <button
+            className="btn btn--small"
+            disabled={busy || backup.destination === undefined}
+            onClick={() =>
+              void (async () => {
+                setBusy(true);
+                setError(null);
+                try {
+                  const outcome = await runExternalBackup(repo, { force: true });
+                  setStatus(
+                    outcome.result === "written"
+                      ? `Backed up to ${outcome.file ?? "the destination"}.`
+                      : "Nothing changed since the last backup.",
+                  );
+                  setBackup(loadBackupSettings(repo.project.id as string));
+                } catch (cause) {
+                  setError(cause instanceof Error ? cause.message : String(cause));
+                } finally {
+                  setBusy(false);
+                }
+              })()
+            }
+          >
+            Back up now
+          </button>
+        </div>
       </section>
     </div>
   );

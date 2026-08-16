@@ -29,6 +29,11 @@ import {
 import { outOfScopeReason } from "../lib/network-scope";
 import { describeSecretBackend } from "../lib/secrets";
 import { ModelRoutingSettings } from "./ModelRoutingSettings";
+import { APP_FORMAT_VERSION } from "@jellytind/domain";
+import { buildDiagnosticsBundle, renderDiagnostics } from "../lib/diagnostics";
+import { loadUpdateChannel, saveUpdateChannel, type UpdateChannel } from "../lib/updates";
+import { pickSaveFile, writeExternalFile } from "../lib/external-files";
+import { isTauri } from "../tauri";
 
 interface Props {
   secrets: SecretStore;
@@ -183,6 +188,8 @@ export function AiProviderSettings({ secrets, onClose }: Props) {
             <PurposeAssignments settings={settings} onChange={commit} />
 
             <ModelRoutingSettings key={settings.connections.map((c) => c.id).join("|")} />
+
+            <DiagnosticsSection settings={settings} />
           </section>
         </div>
       </div>
@@ -600,6 +607,93 @@ function PurposeAssignments({
           </div>
         );
       })}
+    </section>
+  );
+}
+
+// ── Diagnostics (Phase 46 §8, §32) ──────────────────────────────────────────
+
+/**
+ * "Export diagnostics": everything a bug report needs — app version, OS,
+ * redacted logs, provider metadata without keys, the update channel — and a
+ * place to say what happened and what was expected. Nothing leaves the
+ * machine unless the writer sends the file themselves; manuscript text is
+ * excluded by construction.
+ */
+function DiagnosticsSection({ settings }: { settings: AiSettings }) {
+  const [whatHappened, setWhatHappened] = useState("");
+  const [whatWasExpected, setWhatWasExpected] = useState("");
+  const [channel, setChannel] = useState<UpdateChannel>(loadUpdateChannel);
+  const [note, setNote] = useState<string | null>(null);
+
+  async function exportBundle() {
+    try {
+      if (!isTauri()) {
+        setNote("Exporting diagnostics needs the desktop application.");
+        return;
+      }
+      const bundle = buildDiagnosticsBundle({
+        appVersion: APP_FORMAT_VERSION,
+        providers: settings.connections.map((connection) => ({
+          providerId: connection.providerId,
+          models: (connection.models ?? []).map((model) => model.modelId),
+        })),
+        whatHappened,
+        whatWasExpected,
+      });
+      const path = await pickSaveFile(
+        "Export diagnostics",
+        `manu-diagnostics-${new Date().toISOString().slice(0, 10)}.json`,
+        "json",
+      );
+      if (path === null) return;
+      await writeExternalFile(path, new TextEncoder().encode(renderDiagnostics(bundle)));
+      setNote("Diagnostics exported. The file contains no manuscript text and no keys.");
+    } catch (cause) {
+      setNote(cause instanceof Error ? cause.message : String(cause));
+    }
+  }
+
+  return (
+    <section className="providers__purposes">
+      <h3>Diagnostics &amp; updates</h3>
+      <p className="hint">
+        Manu keeps a local, redacted activity log — no manuscript text, no keys, and nothing is ever
+        sent anywhere by itself. To report a problem, describe it here and export the bundle.
+      </p>
+      <label className="field">
+        <span>What happened</span>
+        <textarea rows={2} value={whatHappened} onChange={(e) => setWhatHappened(e.target.value)} />
+      </label>
+      <label className="field">
+        <span>What you expected</span>
+        <textarea
+          rows={2}
+          value={whatWasExpected}
+          onChange={(e) => setWhatWasExpected(e.target.value)}
+        />
+      </label>
+      <label className="field">
+        <span>Update channel</span>
+        <select
+          value={channel}
+          onChange={(e) => {
+            const next = e.target.value as UpdateChannel;
+            saveUpdateChannel(next);
+            setChannel(next);
+          }}
+        >
+          <option value="stable">Stable — releases only (default)</option>
+          <option value="beta">Beta — release candidates</option>
+          <option value="alpha">Alpha — development builds</option>
+        </select>
+      </label>
+      <div className="mapping__actions">
+        <button className="btn" onClick={() => void exportBundle()}>
+          Export diagnostics…
+        </button>
+      </div>
+      {note !== null && <p className="status">{note}</p>}
     </section>
   );
 }

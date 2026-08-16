@@ -401,6 +401,33 @@ describe("pause, budget and missing models (§27–§29)", () => {
     expect(pilot.status().waiting).toContain("budget");
   });
 
+  it("a crashing analyst is contained per kind and never blocks anything (§28, Phase 46)", async () => {
+    const failing: IntelAnalyst = {
+      read: (kind, request) =>
+        kind === "state"
+          ? Promise.reject(new Error("provider exploded"))
+          : fakeAnalyst().read(kind, request),
+    };
+    const files = memoryFiles();
+    const pilot = await Autopilot.open(
+      ports({ files, units: () => project(SCENE_42_AFTER), analyst: failing }),
+    );
+    await pilot.sync({ sceneIds: ["SCENE_0042"] });
+    // drain resolves — no rejection escapes to the caller (the save path
+    // never goes through the autopilot at all; this proves even the shared
+    // event loop sees no unhandled failure).
+    await pilot.drain(20);
+    expect(pilot.status().pendingJobs).toBe(0);
+    // The other kinds still produced their proposals.
+    expect(pilot.list().some((p) => p.kind === "object_transfer")).toBe(true);
+    expect(pilot.list().some((p) => p.kind === "state_transition")).toBe(false);
+    expect(pilot.status().waiting).toContain("writing is unaffected");
+    // And the project files written so far are intact JSON, not partial state.
+    for (const [path, raw] of files.map) {
+      expect(() => JSON.parse(raw), path).not.toThrow();
+    }
+  });
+
   it("with no analyst, semantic jobs wait visibly instead of failing", async () => {
     const pilot = await Autopilot.open(ports({ units: () => project(SCENE_42_AFTER) }));
     await pilot.sync({ sceneIds: ["SCENE_0042"] });

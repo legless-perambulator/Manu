@@ -156,6 +156,9 @@ const BRIEFING: Readonly<Record<AnalysisKind, string>> = {
 };
 
 export class Autopilot {
+  /** The most recent contained analysis failure, for the status line (§28). */
+  private lastAnalysisFailure: string | null = null;
+
   private constructor(
     private readonly ports: AutopilotPorts,
     private state: EngineState,
@@ -240,6 +243,8 @@ export class Autopilot {
       waiting = "Semantic analysis waits for a configured model.";
     } else if (this.overBudget() && this.queue.some((j) => j.kind === "semantic_scan")) {
       waiting = "The monthly background-analysis budget is spent.";
+    } else if (this.lastAnalysisFailure !== null) {
+      waiting = `The last analysis failed (${this.lastAnalysisFailure}) — writing is unaffected.`;
     }
     const label = this.settings.paused
       ? "Paused"
@@ -432,12 +437,23 @@ export class Autopilot {
     if (analyst === null) return;
     for (const kind of SEMANTIC_KINDS) {
       if (this.overBudget()) return;
-      const findings = await analyst.read(kind, {
-        sceneId: unit.sceneId,
-        sceneTitle: unit.title,
-        text: unit.text,
-        briefing: BRIEFING[kind],
-      });
+      // §28 (Phase 46): a failing analysis — provider down, malformed
+      // response, timeout — is contained per kind. The failure is noted for
+      // the status line, the remaining kinds still run, and nothing here can
+      // ever reach the manuscript save path, which does not pass through the
+      // autopilot at all.
+      let findings: readonly IntelFinding[];
+      try {
+        findings = await analyst.read(kind, {
+          sceneId: unit.sceneId,
+          sceneTitle: unit.title,
+          text: unit.text,
+          briefing: BRIEFING[kind],
+        });
+      } catch (cause) {
+        this.lastAnalysisFailure = `${kind}: ${cause instanceof Error ? cause.message : String(cause)}`;
+        continue;
+      }
       this.state = {
         ...this.state,
         semanticCalls: this.state.semanticCalls + 1,

@@ -58,6 +58,9 @@ export interface MigrationOutcome {
 export async function migrateProject(
   store: ProjectStore,
   manifest: ProjectManifest,
+  // Injectable for the fixture tests, which exercise the multi-step path a
+  // future schema change will take; production always uses the registry.
+  migrations: readonly Migration[] = MIGRATIONS,
 ): Promise<MigrationOutcome> {
   const found = manifest.schemaVersion;
 
@@ -75,7 +78,7 @@ export async function migrateProject(
   const applied: string[] = [];
   let at = found;
   while (at < SCHEMA_VERSION) {
-    const step = MIGRATIONS.find((migration) => migration.from === at);
+    const step = migrations.find((migration) => migration.from === at);
     if (step === undefined) {
       throw new RepositoryError(
         "unsupported_schema",

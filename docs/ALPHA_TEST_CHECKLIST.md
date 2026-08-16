@@ -88,3 +88,46 @@ Expected in this build — please do not file these:
   the moment it happens.
 - Accessibility has had a practical pass but **no assistive-technology testing**
   (MANU-026).
+
+## Phase 46 manual checks (release hardening)
+
+These are the checks that need a human, real hardware and real time — they
+are deliberately _not_ claimed by the automated suite or the readiness
+audit:
+
+### Editor stress (§25)
+
+- [ ] A single 100k+ word chapter: typing latency stays acceptable at the top,
+      middle and bottom of the document.
+- [ ] Several thousand edits in one session; undo/redo through a large history.
+- [ ] Find/replace across the full manuscript; large selections; an AI edit
+      proposal over a long scene.
+
+### Keyboard-only writing (§24)
+
+- [ ] Create a project, open a chapter, write, save, run a Story Build and
+      review its diagnostics — without touching the pointer.
+- [ ] Every modal (settings, appearance, approval reviews) is reachable,
+      operable and escapable from the keyboard.
+- [ ] Panel tabs, the command palette and the terminal are fully keyboard
+      operable (they are designed to be; verify).
+- [ ] A pass with a screen reader (Orca on Linux) over the start screen and
+      editor. Known gap: MANU-026.
+
+### Packaging (§19)
+
+- [ ] Launch the AppImage from `$HOME`, from a USB-stick mount and from a path
+      containing spaces; create and reopen a project each time.
+- [ ] Flatpak: same drill.
+
+### Backups and restore (§2–§4)
+
+- [ ] Point scheduled backups at a mounted sync folder; close the project;
+      confirm the archive appears and restores through the start screen.
+- [ ] Unplug the destination and close the project: closing must not block,
+      and the failure must be quiet.
+
+### Portability (§22)
+
+- [ ] Copy a Linux project folder to another machine (another OS when
+      available); open it; verify nothing depends on the old absolute path.

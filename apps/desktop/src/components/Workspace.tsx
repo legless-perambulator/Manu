@@ -98,6 +98,7 @@ import { IntelligencePanel } from "./IntelligencePanel";
 import { createIntelligenceRuntime, type IntelligenceRuntime } from "../lib/intelligence";
 import { ExtensionsPanel } from "./ExtensionsPanel";
 import { createExtensionsRuntime, type ExtensionsRuntime } from "../lib/extensions-runtime";
+import { backupDue, loadBackupSettings, runExternalBackup } from "../lib/backup-schedule";
 import {
   buildCommandSet,
   paletteEntries,
@@ -192,6 +193,29 @@ export function Workspace({
   const remembered = useRef(loadWorkspaceState(session.root));
 
   const refresh = () => setRefreshToken((n) => n + 1);
+
+  /**
+   * Scheduled external backups (Phase 46 §2–§4). A daily-due backup runs
+   * quietly after open; an on-close backup runs before returning to the
+   * start screen. A failed backup never blocks closing — the writer's exit
+   * is theirs.
+   */
+  useEffect(() => {
+    if (backupDue(loadBackupSettings(repo.project.id as string))) {
+      void runExternalBackup(repo).catch(() => undefined);
+    }
+  }, [repo]);
+
+  const closeWithBackup = () => {
+    const settings = loadBackupSettings(repo.project.id as string);
+    if (settings.destination !== undefined && settings.schedule === "on_close") {
+      void runExternalBackup(repo)
+        .catch(() => undefined)
+        .finally(onClose);
+      return;
+    }
+    onClose();
+  };
 
   /**
    * Attach the genre framework, and learn which modules are on.
@@ -606,10 +630,10 @@ export function Workspace({
         section: "Project",
         label: "Close project",
         hint: "Return to the start screen",
-        run: onClose,
+        run: closeWithBackup,
       },
     ];
-  }, [panels, commandSet, showPanel, toggleFocus, onChangeTheme, onOpenSettings, onClose]);
+  }, [panels, commandSet, showPanel, toggleFocus, onChangeTheme, onOpenSettings, onClose, repo]);
 
   /**
    * The workbench's keyboard layer.
@@ -1287,7 +1311,7 @@ export function Workspace({
                 <button role="menuitem" className="menu__item" onClick={onOpenSettings}>
                   AI providers
                 </button>
-                <button role="menuitem" className="menu__item" onClick={onClose}>
+                <button role="menuitem" className="menu__item" onClick={closeWithBackup}>
                   Close project
                 </button>
                 <span className="menu__title">Appearance</span>

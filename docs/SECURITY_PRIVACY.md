@@ -61,6 +61,22 @@ Because no core data is bound to a single provider (see [ARCHITECTURE.md](ARCHIT
 
 AI must never make it hard to distinguish what the author wrote from what AI wrote/changed, why it changed, and how to undo it. Control and transparency are security properties for the author's trust in the system (see [VERSIONING.md](VERSIONING.md)).
 
+## Privacy controls (Phase 46 §33)
+
+Four writer-facing controls, each defaulting conservatively where the
+stakes are highest:
+
+- **Cloud model use** — the routing privacy policy; "Local Only" means
+  prose never reaches a cloud provider, refused at routing before any call
+  exists.
+- **Research queries** — run only through the research tools the writer
+  invokes; nothing browses on its own.
+- **Diagnostics** — local only. The bundle is a file the writer exports and
+  sends deliberately; it is redacted, carries no manuscript text, and there
+  is no automatic transmission of any kind.
+- **Telemetry** — none exists. Nothing to configure because nothing is
+  collected.
+
 ## Plugins
 
 Third-party extensions go through the declarative plugin protocol (see [PLUGIN_PROTOCOL.md](PLUGIN_PROTOCOL.md)): no arbitrary code, least-privilege permissions the writer reviews before enabling, per-host network declarations enforced at validation and at call time, and plugin secrets namespaced under `plugin:<id>:<name>` in host secure storage — provider credentials are never reachable from a plugin.
