@@ -68,6 +68,9 @@ importers:
       '@jellytind/editing':
         specifier: workspace:*
         version: link:../../packages/editing
+      '@jellytind/extensions':
+        specifier: workspace:*
+        version: link:../../packages/extensions
       '@jellytind/genre':
         specifier: workspace:*
         version: link:../../packages/genre
@@ -281,6 +284,18 @@ importers:
       '@jellytind/story-state':
         specifier: workspace:*
         version: link:../story-state
+
+  packages/extensions:
+    dependencies:
+      '@jellytind/agent-builder':
+        specifier: workspace:*
+        version: link:../agent-builder
+      '@jellytind/plugin-protocol':
+        specifier: workspace:*
+        version: link:../plugin-protocol
+      '@jellytind/shared':
+        specifier: workspace:*
+        version: link:../shared
 
   packages/genre:
     dependencies:

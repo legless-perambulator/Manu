@@ -62,6 +62,7 @@ export const LEFT_PANELS = [
   "modules",
   "plugins",
   "studio",
+  "extensions",
   "files",
 ] as const;
 
@@ -415,6 +416,13 @@ export const PANELS: readonly PanelDefinition[] = [
     group: "advanced",
     label: "Plugins",
     purpose: "Extensions this project uses, and exactly what each may touch",
+    side: "left",
+  },
+  {
+    id: "extensions",
+    group: "advanced",
+    label: "Extensions",
+    purpose: "Discover, inspect, install, update and remove Manu extensions",
     side: "left",
   },
   {

@@ -16,6 +16,7 @@ import {
   type SandboxResult,
 } from "@jellytind/agent-builder";
 import { SPECIALIST_IDS } from "@jellytind/agent-runtime";
+import { publishExtension } from "@jellytind/extensions";
 import type { StoryRepository } from "@jellytind/story-repository";
 import { sandboxProject, type StudioRuntime } from "../lib/studio";
 import {
@@ -717,6 +718,25 @@ export function StudioPanel({ repo, runtime, refreshToken, onChanged }: Props) {
                   }
                 >
                   Export
+                </button>
+                <button
+                  className="btn btn--ghost btn--small"
+                  disabled={busy}
+                  onClick={() =>
+                    void exportDefinition(
+                      "agent",
+                      publishExtension({
+                        id: `com.writer.${agent.id}`,
+                        name: agent.name,
+                        author: agent.metadata.author ?? "A Manu writer",
+                        description: agent.purpose,
+                        agents: [agent],
+                      }),
+                      `${agent.id}-extension`,
+                    )
+                  }
+                >
+                  Publish…
                 </button>
                 <button
                   className="btn btn--ghost btn--small"

@@ -661,6 +661,22 @@ export async function buildCommandSet(
 
   commands.register(
     {
+      id: "extensions",
+      aliases: [],
+      group: "Plugins",
+      summary: "Discover, inspect, install and update extensions",
+      usage: "/extensions",
+      args: [],
+      options: [],
+      permission: "open",
+      chainable: false,
+      source: CORE,
+    },
+    () => opened("extensions", "Extensions is open."),
+  );
+
+  commands.register(
+    {
       id: "research",
       aliases: [],
       group: "Assist",

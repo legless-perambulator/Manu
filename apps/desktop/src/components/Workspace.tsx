@@ -96,6 +96,8 @@ import { StudioPanel } from "./StudioPanel";
 import { createStudioRuntime, studioCommandEntries, type StudioRuntime } from "../lib/studio";
 import { IntelligencePanel } from "./IntelligencePanel";
 import { createIntelligenceRuntime, type IntelligenceRuntime } from "../lib/intelligence";
+import { ExtensionsPanel } from "./ExtensionsPanel";
+import { createExtensionsRuntime, type ExtensionsRuntime } from "../lib/extensions-runtime";
 import {
   buildCommandSet,
   paletteEntries,
@@ -160,6 +162,8 @@ export function Workspace({
   /** Story Intelligence: the manuscript autopilot (Phase 44). */
   const [intelRuntime, setIntelRuntime] = useState<IntelligenceRuntime | null>(null);
   const [intelTick, setIntelTick] = useState(0);
+  /** The extension ecosystem (Phase 45). */
+  const [extensionsRuntime, setExtensionsRuntime] = useState<ExtensionsRuntime | null>(null);
   /** A line the palette asked the terminal to run. */
   const [terminalSeed, setTerminalSeed] = useState<{ line: string; nonce: number } | null>(null);
   /** Hand-offs from terminal commands into the workflows that own the work. */
@@ -254,6 +258,24 @@ export function Workspace({
       active = false;
     };
   }, [repo, secrets, pluginRuntime, refreshToken]);
+
+  /**
+   * The extension ecosystem (Phase 45): opened once the plugin and Studio
+   * runtimes exist, then its enabled contributions are registered into them —
+   * idempotently, so a restart reconstructs the same world from the files.
+   */
+  useEffect(() => {
+    let active = true;
+    setExtensionsRuntime(null);
+    void createExtensionsRuntime(repo, pluginRuntime, studioRuntime).then(async (runtime) => {
+      if (!active) return;
+      await runtime.syncContributions();
+      if (active) setExtensionsRuntime(runtime);
+    });
+    return () => {
+      active = false;
+    };
+  }, [repo, pluginRuntime, studioRuntime]);
 
   /**
    * Build the command set: the standard commands plus every skill's /command,
@@ -1048,6 +1070,14 @@ export function Workspace({
           <IntelligencePanel
             runtime={intelRuntime}
             refreshToken={refreshToken + intelTick}
+            onChanged={refresh}
+          />
+        );
+      case "extensions":
+        return (
+          <ExtensionsPanel
+            runtime={extensionsRuntime}
+            refreshToken={refreshToken}
             onChanged={refresh}
           />
         );

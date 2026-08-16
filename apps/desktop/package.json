@@ -21,6 +21,7 @@
     "@jellytind/context-compiler": "workspace:*",
     "@jellytind/domain": "workspace:*",
     "@jellytind/editing": "workspace:*",
+    "@jellytind/extensions": "workspace:*",
     "@jellytind/genre": "workspace:*",
     "@jellytind/manuscript-io": "workspace:*",
     "@jellytind/model-router": "workspace:*",
