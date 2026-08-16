@@ -28,6 +28,7 @@ These documents are **living**: update the relevant document whenever an archite
 | [IMPORT_EXPORT.md](IMPORT_EXPORT.md)               | Manuscript import, professional export, the project archive.    |
 | [STORY_MAPPING.md](STORY_MAPPING.md)               | Reverse mapping an existing book into a structured project.     |
 | [UNIVERSE.md](UNIVERSE.md)                         | Series & universe projects: shared canon, spoiler boundaries.   |
+| [AUTOPILOT.md](AUTOPILOT.md)                       | Background story intelligence: the writer writes, Manu maps.    |
 | [AGENT_RUNTIME.md](AGENT_RUNTIME.md)               | Agent orchestration, tasks and multi-agent coordination.        |
 | [AGENT_TOOLS.md](AGENT_TOOLS.md)                   | The typed tool surface agents operate through.                  |
 | [SPECIALIST_AGENTS.md](SPECIALIST_AGENTS.md)       | The nine writing specialists and what each may reach.           |

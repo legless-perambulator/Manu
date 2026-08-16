@@ -50,6 +50,9 @@ importers:
       '@jellytind/agent-runtime':
         specifier: workspace:*
         version: link:../../packages/agent-runtime
+      '@jellytind/autopilot':
+        specifier: workspace:*
+        version: link:../../packages/autopilot
       '@jellytind/character-sim':
         specifier: workspace:*
         version: link:../../packages/character-sim
@@ -192,6 +195,15 @@ importers:
       '@jellytind/shared':
         specifier: workspace:*
         version: link:../shared
+
+  packages/autopilot:
+    dependencies:
+      '@jellytind/shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@jellytind/story-mapper':
+        specifier: workspace:*
+        version: link:../story-mapper
 
   packages/character-sim:
     dependencies:

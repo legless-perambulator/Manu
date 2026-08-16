@@ -94,6 +94,8 @@ import { PluginsPanel } from "./PluginsPanel";
 import { createPluginRuntime, pluginCommandEntries, type PluginRuntime } from "../lib/plugins";
 import { StudioPanel } from "./StudioPanel";
 import { createStudioRuntime, studioCommandEntries, type StudioRuntime } from "../lib/studio";
+import { IntelligencePanel } from "./IntelligencePanel";
+import { createIntelligenceRuntime, type IntelligenceRuntime } from "../lib/intelligence";
 import {
   buildCommandSet,
   paletteEntries,
@@ -155,6 +157,9 @@ export function Workspace({
   const [pluginRuntime, setPluginRuntime] = useState<PluginRuntime | null>(null);
   /** The Studio runtime: custom agents and skill flows (Phase 43). */
   const [studioRuntime, setStudioRuntime] = useState<StudioRuntime | null>(null);
+  /** Story Intelligence: the manuscript autopilot (Phase 44). */
+  const [intelRuntime, setIntelRuntime] = useState<IntelligenceRuntime | null>(null);
+  const [intelTick, setIntelTick] = useState(0);
   /** A line the palette asked the terminal to run. */
   const [terminalSeed, setTerminalSeed] = useState<{ line: string; nonce: number } | null>(null);
   /** Hand-offs from terminal commands into the workflows that own the work. */
@@ -210,6 +215,30 @@ export function Workspace({
       active = false;
     };
   }, [repo, secrets]);
+
+  /**
+   * Story Intelligence (Phase 44): opened once per project. Saves nudge it
+   * through the debounced entry point below — analysis runs after the writer
+   * has been quiet, never per keystroke, and never blocks anything.
+   */
+  useEffect(() => {
+    let active = true;
+    setIntelRuntime(null);
+    void createIntelligenceRuntime(repo, secrets, () => {
+      if (active) setIntelTick((n) => n + 1);
+    }).then((runtime) => {
+      if (active) setIntelRuntime(runtime);
+    });
+    return () => {
+      active = false;
+    };
+  }, [repo, secrets]);
+
+  useEffect(() => {
+    // Every project change — a save, an applied proposal, an import — lets
+    // the autopilot check what actually changed and scope its work to that.
+    intelRuntime?.noteChangeSoon();
+  }, [intelRuntime, refreshToken]);
 
   /**
    * The Studio runtime: the writer's custom agents and skill flows, with the
@@ -1011,6 +1040,14 @@ export function Workspace({
             repo={repo}
             runtime={studioRuntime}
             refreshToken={refreshToken}
+            onChanged={refresh}
+          />
+        );
+      case "intelligence":
+        return (
+          <IntelligencePanel
+            runtime={intelRuntime}
+            refreshToken={refreshToken + intelTick}
             onChanged={refresh}
           />
         );

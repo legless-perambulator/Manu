@@ -5536,3 +5536,36 @@ progress {
   gap: 6px;
   align-items: center;
 }
+
+/* --------------------------------------------------------- Story Intelligence */
+
+.intel__row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--manu-border);
+}
+
+.intel__row:last-child {
+  border-bottom: none;
+}
+
+.intel__evidence {
+  margin-top: 6px;
+  border-left: 2px solid var(--manu-border);
+  padding-left: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.intel__estimate {
+  border: 1px solid var(--manu-border);
+  border-radius: var(--manu-radius-sm);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}

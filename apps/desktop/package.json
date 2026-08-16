@@ -15,6 +15,7 @@
   "dependencies": {
     "@jellytind/agent-builder": "workspace:*",
     "@jellytind/agent-runtime": "workspace:*",
+    "@jellytind/autopilot": "workspace:*",
     "@jellytind/character-sim": "workspace:*",
     "@jellytind/command-language": "workspace:*",
     "@jellytind/context-compiler": "workspace:*",

@@ -645,6 +645,22 @@ export async function buildCommandSet(
 
   commands.register(
     {
+      id: "intelligence",
+      aliases: ["sync"],
+      group: "Story",
+      summary: "Review what Manu inferred from your prose, or force a sync",
+      usage: "/intelligence",
+      args: [],
+      options: [],
+      permission: "open",
+      chainable: false,
+      source: CORE,
+    },
+    () => opened("intelligence", "Story Intelligence is open. Sync runs from there."),
+  );
+
+  commands.register(
+    {
       id: "research",
       aliases: [],
       group: "Assist",
