@@ -5413,3 +5413,44 @@ progress {
   gap: 6px;
   margin-top: 10px;
 }
+
+/* ---------------------------------------------------------------- Plugins */
+
+.plugin {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.plugin__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.plugin__perms {
+  font-size: var(--manu-text-xs);
+  color: var(--manu-ink-muted);
+  margin: 0;
+}
+
+.plugin__error,
+.plugin__panel,
+.plugin__settings,
+.plugin__dev {
+  border: 1px solid var(--manu-border);
+  border-radius: var(--manu-radius-sm);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.plugin__error {
+  border-color: var(--manu-error-wash);
+}
+
+.plugin__panel .plugin__head {
+  align-items: center;
+}

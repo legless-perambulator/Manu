@@ -48,6 +48,8 @@ These documents are **living**: update the relevant document whenever an archite
 | [SIMULATIONS.md](SIMULATIONS.md)                   | Sequential reader simulation and character simulation.          |
 | [MYSTERY_ENGINE.md](MYSTERY_ENGINE.md)             | Clues, deduction chains and the fairness audit.                 |
 | [GENRE_MODULES.md](GENRE_MODULES.md)               | How genre modules extend the story domain without forking it.   |
+| [PLUGIN_PROTOCOL.md](PLUGIN_PROTOCOL.md)           | The versioned, permissioned extension protocol and its sandbox. |
+| [PLUGIN_DEVELOPMENT.md](PLUGIN_DEVELOPMENT.md)     | Building a plugin, with a complete working example.             |
 | [SECURITY_PRIVACY.md](SECURITY_PRIVACY.md)         | Local-first ownership, data handling, privacy posture.          |
 | [UX.md](UX.md)                                     | Interface principles and the IDE layout.                        |
 | [BRAND.md](BRAND.md)                               | The canonical Manu brand: palette, wordmark, voice.             |

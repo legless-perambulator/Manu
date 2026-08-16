@@ -25,6 +25,7 @@
     "@jellytind/mystery": "workspace:*",
     "@jellytind/orchestration": "workspace:*",
     "@jellytind/persistence": "workspace:*",
+    "@jellytind/plugin-protocol": "workspace:*",
     "@jellytind/provider-anthropic": "workspace:*",
     "@jellytind/provider-google": "workspace:*",
     "@jellytind/provider-openai-compatible": "workspace:*",

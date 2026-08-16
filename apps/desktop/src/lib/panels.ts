@@ -59,6 +59,7 @@ export const LEFT_PANELS = [
   "usage",
   "export",
   "modules",
+  "plugins",
   "files",
 ] as const;
 
@@ -391,6 +392,13 @@ export const PANELS: readonly PanelDefinition[] = [
     group: "advanced",
     label: "Modules",
     purpose: "Which genre modules this project uses",
+    side: "left",
+  },
+  {
+    id: "plugins",
+    group: "advanced",
+    label: "Plugins",
+    purpose: "Extensions this project uses, and exactly what each may touch",
     side: "left",
   },
   {

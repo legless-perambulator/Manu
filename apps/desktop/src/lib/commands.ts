@@ -207,9 +207,17 @@ const opened = (panel: LeftPanelId, note: string): CommandOutcome => ({
  * `/command` names into the same registry, which is how `/character-pass`
  * and a custom `/murder-mystery-audit` exist on equal terms (§12).
  */
+/** A command a plugin contributes (Phase 42 §7): same registry, same rules. */
+export interface PluginCommandEntry {
+  readonly name: string;
+  readonly summary: string;
+  readonly run: () => Promise<{ title: string; lines: readonly string[] }>;
+}
+
 export async function buildCommandSet(
   repo: StoryRepository,
   enabledModules: readonly string[] = [],
+  pluginCommands: readonly PluginCommandEntry[] = [],
 ): Promise<ManuCommands> {
   const commands = new ManuCommands();
 
@@ -605,6 +613,22 @@ export async function buildCommandSet(
 
   commands.register(
     {
+      id: "plugins",
+      aliases: [],
+      group: "Plugins",
+      summary: "Installed extensions, their permissions and their state",
+      usage: "/plugins",
+      args: [],
+      options: [],
+      permission: "open",
+      chainable: false,
+      source: CORE,
+    },
+    () => opened("plugins", "Plugins is open."),
+  );
+
+  commands.register(
+    {
       id: "research",
       aliases: [],
       group: "Assist",
@@ -775,6 +799,32 @@ export async function buildCommandSet(
         const subject = invocation.args["subject"];
         env.seedSkill(subject === undefined ? skill.command : `${skill.command} ${subject}`);
         return opened("skills", `${skill.name} is ready in Passes. Run it from there.`);
+      },
+    );
+  }
+
+  // Plugin commands (Phase 42 §7): contributed through the same registry,
+  // never a parallel system. A clash with an existing name is skipped rather
+  // than allowed to shadow a built-in.
+  for (const entry of pluginCommands) {
+    const id = entry.name.toLowerCase();
+    if (!/^[a-z][a-z0-9-]*$/.test(id) || commands.registry.find(id) !== null) continue;
+    commands.register(
+      {
+        id,
+        aliases: [],
+        group: "Plugins",
+        summary: entry.summary,
+        usage: `/${id}`,
+        args: [],
+        options: [],
+        permission: "workflow",
+        chainable: true,
+        source: "plugin",
+      },
+      async () => {
+        const report = await entry.run();
+        return { kind: "report", title: report.title, lines: report.lines };
       },
     );
   }

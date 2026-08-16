@@ -90,6 +90,8 @@ import { TerminalPanel } from "./TerminalPanel";
 import { MappingPanel } from "./MappingPanel";
 import { ExportPanel } from "./ExportPanel";
 import { UniversePanel } from "./UniversePanel";
+import { PluginsPanel } from "./PluginsPanel";
+import { createPluginRuntime, pluginCommandEntries, type PluginRuntime } from "../lib/plugins";
 import {
   buildCommandSet,
   paletteEntries,
@@ -147,6 +149,8 @@ export function Workspace({
   const [mapFocus, setMapFocus] = useState<MapFocus | null>(null);
   /** The command set the terminal and the palette share (Phase 39). */
   const [commandSet, setCommandSet] = useState<ManuCommands | null>(null);
+  /** The plugin runtime: installed extensions and their host (Phase 42). */
+  const [pluginRuntime, setPluginRuntime] = useState<PluginRuntime | null>(null);
   /** A line the palette asked the terminal to run. */
   const [terminalSeed, setTerminalSeed] = useState<{ line: string; nonce: number } | null>(null);
   /** Hand-offs from terminal commands into the workflows that own the work. */
@@ -189,19 +193,36 @@ export function Workspace({
   }, [repo, refreshToken]);
 
   /**
-   * Build the command set: the standard commands plus every skill's /command,
-   * including the project's own custom skills — rebuilt when modules or the
-   * project change so the registry mirrors what is really available.
+   * The plugin runtime loads the project's installed extensions and holds
+   * their host for the panel, the command set and the compiler (Phase 42).
    */
   useEffect(() => {
     let active = true;
-    void buildCommandSet(repo, enabledModuleIds).then((built) => {
+    setPluginRuntime(null);
+    void createPluginRuntime(repo, secrets).then((runtime) => {
+      if (active) setPluginRuntime(runtime);
+    });
+    return () => {
+      active = false;
+    };
+  }, [repo, secrets]);
+
+  /**
+   * Build the command set: the standard commands plus every skill's /command,
+   * including the project's own custom skills and any commands contributed by
+   * enabled plugins — rebuilt when modules, plugins or the project change so
+   * the registry mirrors what is really available.
+   */
+  useEffect(() => {
+    let active = true;
+    const pluginCommands = pluginRuntime === null ? [] : pluginCommandEntries(pluginRuntime.host);
+    void buildCommandSet(repo, enabledModuleIds, pluginCommands).then((built) => {
       if (active) setCommandSet(built);
     });
     return () => {
       active = false;
     };
-  }, [repo, enabledModuleIds, refreshToken]);
+  }, [repo, enabledModuleIds, refreshToken, pluginRuntime]);
 
   /** The panels this project can currently see — one filter, used everywhere. */
   const panels = useMemo(
@@ -950,6 +971,10 @@ export function Workspace({
         );
       case "modules":
         return <ModulesPanel repo={repo} refreshToken={refreshToken} onChanged={refresh} />;
+      case "plugins":
+        return (
+          <PluginsPanel runtime={pluginRuntime} refreshToken={refreshToken} onChanged={refresh} />
+        );
     }
   }
 

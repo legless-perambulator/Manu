@@ -61,6 +61,10 @@ Because no core data is bound to a single provider (see [ARCHITECTURE.md](ARCHIT
 
 AI must never make it hard to distinguish what the author wrote from what AI wrote/changed, why it changed, and how to undo it. Control and transparency are security properties for the author's trust in the system (see [VERSIONING.md](VERSIONING.md)).
 
+## Plugins
+
+Third-party extensions go through the declarative plugin protocol (see [PLUGIN_PROTOCOL.md](PLUGIN_PROTOCOL.md)): no arbitrary code, least-privilege permissions the writer reviews before enabling, per-host network declarations enforced at validation and at call time, and plugin secrets namespaced under `plugin:<id>:<name>` in host secure storage — provider credentials are never reachable from a plugin.
+
 ## Future collaboration
 
 Collaboration (co-authors, editors, beta readers, researchers) is designed for later with roles and permissions, but must not compromise the single-user, local-first foundation. Do not let collaboration complexity weaken the baseline privacy posture.

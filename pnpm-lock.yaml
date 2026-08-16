@@ -80,6 +80,9 @@ importers:
       '@jellytind/persistence':
         specifier: workspace:*
         version: link:../../packages/persistence
+      '@jellytind/plugin-protocol':
+        specifier: workspace:*
+        version: link:../../packages/plugin-protocol
       '@jellytind/provider-anthropic':
         specifier: workspace:*
         version: link:../../packages/providers/anthropic
@@ -328,6 +331,12 @@ importers:
       '@jellytind/shared':
         specifier: workspace:*
         version: link:../shared
+
+  packages/plugin-protocol:
+    dependencies:
+      '@jellytind/story-compiler':
+        specifier: workspace:*
+        version: link:../story-compiler
 
   packages/providers/anthropic:
     dependencies:
