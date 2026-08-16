@@ -35,6 +35,7 @@ export const ROUTED_OPERATIONS = [
   "metadata_extraction",
   "search_query",
   "manuscript_mapping",
+  "custom_agent",
 ] as const;
 export type RoutedOperation = (typeof ROUTED_OPERATIONS)[number];
 
@@ -184,6 +185,14 @@ export const OPERATION_REQUIREMENTS: Readonly<Record<RoutedOperation, OperationR
     routingClass: "cheap_analysis",
     structuredOutput: "required",
     tools: "preferred",
+  }),
+  custom_agent: req({
+    operation: "custom_agent",
+    label: "Custom agent",
+    purpose: "drafting",
+    routingClass: "premium_prose",
+    structuredOutput: "required",
+    proseQuality: "high",
   }),
   skill_reading: req({
     operation: "skill_reading",

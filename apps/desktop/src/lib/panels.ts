@@ -60,6 +60,7 @@ export const LEFT_PANELS = [
   "export",
   "modules",
   "plugins",
+  "studio",
   "files",
 ] as const;
 
@@ -392,6 +393,13 @@ export const PANELS: readonly PanelDefinition[] = [
     group: "advanced",
     label: "Modules",
     purpose: "Which genre modules this project uses",
+    side: "left",
+  },
+  {
+    id: "studio",
+    group: "assist",
+    label: "Studio",
+    purpose: "Create your own agents and multi-step skills, no code required",
     side: "left",
   },
   {

@@ -92,6 +92,8 @@ import { ExportPanel } from "./ExportPanel";
 import { UniversePanel } from "./UniversePanel";
 import { PluginsPanel } from "./PluginsPanel";
 import { createPluginRuntime, pluginCommandEntries, type PluginRuntime } from "../lib/plugins";
+import { StudioPanel } from "./StudioPanel";
+import { createStudioRuntime, studioCommandEntries, type StudioRuntime } from "../lib/studio";
 import {
   buildCommandSet,
   paletteEntries,
@@ -151,6 +153,8 @@ export function Workspace({
   const [commandSet, setCommandSet] = useState<ManuCommands | null>(null);
   /** The plugin runtime: installed extensions and their host (Phase 42). */
   const [pluginRuntime, setPluginRuntime] = useState<PluginRuntime | null>(null);
+  /** The Studio runtime: custom agents and skill flows (Phase 43). */
+  const [studioRuntime, setStudioRuntime] = useState<StudioRuntime | null>(null);
   /** A line the palette asked the terminal to run. */
   const [terminalSeed, setTerminalSeed] = useState<{ line: string; nonce: number } | null>(null);
   /** Hand-offs from terminal commands into the workflows that own the work. */
@@ -208,21 +212,47 @@ export function Workspace({
   }, [repo, secrets]);
 
   /**
+   * The Studio runtime: the writer's custom agents and skill flows, with the
+   * plugin host's tools folded into its catalog (Phase 43).
+   */
+  useEffect(() => {
+    let active = true;
+    setStudioRuntime(null);
+    void createStudioRuntime(repo, secrets, pluginRuntime?.host ?? null).then((runtime) => {
+      if (active) setStudioRuntime(runtime);
+    });
+    return () => {
+      active = false;
+    };
+  }, [repo, secrets, pluginRuntime, refreshToken]);
+
+  /**
    * Build the command set: the standard commands plus every skill's /command,
-   * including the project's own custom skills and any commands contributed by
-   * enabled plugins — rebuilt when modules, plugins or the project change so
-   * the registry mirrors what is really available.
+   * including the project's own custom skills, commands contributed by
+   * enabled plugins, and the /aliases of Studio agents and skills — rebuilt
+   * when modules, plugins, Studio definitions or the project change so the
+   * registry mirrors what is really available.
    */
   useEffect(() => {
     let active = true;
     const pluginCommands = pluginRuntime === null ? [] : pluginCommandEntries(pluginRuntime.host);
-    void buildCommandSet(repo, enabledModuleIds, pluginCommands).then((built) => {
+    const gather = async () => {
+      const studioCommands =
+        studioRuntime === null
+          ? []
+          : studioCommandEntries(repo, studioRuntime, {
+              agents: await studioRuntime.agents(),
+              flows: await studioRuntime.flows(),
+            });
+      return buildCommandSet(repo, enabledModuleIds, [...pluginCommands, ...studioCommands]);
+    };
+    void gather().then((built) => {
       if (active) setCommandSet(built);
     });
     return () => {
       active = false;
     };
-  }, [repo, enabledModuleIds, refreshToken, pluginRuntime]);
+  }, [repo, enabledModuleIds, refreshToken, pluginRuntime, studioRuntime]);
 
   /** The panels this project can currently see — one filter, used everywhere. */
   const panels = useMemo(
@@ -974,6 +1004,15 @@ export function Workspace({
       case "plugins":
         return (
           <PluginsPanel runtime={pluginRuntime} refreshToken={refreshToken} onChanged={refresh} />
+        );
+      case "studio":
+        return (
+          <StudioPanel
+            repo={repo}
+            runtime={studioRuntime}
+            refreshToken={refreshToken}
+            onChanged={refresh}
+          />
         );
     }
   }

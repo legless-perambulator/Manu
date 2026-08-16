@@ -32,6 +32,7 @@ These documents are **living**: update the relevant document whenever an archite
 | [AGENT_TOOLS.md](AGENT_TOOLS.md)                   | The typed tool surface agents operate through.                  |
 | [SPECIALIST_AGENTS.md](SPECIALIST_AGENTS.md)       | The nine writing specialists and what each may reach.           |
 | [WRITING_SKILLS.md](WRITING_SKILLS.md)             | Repeatable workflows built from structured project operations.  |
+| [AGENT_BUILDER.md](AGENT_BUILDER.md)               | The Studio: writer-built custom agents and skill flows.         |
 | [ORCHESTRATION.md](ORCHESTRATION.md)               | Multi-agent workflows, structured handoffs and approval gates.  |
 | [MODEL_ROUTER.md](MODEL_ROUTER.md)                 | Provider-independent model abstraction and routing.             |
 | [AI_EDITING.md](AI_EDITING.md)                     | Controlled AI manuscript editing: propose, review, apply.       |

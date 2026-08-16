@@ -44,6 +44,9 @@ importers:
 
   apps/desktop:
     dependencies:
+      '@jellytind/agent-builder':
+        specifier: workspace:*
+        version: link:../../packages/agent-builder
       '@jellytind/agent-runtime':
         specifier: workspace:*
         version: link:../../packages/agent-runtime
@@ -162,6 +165,15 @@ importers:
       vite-tsconfig-paths:
         specifier: ^5.1.4
         version: 5.1.4(typescript@5.9.3)(vite@6.4.3(@types/node@22.20.1))
+
+  packages/agent-builder:
+    dependencies:
+      '@jellytind/agent-runtime':
+        specifier: workspace:*
+        version: link:../agent-runtime
+      '@jellytind/shared':
+        specifier: workspace:*
+        version: link:../shared
 
   packages/agent-runtime:
     dependencies:

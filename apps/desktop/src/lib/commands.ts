@@ -629,6 +629,22 @@ export async function buildCommandSet(
 
   commands.register(
     {
+      id: "studio",
+      aliases: [],
+      group: "Assist",
+      summary: "Create your own agents and multi-step skills",
+      usage: "/studio",
+      args: [],
+      options: [],
+      permission: "open",
+      chainable: false,
+      source: CORE,
+    },
+    () => opened("studio", "The Studio is open."),
+  );
+
+  commands.register(
+    {
       id: "research",
       aliases: [],
       group: "Assist",
